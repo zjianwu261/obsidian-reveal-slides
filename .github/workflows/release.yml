@@ -1,0 +1,70 @@
+# 打 tag 就发布：一个平台通吃，不分桌面端和移动端。
+#
+# Obsidian 的插件安装器（社区列表、BRAT）只会下载 main.js / manifest.json / styles.css
+# 这三个文件，不会带上仓库里的任何其它目录，所以 iframe 需要的 reveal 运行时和样式
+# 在构建期就内联进了 main.js（见 esbuild.config.mjs）。三个文件即完整插件。
+#
+# 用法：
+#   npm version patch      # 改 package.json + manifest.json + versions.json
+#   git push && git push --tags
+name: Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # build 里带 tsc --noEmit，类型错误会在这里挡住
+      - name: Build
+        run: npm run build
+
+      - name: Check the tag matches manifest.json
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          MANIFEST_VERSION=$(node -p "require('./manifest.json').version")
+          if [ "$TAG" != "$MANIFEST_VERSION" ]; then
+            echo "tag $TAG != manifest.json version $MANIFEST_VERSION" >&2
+            echo "run 'npm version <patch|minor|major>' so both stay in sync" >&2
+            exit 1
+          fi
+
+      # 便于手动安装：解压到 <vault>/.obsidian/plugins/reveal-for-obsidian/ 即可
+      - name: Package a zip for manual install
+        run: |
+          mkdir -p reveal-for-obsidian
+          cp dist/main.js dist/manifest.json dist/styles.css reveal-for-obsidian/
+          zip -r reveal-for-obsidian.zip reveal-for-obsidian
+
+      - name: Create the release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css
+            reveal-for-obsidian.zip

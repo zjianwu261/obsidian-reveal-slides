@@ -69,6 +69,14 @@ plugin.settings = { port: 8399 };
 await plugin.startServer();
 console.log('server started at', plugin.server.url);
 
+// 本地路径 → app:// 里那种 url 形式（Windows: C:\\x → /C:/x），
+// 与 imageProcessor 生成 /vault 链接时的形式保持一致
+const rootUrlPath = (() => {
+  if (process.platform !== 'win32') return root;
+  const forward = root.replace(/\\/g, '/');
+  return forward.startsWith('/') ? forward : `/${forward}`;
+})();
+
 const checks = [
   ['/reveal.html', (body) => body.includes('reveal.bundle.mjs') && body.includes('reveal.css')],
   ['/deck', (body) => JSON.parse(body).pages?.length >= 1],
@@ -78,8 +86,8 @@ const checks = [
   ['/assets/reveal-plugin.css', (body) => body.includes('.grid')],
   ['/assets/../main.js', null], // 期望 403/404
   // /vault 路由携带绝对路径（imageProcessor 改写 app:// 后的形式）
-  [`/vault${encodeURI(root)}/package.json`, (body) => body.includes('"reveal-for-obsidian"')],
-  [`/vault${encodeURI(root)}/non-existent.png`, null], // 期望 404
+  [`/vault${encodeURI(rootUrlPath)}/package.json`, (body) => body.includes('"reveal-for-obsidian"')],
+  [`/vault${encodeURI(rootUrlPath)}/non-existent.png`, null], // 期望 404
   ['/vault/..%2F..%2Fetc%2Fpasswd', null], // 路径穿越，期望 403
 ];
 

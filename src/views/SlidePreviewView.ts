@@ -125,12 +125,12 @@ export class SlidePreviewView extends ItemView {
 
     // blob 页面与宿主同源，不能再套 sandbox（否则变成不透明源，图片一律加载失败）
     this.iframe.removeAttribute('sandbox');
-    void this.loadInlinePreview();
+    this.loadInlinePreview();
   }
 
-  private async loadInlinePreview(): Promise<void> {
+  private loadInlinePreview(): void {
     try {
-      const { url, revoke } = await createInlinePreviewUrl(this.app, this.plugin.manifest);
+      const { url, revoke } = createInlinePreviewUrl();
       this.revokeInlineUrl = revoke;
       if (this.iframe) this.iframe.src = url;
     } catch (err) {

@@ -1,0 +1,33 @@
+# 每次推送与 PR 都跑一遍：lint + 测试 + 构建（含类型检查）。
+# 三个桌面平台各跑一次 —— 路径处理在 Windows 上曾经整片失效，
+# 光在 macOS 上绿是不够的。
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      # 起真实的预览服务器打一遍路由（/assets 内存供给、/vault 路径转换、SSE）。
+      # Windows 上的盘符处理曾经整片失效，这一步就是为了在 CI 里挡住它。
+      - run: npm run smoke

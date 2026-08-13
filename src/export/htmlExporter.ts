@@ -10,6 +10,7 @@ import type { SlideDeck } from '../types/slide';
 import { renderStandalonePage } from '../engine/templateEngine';
 import type { StandaloneAssets } from '../engine/templateEngine';
 import { collectVaultAssetRefs, localizeAssetPaths } from './assetLocalizer';
+import { INLINE_ASSETS } from '../assets';
 import { urlPathToNative } from '../utils/vaultPath';
 
 /** 导出文件名中的非法字符替换为 '-' */
@@ -68,16 +69,8 @@ export async function exportHtml(plugin: RevealPlugin): Promise<void> {
     return;
   }
   const basePath = adapter.getBasePath();
-  const pluginDir = plugin.manifest.dir ?? '';
-  const assetsDir = path.join(basePath, pluginDir, 'assets');
-
-  let assets: StandaloneAssets;
-  try {
-    assets = readStandaloneAssets(assetsDir);
-  } catch (err) {
-    new Notice(`reveal-for-obsidian: failed to read bundled assets, run a build first (${String(err)})`);
-    return;
-  }
+  // 资源在构建期已内联进 main.js，无需再从插件目录读
+  const assets: StandaloneAssets = INLINE_ASSETS;
 
   // exportDirectory 为 vault 相对路径（默认 /export），统一去掉开头斜杠
   const exportRelative = plugin.settings.exportDirectory.replace(/^[/\\]+/, '') || 'export';

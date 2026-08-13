@@ -6,6 +6,7 @@ import type RevealPlugin from '../main';
 import type { SlideDeck } from '../types/slide';
 import { renderPage } from '../engine/templateEngine';
 import { isInsideDir, urlPathToNative } from '../utils/vaultPath';
+import { ASSET_ROUTES } from '../assets';
 import revealTemplate from '../template/reveal.html';
 
 const MIME_TYPES: Record<string, string> = {
@@ -69,11 +70,6 @@ export class PreviewServer {
 
   get url(): string {
     return `${this.base}/reveal.html`;
-  }
-
-  private get assetsDir(): string {
-    const pluginDir = this.plugin.manifest.dir ?? '';
-    return path.join(this.vaultBasePath, pluginDir, 'assets');
   }
 
   /** vault 根目录（仅文件系统库可用） */
@@ -212,23 +208,21 @@ export class PreviewServer {
     });
   }
 
+  /**
+   * /assets/* 从内存供给：资源在构建期就内联进了 main.js
+   * （Obsidian 的安装器不会下载插件目录里的额外文件夹，见 esbuild.config.mjs）。
+   * 白名单路由，天然没有目录穿越问题。
+   */
   private serveAsset(pathname: string, res: http.ServerResponse): void {
     const relative = decodeURIComponent(pathname.slice('/assets/'.length));
-    // 防目录穿越
-    if (relative.includes('..') || path.isAbsolute(relative)) {
-      res.writeHead(403).end('Forbidden');
-      return;
-    }
-
-    const filePath = path.join(this.assetsDir, relative);
-    if (!filePath.startsWith(this.assetsDir) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    const content = ASSET_ROUTES[relative];
+    if (content === undefined) {
       res.writeHead(404).end('Not Found');
       return;
     }
 
-    const mime = MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
-    fs.createReadStream(filePath).pipe(res);
+    const mime = MIME_TYPES[path.extname(relative).toLowerCase()] ?? 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' }).end(content);
   }
 
   /** GET /vault/* → 从 vault 根目录流式返回文件（iframe 内 app:// 资源改写后的加载入口） */

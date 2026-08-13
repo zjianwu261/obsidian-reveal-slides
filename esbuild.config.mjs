@@ -1,7 +1,7 @@
 import esbuild from 'esbuild';
 import process from 'process';
 import builtins from 'builtin-modules';
-import { copyFileSync, mkdirSync, writeFileSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'fs';
 import path from 'path';
 import * as sass from 'sass';
 
@@ -37,6 +37,37 @@ function copyAssets() {
   copyFileSync('manifest.json', path.join(distDir, 'manifest.json'));
 }
 
+/**
+ * 把 iframe 需要的资源作为虚拟模块 `rfo:assets` 打进 main.js。
+ *
+ * Obsidian 的插件安装器（社区列表、BRAT）只下载 main.js / manifest.json / styles.css，
+ * 不会带上任何额外目录。资源留在 dist/assets/ 里的话，用户装完是个渲染不出东西的空壳，
+ * 只有手动解压 zip 才能用。故一律内联，代价是 main.js 变成 ~5 MB。
+ */
+function inlineAssetsPlugin() {
+  const namespace = 'rfo-assets';
+  return {
+    name: 'inline-assets',
+    setup(build) {
+      build.onResolve({ filter: /^rfo:assets$/ }, () => ({ path: 'rfo:assets', namespace }));
+      build.onLoad({ filter: /.*/, namespace }, () => {
+        const read = (p) => readFileSync(path.join(assetsDir, p), 'utf8');
+        const entries = {
+          resetCss: read('reset.css'),
+          revealCss: read('reveal.css'),
+          highlightCss: read(path.join('plugin', 'highlight', 'monokai.css')),
+          pluginCss: read('reveal-plugin.css'),
+          bundleJs: read('reveal.bundle.mjs'),
+        };
+        const contents = Object.entries(entries)
+          .map(([key, value]) => `export const ${key} = ${JSON.stringify(value)};`)
+          .join('\n');
+        return { contents, loader: 'js' };
+      });
+    },
+  };
+}
+
 /** Compile plugin styles (SCSS) → dist/styles.css + dist/assets/reveal-plugin.css */
 function compileStyles() {
   const result = sass.compile(path.join('src', 'styles', 'main.scss'), {
@@ -56,6 +87,10 @@ const copyPlugin = {
     });
   },
 };
+
+// main.js 内联资源，必须先把这些资源准备好
+copyAssets();
+compileStyles();
 
 const external = [
   'obsidian',
@@ -87,7 +122,7 @@ const pluginContext = await esbuild.context({
   sourcemap: prod ? false : 'inline',
   treeShaking: true,
   outfile: 'dist/main.js',
-  plugins: [copyPlugin],
+  plugins: [copyPlugin, inlineAssetsPlugin()],
 });
 
 // 2) reveal.js bundle for the preview iframe → dist/assets/reveal.bundle.mjs (ESM)
@@ -103,11 +138,15 @@ const revealContext = await esbuild.context({
   outfile: 'dist/assets/reveal.bundle.mjs',
 });
 
+// reveal bundle 要先产出，main.js 的内联插件才读得到最新内容
 if (prod) {
-  await pluginContext.rebuild();
   await revealContext.rebuild();
+  await pluginContext.rebuild();
   process.exit(0);
 } else {
+  await revealContext.rebuild();
   await pluginContext.watch();
+  // 注意：watch 模式下改动 reveal-bundle.ts 需要重跑一次构建，
+  // 内联进 main.js 的那份不会自动更新
   await revealContext.watch();
 }

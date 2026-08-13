@@ -69,6 +69,11 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
 
 ## 安装
 
+> **一个包通吃**：桌面端与移动端共用同一份构建产物，不区分平台。
+> iframe 需要的 reveal 运行时与样式在构建期就内联进了 `main.js`
+> （Obsidian 的安装器只下载 `main.js` / `manifest.json` / `styles.css` 三个文件，
+> 不会带上任何额外目录），所以这三个文件就是完整插件，代价是 `main.js` 约 5 MB。
+
 ### 手动安装（当前方式）
 
 1. 在本仓库执行 `npm install && npm run build`（或下载 Release 产物）。

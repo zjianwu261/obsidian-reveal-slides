@@ -966,6 +966,19 @@ Windows 上盘符前多一个斜杠、分隔符还反着，比对 `getBasePath()
 **验证边界**：内联通道在真实浏览器里验证过（deck 经 postMessage 渲染、goto 跳页、
 grid 尺寸正确）；但**未在真机 Obsidian 上验证**，capacitor 资源 URL 与手机内存表现待实测。
 
+**发布打包（第五轮追加）**：**只有一个包**，桌面端与移动端共用同一份产物。
+踩到的关键点：Obsidian 的安装器（社区列表、BRAT）只下载
+`main.js` / `manifest.json` / `styles.css`，**不会带上插件目录里的任何额外文件夹**。
+资源若留在 `dist/assets/`，用户装完得到的是渲染不出东西的空壳（只有手动解压 zip 才能用）。
+故 esbuild 加了虚拟模块 `rfo:assets`，把 reveal 运行时与样式内联进 `main.js`（约 5 MB），
+预览服务器改为从内存供 `/assets/*`，内联预览与 HTML 导出也直接用内存里的副本 ——
+不再依赖磁盘上的资源目录。已验证：删掉 `dist/assets/` 后冒烟测试全绿。
+
+CI（`.github/workflows/ci.yml`）在 ubuntu / macos / windows 三个平台跑
+lint + 测试 + 构建 + 冒烟；冒烟会起真实服务器打一遍 `/assets`、`/vault`、SSE 路由 ——
+Windows 的盘符问题正是靠这条路才能在 CI 里挡住。
+发布（`release.yml`）由 tag 触发，校验 tag 与 manifest 版本一致后建草稿 release。
+
 **仍未实现 / 已知限制**:
 - `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
   改成按需动态 import 可显著瘦身，但会拆出额外 chunk，与「单文件离线播放」冲突，故维持现状。
