@@ -34,4 +34,28 @@ export function registerCommands(plugin: RevealPlugin): void {
       void plugin.stopServer();
     },
   });
+
+  plugin.addCommand({
+    id: 'toggle-grid-guides',
+    name: 'Toggle Grid Guides',
+    callback: () => {
+      void plugin.toggleGridGuides();
+    },
+  });
+
+  plugin.addCommand({
+    id: 'export-pdf',
+    name: 'Export Slides as PDF',
+    callback: () => {
+      void plugin.exportPdf();
+    },
+  });
+
+  plugin.addCommand({
+    id: 'export-html',
+    name: 'Export Slides as HTML',
+    callback: () => {
+      void plugin.exportHtml();
+    },
+  });
 }

@@ -20,16 +20,25 @@ const MIME_TYPES: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ogv': 'video/ogg',
+  '.mov': 'video/quicktime',
+  '.m4v': 'video/x-m4v',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
 };
+
+/** 端口被占用时最多顺延几次 */
+const MAX_PORT_ATTEMPTS = 10;
 
 /**
  * 本地预览服务器：仅监听 127.0.0.1，为 iframe 提供 reveal.js 资源与渲染结果。
  * 路由:
  *   GET /reveal.html  → 渲染页面模板
  *   GET /assets/*     → dist/assets/ 静态资源
+ *   GET /vault/*      → vault 根目录下的文件（iframe 内图片/视频加载用）
  *   GET /deck         → 当前 SlideDeck JSON
  *   GET /events       → SSE，deck 更新时推送
  */
@@ -47,30 +56,62 @@ export class PreviewServer {
     return this.server !== null;
   }
 
+  /** 实际监听的端口（端口被占用时会顺延，未必等于设置里的值） */
+  get boundPort(): number {
+    return this.port;
+  }
+
+  /** 服务器根地址，供管线改写 vault 资源 URL */
+  get base(): string {
+    return `http://127.0.0.1:${this.port}`;
+  }
+
   get url(): string {
-    return `http://127.0.0.1:${this.port}/reveal.html`;
+    return `${this.base}/reveal.html`;
   }
 
   private get assetsDir(): string {
+    const pluginDir = this.plugin.manifest.dir ?? '';
+    return path.join(this.vaultBasePath, pluginDir, 'assets');
+  }
+
+  /** vault 根目录（仅文件系统库可用） */
+  private get vaultBasePath(): string {
     const adapter = this.plugin.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) {
       throw new Error('reveal-for-obsidian requires a filesystem vault');
     }
-    const basePath = adapter.getBasePath();
-    const pluginDir = this.plugin.manifest.dir ?? '';
-    return path.join(basePath, pluginDir, 'assets');
+    return adapter.getBasePath();
   }
 
-  start(port: number): Promise<void> {
-    if (this.server) return Promise.resolve();
+  /**
+   * 启动服务器。端口被占用时顺延到下一个端口重试
+   * （3000 这类常用端口经常被别的插件或开发服务器占着，直接失败等于预览完全不可用）。
+   */
+  async start(port: number): Promise<void> {
+    if (this.server) return;
 
+    await this.listen(port, MAX_PORT_ATTEMPTS);
+
+    if (this.port !== port) {
+      new Notice(
+        `reveal-for-obsidian: port ${port} is in use, preview server started on ${this.port}`,
+      );
+    }
+  }
+
+  private listen(port: number, attemptsLeft: number): Promise<void> {
     return new Promise((resolve, reject) => {
       const server = http.createServer((req, res) => this.handleRequest(req, res));
 
       server.on('error', (err: NodeJS.ErrnoException) => {
         this.server = null;
+        if (err.code === 'EADDRINUSE' && attemptsLeft > 1) {
+          resolve(this.listen(port + 1, attemptsLeft - 1));
+          return;
+        }
         if (err.code === 'EADDRINUSE') {
-          new Notice(`reveal-for-obsidian: port ${port} is already in use`);
+          new Notice(`reveal-for-obsidian: ports ${port - MAX_PORT_ATTEMPTS + 1}-${port} are all in use`);
         } else {
           new Notice(`reveal-for-obsidian: server error: ${err.message}`);
         }
@@ -124,6 +165,8 @@ export class PreviewServer {
         this.serveEvents(req, res);
       } else if (pathname.startsWith('/assets/')) {
         this.serveAsset(pathname, res);
+      } else if (pathname.startsWith('/vault/')) {
+        this.serveVaultFile(pathname, res);
       } else {
         res.writeHead(404).end('Not Found');
       }
@@ -169,6 +212,26 @@ export class PreviewServer {
 
     const filePath = path.join(this.assetsDir, relative);
     if (!filePath.startsWith(this.assetsDir) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      res.writeHead(404).end('Not Found');
+      return;
+    }
+
+    const mime = MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+    res.writeHead(200, { 'Content-Type': mime, 'Cache-Control': 'no-cache' });
+    fs.createReadStream(filePath).pipe(res);
+  }
+
+  /** GET /vault/* → 从 vault 根目录流式返回文件（iframe 内 app:// 资源改写后的加载入口） */
+  private serveVaultFile(pathname: string, res: http.ServerResponse): void {
+    // /vault/<绝对路径>：decode 后规范化，必须仍位于 vault basePath 内（防路径穿越）
+    const decoded = decodeURIComponent(pathname.slice('/vault/'.length));
+    const basePath = path.normalize(this.vaultBasePath);
+    const filePath = path.normalize(`/${decoded}`);
+    if (filePath !== basePath && !filePath.startsWith(basePath + path.sep)) {
+      res.writeHead(403).end('Forbidden');
+      return;
+    }
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
       res.writeHead(404).end('Not Found');
       return;
     }

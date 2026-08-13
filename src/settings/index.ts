@@ -106,7 +106,7 @@ export class RevealSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Horizontal separator')
-      .setDesc('Regular expression that splits horizontal slides')
+      .setDesc('Slide split marker — a literal line marker (e.g. ---) or a regular expression')
       .addText((text) =>
         text.setValue(settings.separator).onChange(async (value) => {
           settings.separator = value;
@@ -116,7 +116,7 @@ export class RevealSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Vertical separator')
-      .setDesc('Regular expression that splits vertical slides')
+      .setDesc('Vertical slide split marker — a literal line marker (e.g. xxx) or a regular expression')
       .addText((text) =>
         text.setValue(settings.verticalSeparator).onChange(async (value) => {
           settings.verticalSeparator = value;
@@ -286,16 +286,20 @@ export class RevealSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Port')
-      .setDesc('Local preview server port (restart the server to apply)')
-      .addText((text) =>
+      .setDesc('Local preview server port (the server restarts when you leave this field)')
+      .addText((text) => {
         text.setValue(settings.port.toString()).onChange(async (value) => {
           const num = Number(value);
           if (num >= 1024 && num <= 65535) {
             settings.port = num;
             await save();
           }
-        }),
-      );
+        });
+        // 逐字符重启会连开好几个端口，改完（失焦 / 回车）再重启
+        text.inputEl.addEventListener('change', () => {
+          void this.plugin.restartServer();
+        });
+      });
 
     // ── 导出 ──────────────────────────────────────────────
     containerEl.createEl('h2', { text: 'Export' });
@@ -315,10 +319,14 @@ export class RevealSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Preview location')
-      .setDesc('Open the slide preview in a tab or the sidebar')
+      .setDesc('Where the slide preview opens (applies the next time you open it)')
       .addDropdown((drop) =>
         drop
-          .addOptions({ sidebar: 'Sidebar', tab: 'Tab' })
+          .addOptions({
+            tab: 'Beside the note (main area)',
+            window: 'Separate window',
+            sidebar: 'Right sidebar',
+          })
           .setValue(settings.previewMode)
           .onChange(async (value) => {
             settings.previewMode = value as typeof settings.previewMode;
@@ -344,6 +352,15 @@ export class RevealSettingTab extends PluginSettingTab {
         toggle.setValue(settings.autoReload).onChange(async (value) => {
           settings.autoReload = value;
           await save();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName('Show grid guides')
+      .setDesc('Outline every <grid> and draw a 10% ruler over the canvas (command: Toggle Grid Guides)')
+      .addToggle((toggle) =>
+        toggle.setValue(settings.showGridGuides).onChange(async (value) => {
+          await this.plugin.setGridGuides(value);
         }),
       );
 

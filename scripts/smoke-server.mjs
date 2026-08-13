@@ -33,6 +33,12 @@ const obsidianStub = {
   MarkdownRenderer: class {},
   Component: class {},
   TFile: class {},
+  MarkdownView: class {},
+  EditorSuggest: class {
+    constructor(app) {
+      this.app = app;
+    }
+  },
 };
 
 const Module = require('module');
@@ -56,7 +62,7 @@ plugin.app = {
   workspace: { getLeavesOfType: () => [] },
 };
 plugin.manifest = { dir: 'dist' };
-plugin.settings = { port: 8347 };
+plugin.settings = { port: 8399 };
 
 await plugin.startServer();
 console.log('server started at', plugin.server.url);
@@ -69,11 +75,15 @@ const checks = [
   ['/assets/reveal.bundle.mjs', (body) => body.length > 100000],
   ['/assets/reveal-plugin.css', (body) => body.includes('.grid')],
   ['/assets/../main.js', null], // 期望 403/404
+  // /vault 路由携带绝对路径（imageProcessor 改写 app:// 后的形式）
+  [`/vault${encodeURI(root)}/package.json`, (body) => body.includes('"reveal-for-obsidian"')],
+  [`/vault${encodeURI(root)}/non-existent.png`, null], // 期望 404
+  ['/vault/..%2F..%2Fetc%2Fpasswd', null], // 路径穿越，期望 403
 ];
 
 let failed = 0;
 for (const [route, validate] of checks) {
-  const res = await fetch(`http://127.0.0.1:8347${route}`);
+  const res = await fetch(`http://127.0.0.1:8399${route}`);
   const body = await res.text();
   const ok = validate ? res.status === 200 && validate(body) : res.status === 403 || res.status === 404;
   console.log(`${ok ? 'PASS' : 'FAIL'} ${route} → ${res.status} (${body.length} bytes)`);
@@ -82,7 +92,7 @@ for (const [route, validate] of checks) {
 
 // SSE 推送测试
 const ac = new AbortController();
-const ssePromise = fetch('http://127.0.0.1:8347/events', { signal: ac.signal }).then(async (res) => {
+const ssePromise = fetch('http://127.0.0.1:8399/events', { signal: ac.signal }).then(async (res) => {
   const reader = res.body.getReader();
   const { value } = await reader.read();
   return new TextDecoder().decode(value);

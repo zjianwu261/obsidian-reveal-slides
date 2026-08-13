@@ -34,16 +34,24 @@ export interface PluginSettings {
 
   // 预览服务器
   autoStartServer: boolean;
-  port: number;                    // 默认 8347
+  port: number;                    // 默认 3000
 
   // 导出
   exportDirectory: string;
 
   // 预览
-  previewMode: 'tab' | 'sidebar';  // 预览开在标签页还是侧边栏
+  /**
+   * 预览面板位置：
+   *   'tab'     主编辑区右侧分栏，与笔记并排（默认，同 advanced-slides）
+   *   'window'  独立弹出窗口（可拖到副屏）
+   *   'sidebar' 右侧边栏
+   */
+  previewMode: 'tab' | 'window' | 'sidebar';
   scrollActivationWidth: number | null; // reveal.js 自动滚动视图阈值，null=禁用
   autoReload: boolean;
   autoComplete: boolean;
+  /** 预览里画出每个 <grid> 的边框与画布 10% 标尺，方便调版面 */
+  showGridGuides: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -69,10 +77,11 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   bg: null,
   enableOverview: true,
   autoStartServer: true,
-  port: 8347,
+  port: 3000,
   exportDirectory: '/export',
-  previewMode: 'sidebar',
+  previewMode: 'tab',
   scrollActivationWidth: null,
   autoReload: true,
   autoComplete: true,
+  showGridGuides: false,
 };
