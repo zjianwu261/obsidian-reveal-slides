@@ -1,0 +1,20 @@
+@use 'grid';
+@use 'split';
+@use 'reveal-overrides';
+@use 'canvas';
+
+/* Obsidian 视图容器内的预览 iframe */
+.reveal-slide-preview-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+
+  iframe {
+    flex: 1;
+    width: 100%;
+    border: 0;
+    background: #fff;
+  }
+}

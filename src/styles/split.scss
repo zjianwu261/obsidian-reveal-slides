@@ -1,0 +1,19 @@
+/* <split> 分栏容器（iframe 内 reveal 页面生效） */
+.split {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+
+  &.split-wrap {
+    flex-wrap: wrap;
+  }
+
+  .split-column {
+    box-sizing: border-box;
+    min-width: 0;
+
+    &.split-no-margin > :first-child {
+      margin-top: 0;
+    }
+  }
+}

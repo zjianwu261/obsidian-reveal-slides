@@ -1,0 +1,15 @@
+/* <grid> 元素默认样式（iframe 内 reveal 页面生效） */
+.grid {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+
+  /* 长代码自适应的兜底（JS 测量见 codeBlockProcessor） */
+  pre {
+    max-width: 100%;
+    margin: 0;
+  }
+}

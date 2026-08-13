@@ -1,0 +1,10 @@
+/* 画布 CSS 变量（canvasCalculator 计算后由客户端注入，这里提供默认值） */
+:root {
+  --canvas-width: 1920;
+  --canvas-height: 1080;
+  --root-font-size: 40px;
+}
+
+.reveal {
+  font-size: var(--root-font-size);
+}

@@ -1,0 +1,15 @@
+/* 覆盖 reveal.js 默认样式，对齐 Obsidian 渲染习惯（iframe 内生效） */
+.reveal {
+  /* Obsidian callout 已由 MarkdownRenderer 渲染为 .callout，
+     这里仅保证其在 reveal 默认 blockquote 样式下不被破坏 */
+  .callout {
+    text-align: left;
+    font-size: 0.7em;
+  }
+
+  section img {
+    /* 保留 Obsidian 渲染出的宽高属性 */
+    max-width: 100%;
+    max-height: 100%;
+  }
+}

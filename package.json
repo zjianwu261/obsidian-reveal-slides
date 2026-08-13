@@ -1,0 +1,42 @@
+{
+  "name": "reveal-for-obsidian",
+  "version": "0.1.0",
+  "description": "Reveal.js 6.x based presentation plugin for Obsidian. Markdown notes to slides, no built-in themes, layout via <grid> and inline CSS.",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src tests --ext .ts",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "reveal.js",
+    "slides",
+    "presentation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "reveal.js": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.24.2",
+    "eslint": "^8.57.1",
+    "happy-dom": "^15.11.7",
+    "js-yaml": "^4.1.0",
+    "obsidian": "^1.7.2",
+    "sass": "^1.83.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
