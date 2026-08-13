@@ -6,5 +6,5 @@
   "description": "Turn Markdown notes into reveal.js 6.x presentations. No built-in themes — layout with <grid> positioning and inline CSS.",
   "author": "",
   "authorUrl": "",
-  "isDesktopOnly": true
+  "isDesktopOnly": false
 }

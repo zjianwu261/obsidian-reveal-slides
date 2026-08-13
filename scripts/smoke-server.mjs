@@ -39,6 +39,8 @@ const obsidianStub = {
       this.app = app;
     }
   },
+  Platform: { isMobile: false, isDesktop: true },
+  normalizePath: (p) => p,
 };
 
 const Module = require('module');

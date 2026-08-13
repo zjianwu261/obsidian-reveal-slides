@@ -136,16 +136,28 @@ export interface StandaloneAssets {
 }
 
 /**
+ * 内联预览用的空壳页面（移动端走这条路：没有 Node，起不了 HTTP 服务器）。
+ * 资源全部内联，但不带 deck —— 客户端起来后等宿主 postMessage 推送，
+ * 之后每次更新只发消息，不必重建整个页面（bundle 有好几 MB）。
+ */
+export function renderInlineShell(assets: StandaloneAssets): string {
+  return renderStandalonePage(null, assets);
+}
+
+/**
  * 渲染独立可播放的单文件 HTML（Task 5.2）。
  * CSS / bundle JS 全部内联，deck 通过 window.__DECK__ 全局注入，
  * 客户端（reveal-bundle.ts）检测到 __DECK__ 后不再 fetch / 不连 SSE，可离线播放。
+ * deck 传 null 则生成空壳，客户端改为等待 postMessage（见 renderInlineShell）。
  */
-export function renderStandalonePage(deck: SlideDeck, assets: StandaloneAssets): string {
+export function renderStandalonePage(deck: SlideDeck | null, assets: StandaloneAssets): string {
   // "</" 会提前闭合内联 <script>，JSON 中转义为 "<\/"（字符串内 \/ === /，安全）
-  const deckJson = JSON.stringify(deck).replace(/<\//g, '<\\/');
+  const deckScript = deck
+    ? `<script>window.__DECK__ = ${JSON.stringify(deck).replace(/<\//g, '<\\/')};</script>`
+    : '<script>window.__RFO_INLINE__ = true;</script>';
   // bundle 内字符串/正则字面量可能含 "</script"，同样转义（JS 中 \/ === /）
   const bundleJs = assets.bundleJs.replace(/<\/script/gi, '<\\/script');
-  const title = escapeHtml(deck.title || 'Slide Preview');
+  const title = escapeHtml(deck?.title || 'Slide Preview');
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -170,7 +182,7 @@ ${assets.pluginCss}
   <div class="reveal">
     <div class="slides"></div>
   </div>
-  <script>window.__DECK__ = ${deckJson};</script>
+  ${deckScript}
   <script type="module">
 ${bundleJs}
   </script>

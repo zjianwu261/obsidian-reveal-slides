@@ -5,6 +5,7 @@ import { FileSystemAdapter, Notice } from 'obsidian';
 import type RevealPlugin from '../main';
 import type { SlideDeck } from '../types/slide';
 import { renderPage } from '../engine/templateEngine';
+import { isInsideDir, urlPathToNative } from '../utils/vaultPath';
 import revealTemplate from '../template/reveal.html';
 
 const MIME_TYPES: Record<string, string> = {
@@ -232,11 +233,11 @@ export class PreviewServer {
 
   /** GET /vault/* → 从 vault 根目录流式返回文件（iframe 内 app:// 资源改写后的加载入口） */
   private serveVaultFile(pathname: string, res: http.ServerResponse): void {
-    // /vault/<绝对路径>：decode 后规范化，必须仍位于 vault basePath 内（防路径穿越）
+    // /vault/<url 形式的绝对路径>：转成本地路径（Windows 上要脱掉盘符前的斜杠、
+    // 换成反斜杠），且必须仍位于 vault 根目录内（防路径穿越）
     const decoded = decodeURIComponent(pathname.slice('/vault/'.length));
-    const basePath = path.normalize(this.vaultBasePath);
-    const filePath = path.normalize(`/${decoded}`);
-    if (filePath !== basePath && !filePath.startsWith(basePath + path.sep)) {
+    const filePath = urlPathToNative(decoded.startsWith('/') ? decoded : `/${decoded}`);
+    if (!isInsideDir(this.vaultBasePath, filePath)) {
       res.writeHead(403).end('Forbidden');
       return;
     }

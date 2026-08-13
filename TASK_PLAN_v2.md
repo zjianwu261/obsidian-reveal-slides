@@ -942,6 +942,30 @@ const config: RevealConfig = {
 绝对像素只跟画布尺寸绑定，改 `size` 比例后会跑位，属于纯粹的坑。
 `dim` / `pos` 现在只接受画布百分比，`GridElement.absolute` 与相关分支一并删除。
 
+---
+
+## 十四、跨平台支持（2026-08-13，第五轮）
+
+**Windows 修正**：`/vault` 路由、Excalidraw 探测、HTML 导出复制资源三处都拿
+`app://` URL 里的路径（形如 `/C:/Users/...`）直接当本地路径用。
+Windows 上盘符前多一个斜杠、分隔符还反着，比对 `getBasePath()`（`C:\Users\...`）必然失败
+—— 结果是**每张图片都 403**。抽出 `src/utils/vaultPath.ts` 统一转换与包含判断
+（Windows 大小写不敏感、防 `..` 穿越），13 项单测覆盖两个平台。
+该文件**不得 import 'path'**：移动端没有 Node 内置模块，故用纯字符串实现。
+
+**移动端支持**：`isDesktopOnly` 改为 `false`，并把依赖 Node 的模块改成按需动态 import
+（`previewServer` 与 `htmlExporter` 顶层 import 了 http/fs/path，一旦求值就崩）。
+预览新增**内联通道**：
+- `renderInlineShell()` 生成不含 deck 的空壳（资源全内联），用 `blob:` URL 挂到 iframe；
+- deck 与跳页指令走 `postMessage`，编辑刷新只发数据，不重建 5 MB 的页面；
+- blob 与宿主同源，故 Obsidian 的图片资源可直接加载 —— 因此内联模式**不能加 sandbox**
+  （沙箱会让它变成不透明源，图片全裂）；服务器模式仍保持沙箱。
+- 桌面端服务器起不来时也退到这条路。
+- 移动端禁用 PDF 导出（依赖桌面浏览器打印对话框），提示改用 HTML 导出。
+
+**验证边界**：内联通道在真实浏览器里验证过（deck 经 postMessage 渲染、goto 跳页、
+grid 尺寸正确）；但**未在真机 Obsidian 上验证**，capacitor 资源 URL 与手机内存表现待实测。
+
 **仍未实现 / 已知限制**:
 - `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
   改成按需动态 import 可显著瘦身，但会拆出额外 chunk，与「单文件离线播放」冲突，故维持现状。

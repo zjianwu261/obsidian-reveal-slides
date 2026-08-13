@@ -28,7 +28,11 @@ function parseAppUrl(url: string): string | null {
   }
 }
 
-/** 绝对路径 → 预览服务器 /vault URL（逐段编码，保留目录分隔符） */
+/**
+ * 绝对路径 → 预览服务器 /vault URL（逐段编码，保留目录分隔符）。
+ * 这里的入参来自 app:// URL，本身就是 url 形式（Windows 上形如 /C:/Users/...），
+ * 保持原样传给服务器，由服务器负责转成本地路径。
+ */
 function toVaultUrl(serverBase: string, absolutePath: string): string {
   const encoded = absolutePath.split('/').map(encodeURIComponent).join('/');
   return `${serverBase}/vault${encoded}`;

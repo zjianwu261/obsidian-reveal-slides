@@ -1,21 +1,21 @@
-import { FileSystemAdapter, MarkdownView, Notice, Plugin, TFile } from 'obsidian';
+import { FileSystemAdapter, MarkdownView, Notice, Platform, Plugin, TFile } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS } from './types/config';
 import type { PluginSettings } from './types/config';
 import type { SlideDeck } from './types/slide';
+import type { PreviewServer } from './server/previewServer';
 import { RevealSettingTab } from './settings';
 import { registerCommands } from './commands';
 import { SlidePreviewView } from './views/SlidePreviewView';
 import { GridAttributeSuggest } from './editor';
 import { createCursorSyncExtension } from './editor/cursorSync';
-import { PreviewServer } from './server/previewServer';
 import { PipelineOrchestrator } from './processors';
 import { RevealEngine } from './engine/revealEngine';
 import { renderMarkdownToHtml } from './engine/renderEngine';
 import { exportPdf as runPdfExport } from './export/pdfExporter';
-import { exportHtml as runHtmlExport } from './export/htmlExporter';
 import { debounce } from './utils/debounce';
 import { lineToPageIndex } from './engine/templateEngine';
+import { toVaultRelative, urlPathToNative } from './utils/vaultPath';
 import { VIEW_TYPE_SLIDE_PREVIEW } from './constants';
 
 function createEmptyDeck(message = 'Empty'): SlideDeck {
@@ -97,6 +97,15 @@ export default class RevealPlugin extends Plugin {
       }),
     );
 
+    // 内联预览页面加载完会报到，收到后把当前 deck 推过去
+    this.registerDomEvent(window, 'message', (event: MessageEvent) => {
+      const data = event.data as { type?: string } | null;
+      if (data?.type !== 'rfo-ready') return;
+      this.forEachPreview((view) => {
+        if (view.ownsWindow(event.source)) view.handleInlineReady();
+      });
+    });
+
     // 首次渲染
     this.app.workspace.onLayoutReady(() => {
       const file = this.app.workspace.getActiveFile();
@@ -122,6 +131,13 @@ export default class RevealPlugin extends Plugin {
 
   async startServer(): Promise<void> {
     if (this.server?.running) return;
+    // 移动端没有 Node，起不了 HTTP 服务器：预览走内联通道（见 inlinePreview.ts）
+    if (Platform.isMobile) {
+      this.refreshPreviewViews();
+      return;
+    }
+    // 动态 import：模块顶层 import 了 http/fs/path，移动端一旦求值就会崩
+    const { PreviewServer } = await import('./server/previewServer');
     this.server = new PreviewServer(this);
     try {
       await this.server.start(this.settings.port);
@@ -155,11 +171,15 @@ export default class RevealPlugin extends Plugin {
    * 只在预览跟踪的就是当前编辑的这篇笔记时才推，避免在别的笔记里乱翻页。
    */
   private syncPreviewToLine(line: number): void {
-    if (!this.server?.running) return;
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     if (!view?.file || view.file.path !== this.lastMarkdownFile?.path) return;
 
-    this.server.gotoPage(lineToPageIndex(this.deck, line));
+    const page = lineToPageIndex(this.deck, line);
+    if (this.server?.running) {
+      this.server.gotoPage(page);
+      return;
+    }
+    this.forEachPreview((preview) => preview.pushGoto(page));
   }
 
   /** 预览服务器根地址（服务器未运行时按设置端口给出占位值） */
@@ -172,7 +192,10 @@ export default class RevealPlugin extends Plugin {
     this.deck = deck;
     if (this.server?.running) {
       this.server.setDeck(deck);
+      return;
     }
+    // 内联模式：直接 postMessage 给各预览面板
+    this.forEachPreview((view) => view.pushDeck());
   }
 
   /** 将当前跟踪的笔记跑管线并推送预览 */
@@ -243,10 +266,9 @@ export default class RevealPlugin extends Plugin {
   private vaultFileExists(absolutePath: string): boolean {
     const adapter = this.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) return false;
-    const basePath = adapter.getBasePath();
-    if (!absolutePath.startsWith(basePath)) return false;
-    const relative = absolutePath.slice(basePath.length).replace(/^[/\\]/, '');
-    return this.app.vault.getAbstractFileByPath(relative) !== null;
+    // 入参是 app:// URL 里的路径（url 形式），Windows 上要先转成本地路径再比对
+    const relative = toVaultRelative(adapter.getBasePath(), urlPathToNative(absolutePath));
+    return relative !== null && this.app.vault.getAbstractFileByPath(relative) !== null;
   }
 
   async activateView(): Promise<void> {
@@ -305,11 +327,13 @@ export default class RevealPlugin extends Plugin {
 
   /** 同步各预览面板工具栏按钮的状态（不重载 iframe） */
   private syncPreviewActions(): void {
+    this.forEachPreview((view) => view.syncActions());
+  }
+
+  /** 遍历所有预览面板 */
+  private forEachPreview(fn: (view: SlidePreviewView) => void): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SLIDE_PREVIEW)) {
-      const view = leaf.view;
-      if (view instanceof SlidePreviewView) {
-        view.syncActions();
-      }
+      if (leaf.view instanceof SlidePreviewView) fn(leaf.view);
     }
   }
 
@@ -331,15 +355,11 @@ export default class RevealPlugin extends Plugin {
   /** 导出独立 HTML：先重跑管线确保 deck 最新，再打包单文件导出 */
   async exportHtml(): Promise<void> {
     await this.renderActiveFile();
+    const { exportHtml: runHtmlExport } = await import('./export/htmlExporter');
     await runHtmlExport(this);
   }
 
   private refreshPreviewViews(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_SLIDE_PREVIEW)) {
-      const view = leaf.view;
-      if (view instanceof SlidePreviewView) {
-        view.refresh();
-      }
-    }
+    this.forEachPreview((view) => view.refresh());
   }
 }

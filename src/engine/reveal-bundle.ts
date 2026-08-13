@@ -28,8 +28,13 @@ declare global {
   interface Window {
     /** HTML 独立导出时全局注入的 SlideDeck；存在则不 fetch /deck、不连 SSE */
     __DECK__?: SlideDeck;
+    /** 内联预览（移动端 blob 页面）：deck 由宿主 postMessage 推送 */
+    __RFO_INLINE__?: boolean;
   }
 }
+
+/** 内联模式下由宿主推来的 deck */
+let pushedDeck: SlideDeck | null = null;
 
 let deck: RevealApi | null = null;
 let renderTimer: number | null = null;
@@ -72,12 +77,40 @@ window.addEventListener('unhandledrejection', (event) => showError(String(event.
 // 每次 render 后用 mermaid.run 渲染为 SVG
 mermaid.initialize({ startOnLoad: false, theme: 'default' });
 
-/** 独立导出页优先读 window.__DECK__；预览 iframe 走 /deck 接口 */
+/**
+ * deck 的三个来源：
+ *   1. window.__DECK__      独立导出的单文件 HTML
+ *   2. postMessage          内联预览（移动端没有 Node，起不了服务器）
+ *   3. GET /deck            桌面端的本地预览服务器
+ */
 async function loadDeck(): Promise<SlideDeck> {
   if (window.__DECK__) return window.__DECK__;
+  if (window.__RFO_INLINE__) {
+    if (!pushedDeck) throw new Error('waiting for deck');
+    return pushedDeck;
+  }
   const res = await fetch('/deck', { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to fetch deck: ${res.status}`);
   return res.json() as Promise<SlideDeck>;
+}
+
+/** 内联模式：监听宿主推送的 deck 与跳页指令 */
+function connectHost(): void {
+  window.addEventListener('message', (event: MessageEvent) => {
+    const data = event.data as { type?: string; deck?: SlideDeck; page?: number } | null;
+    if (!data || typeof data !== 'object') return;
+
+    if (data.type === 'deck' && data.deck) {
+      pushedDeck = data.deck;
+      scheduleRender();
+      return;
+    }
+    if (data.type === 'goto' && typeof data.page === 'number') {
+      gotoPage(data.page);
+    }
+  });
+  // 告诉宿主「我准备好了」，宿主收到后把当前 deck 推过来
+  window.parent?.postMessage({ type: 'rfo-ready' }, '*');
 }
 
 function injectExtraCss(data: SlideDeck): void {
@@ -218,12 +251,17 @@ function connectEvents(): void {
   };
 }
 
-void render()
-  .then(() => {
-    // 独立导出页（__DECK__ 注入）无需 SSE 实时刷新
-    if (!window.__DECK__) connectEvents();
-  })
-  .catch((err) => {
-    console.error('[reveal-for-obsidian] init failed', err);
-    showError(`init failed: ${String(err)}`);
-  });
+if (window.__RFO_INLINE__) {
+  // 内联模式：先挂上监听，deck 到了再渲染（此时还没有内容可画）
+  connectHost();
+} else {
+  void render()
+    .then(() => {
+      // 独立导出页（__DECK__ 注入）无需 SSE 实时刷新
+      if (!window.__DECK__) connectEvents();
+    })
+    .catch((err) => {
+      console.error('[reveal-for-obsidian] init failed', err);
+      showError(`init failed: ${String(err)}`);
+    });
+}

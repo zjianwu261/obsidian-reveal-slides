@@ -10,6 +10,7 @@ import type { SlideDeck } from '../types/slide';
 import { renderStandalonePage } from '../engine/templateEngine';
 import type { StandaloneAssets } from '../engine/templateEngine';
 import { collectVaultAssetRefs, localizeAssetPaths } from './assetLocalizer';
+import { urlPathToNative } from '../utils/vaultPath';
 
 /** 导出文件名中的非法字符替换为 '-' */
 function sanitizeFileName(name: string): string {
@@ -38,9 +39,11 @@ function collectAndCopyAssets(deck: SlideDeck, serverBase: string, filesDir: str
 
   for (const page of deck.pages) {
     for (const ref of collectVaultAssetRefs(page.html, serverBase)) {
-      if (mapping[ref.url] || !fs.existsSync(ref.absolutePath)) continue;
+      // ref.absolutePath 是 url 形式（Windows 上形如 /C:/...），转成本地路径才能读
+      const sourcePath = urlPathToNative(ref.absolutePath);
+      if (mapping[ref.url] || !fs.existsSync(sourcePath)) continue;
 
-      const base = path.basename(ref.absolutePath);
+      const base = path.basename(sourcePath);
       const ext = path.extname(base);
       const stem = base.slice(0, base.length - ext.length);
       let name = base;
@@ -51,7 +54,7 @@ function collectAndCopyAssets(deck: SlideDeck, serverBase: string, filesDir: str
       }
       usedNames.add(name);
 
-      fs.copyFileSync(ref.absolutePath, path.join(filesDir, name));
+      fs.copyFileSync(sourcePath, path.join(filesDir, name));
       mapping[ref.url] = `files/${name}`;
     }
   }

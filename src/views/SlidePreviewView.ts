@@ -1,12 +1,17 @@
-import { ItemView } from 'obsidian';
+import { ItemView, Notice } from 'obsidian';
 import type { Menu } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
+import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
 
 export class SlidePreviewView extends ItemView {
   private iframe: HTMLIFrameElement | null = null;
   private guidesAction: HTMLElement | null = null;
+  /** 内联模式（无服务器）下的 blob URL 释放函数 */
+  private revokeInlineUrl: (() => void) | null = null;
+  /** 内联页面是否已就绪（收到 rfo-ready 后才能推 deck） */
+  private inlineReady = false;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -32,6 +37,8 @@ export class SlidePreviewView extends ItemView {
     container.empty();
     container.addClass('reveal-slide-preview-container');
 
+    // 内联模式靠 blob 与宿主同源来加载 app:// 图片，加 sandbox 会变成不透明源，
+    // 图片全裂；服务器模式则保持沙箱隔离
     this.iframe = container.createEl('iframe', {
       attr: {
         // allow-popups / allow-popups-to-escape-sandbox：演讲者视图（按 S）要 window.open
@@ -99,20 +106,72 @@ export class SlidePreviewView extends ItemView {
     );
   }
 
-  /** 设置/刷新 iframe 地址（服务器启动后或端口变更时调用） */
+  /** 设置/刷新预览来源：有服务器走服务器，否则内联（移动端始终走内联） */
   refresh(): void {
     if (!this.iframe) return;
+
+    this.inlineReady = false;
+    this.releaseInlineUrl();
+
     if (this.plugin.server?.running) {
+      this.iframe.removeAttribute('sandbox');
+      this.iframe.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-modals',
+      );
       this.iframe.src = this.plugin.server.url;
-    } else {
-      this.iframe.removeAttribute('src');
-      this.iframe.srcdoc =
-        '<p style="font-family: sans-serif; padding: 1em;">Preview server is not running. ' +
-        'Run the "Start Slide Preview Server" command.</p>';
+      return;
+    }
+
+    // blob 页面与宿主同源，不能再套 sandbox（否则变成不透明源，图片一律加载失败）
+    this.iframe.removeAttribute('sandbox');
+    void this.loadInlinePreview();
+  }
+
+  private async loadInlinePreview(): Promise<void> {
+    try {
+      const { url, revoke } = await createInlinePreviewUrl(this.app, this.plugin.manifest);
+      this.revokeInlineUrl = revoke;
+      if (this.iframe) this.iframe.src = url;
+    } catch (err) {
+      console.error('[reveal-for-obsidian] inline preview failed', err);
+      new Notice(`reveal-for-obsidian: could not build the preview - ${String(err)}`);
     }
   }
 
+  private releaseInlineUrl(): void {
+    this.revokeInlineUrl?.();
+    this.revokeInlineUrl = null;
+  }
+
+  /** 内联页面报到后推送当前 deck（服务器模式下由 SSE 负责，不走这里） */
+  handleInlineReady(): void {
+    this.inlineReady = true;
+    this.pushDeck();
+  }
+
+  /** 把当前 deck 推给内联页面 */
+  pushDeck(): void {
+    if (!this.inlineReady) return;
+    this.iframe?.contentWindow?.postMessage(
+      { type: 'deck', deck: this.plugin.deck },
+      '*',
+    );
+  }
+
+  /** 让内联页面跳到指定页（光标跟随） */
+  pushGoto(pageIndex: number): void {
+    if (!this.inlineReady) return;
+    this.iframe?.contentWindow?.postMessage({ type: 'goto', page: pageIndex }, '*');
+  }
+
+  /** 判断消息是否来自本视图的 iframe */
+  ownsWindow(source: MessageEventSource | null): boolean {
+    return source !== null && source === this.iframe?.contentWindow;
+  }
+
   async onClose(): Promise<void> {
+    this.releaseInlineUrl();
     this.iframe = null;
     this.guidesAction = null;
   }
