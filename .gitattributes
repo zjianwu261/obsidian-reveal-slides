@@ -1,0 +1,15 @@
+# 全平台统一用 LF 检出。
+#
+# Windows 的 CI runner 默认 core.autocrlf=true，会把文本文件检出成 CRLF：
+# tests/fixtures/*.md 一旦变成 CRLF，渲染结果里就混进 \r，快照测试必挂
+# （已实测复现）。分页器认 \r?\n 没问题，但快照比对的是精确字符串。
+* text=auto eol=lf
+
+# 二进制资源不做任何转换
+*.png binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
