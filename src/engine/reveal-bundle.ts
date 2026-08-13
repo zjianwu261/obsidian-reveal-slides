@@ -142,14 +142,21 @@ function applyCanvasVariables(data: SlideDeck): void {
   style.setProperty('--root-font-size', `${rootFontSize}px`);
 }
 
+/** 当前存活的 Chart 实例 */
+const charts: Chart[] = [];
+
 /** 插件侧 chartProcessor 生成的 <canvas class="rfo-chart" data-chart="..."> → Chart.js 实例 */
 function hydrateCharts(): void {
+  // 每次 render 都会 innerHTML 整体重建，canvas 是新节点，但旧实例不会自己走：
+  // 它们还挂着 resize 监听、attach 在已脱离文档的 canvas 上。编辑时每次防抖刷新
+  // 都攒一批，必须显式销毁。
+  while (charts.length > 0) charts.pop()?.destroy();
+
   document.querySelectorAll<HTMLCanvasElement>('canvas.rfo-chart').forEach((canvas) => {
     const raw = canvas.getAttribute('data-chart');
     if (!raw) return;
     try {
-      // 每次 render 后 innerHTML 整体重建，canvas 均为新节点，直接实例化即可
-      new Chart(canvas, JSON.parse(raw));
+      charts.push(new Chart(canvas, JSON.parse(raw)));
     } catch (err) {
       console.error('[reveal-for-obsidian] chart render failed', err);
     }
@@ -196,7 +203,7 @@ async function render(): Promise<void> {
   applyScrollViewGuard(config);
 
   if (!deck) {
-    deck = new Reveal({
+    const instance = new Reveal({
       ...config,
       // MathJax 公式说明：
       // - reveal.js 6.x 的 math 插件默认实现为 MathJax2，从 CDN(jsdelivr) 加载，
@@ -205,7 +212,13 @@ async function render(): Promise<void> {
       //   此插件仅作双保险兜底，不额外传 math 配置。
       plugins: [RevealNotes, RevealHighlight, RevealMath, RevealZoom],
     });
-    await deck.initialize();
+    deck = instance;
+    await instance.initialize();
+    // 首次的 fitCodeBlocks 量不到还没进入视距的垂直子页：reveal 给它们的是
+    // display:none，宽高全是 0，而 0 <= 0 会被判成「装得下」直接跳过 —— 于是这些页
+    // 的长代码永远不缩（横向页只是 opacity:0，仍有布局，首次就能量准）。
+    // 换页时补测刚显示出来的这页。监听挂在 Reveal 实例上，重渲染只换 DOM，无需重复注册。
+    instance.on('slidechanged', () => fitCodeBlocks(instance.getCurrentSlide()));
   } else {
     deck.configure(config);
     deck.sync();
@@ -255,13 +268,12 @@ if (window.__RFO_INLINE__) {
   // 内联模式：先挂上监听，deck 到了再渲染（此时还没有内容可画）
   connectHost();
 } else {
-  void render()
-    .then(() => {
-      // 独立导出页（__DECK__ 注入）无需 SSE 实时刷新
-      if (!window.__DECK__) connectEvents();
-    })
-    .catch((err) => {
-      console.error('[reveal-for-obsidian] init failed', err);
-      showError(`init failed: ${String(err)}`);
-    });
+  // 独立导出页（__DECK__ 注入）无需 SSE 实时刷新。
+  // 先连再渲染：SSE 曾挂在首渲染的 then 上，于是首次 /deck 一旦失败就再也连不上，
+  // 之后宿主推什么都收不到 —— 连「刷新预览」都救不回来，只能关掉面板重开。
+  if (!window.__DECK__) connectEvents();
+  void render().catch((err) => {
+    console.error('[reveal-for-obsidian] init failed', err);
+    showError(`init failed: ${String(err)}`);
+  });
 }
