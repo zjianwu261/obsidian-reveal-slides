@@ -204,7 +204,7 @@ export interface PluginSettings {
 
   // 预览服务器
   autoStartServer: boolean;
-  port: number;                    // 默认 8347
+  port: number;                    // 默认 3000
 
   // 导出
   exportDirectory: string;
@@ -239,7 +239,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   bg: null,
   enableOverview: true,
   autoStartServer: true,
-  port: 8347,
+  port: 3000,
   exportDirectory: '/export',
   previewMode: 'sidebar',
   scrollActivationWidth: null,
@@ -282,6 +282,7 @@ export interface GridElement {
   tag: 'grid';
   dimension: [number, number];     // [宽%, 高%]（绝对模式时单位为 px）
   position: [string, string];      // 已规范化的 [left, top] CSS 值（含 % / calc / px）
+  anchor: [string, string];        // 元素自身回移量 [x, y] → transform: translate()
   absolute: boolean;               // 是否按 px 解释
   style: string;                   // 内联 CSS
   className: string;
@@ -304,6 +305,8 @@ export interface SplitElement {
 ```
 
 > 说明：`position` 在 **parser 阶段就规范化为最终 CSS 值**（关键字、负数都转成 `%` / `calc()`），Transformer 只做格式化拼接，避免双重映射（见 Task 2.1 / 2.3）。
+>
+> ⚠️ `position` 单独用不够：`left/top` 定位的是元素**左上角**，关键字（`center` / `bottomright`）与负数写法要表达的却是「元素的中心/右下角对齐到该点」。所以 parser 同时产出 `anchor`，由 Transformer 输出 `transform: translate(ax, ay)`。否则 `position="bottomright"` 会把元素整块推出画布（实现期实测，见 §十）。
 
 ---
 
@@ -388,7 +391,7 @@ export interface SplitElement {
   2. 路由：`/reveal.html`（模板，引用 `assets/reveal.bundle.mjs` + `assets/reveal.css` + `assets/reset.css`）；`/assets/*`（静态返回 `dist/assets/`）；`/deck`（POST，返回当前 SlideDeck，供实时刷新）
   3. iframe `src` = `http://127.0.0.1:${port}/reveal.html`
 - **安全**: 仅监听 `127.0.0.1`；`onunload` 时关闭服务器
-- **验收**: 启动插件后 `curl http://127.0.0.1:8347/reveal.html` 能返回含 reveal 样式的页面；ifame 能显示 reveal.js 默认空幻灯片（至少 1 页 `<section>Empty</section>`）、能翻页
+- **验收**: 启动插件后 `curl http://127.0.0.1:3000/reveal.html` 能返回含 reveal 样式的页面；ifame 能显示 reveal.js 默认空幻灯片（至少 1 页 `<section>Empty</section>`）、能翻页
 - **备选方案（记录，不采用）**: 把 reveal.js 全部内联进 `srcdoc`（体积大、`<script type=module>` 在 sandbox 内受限）；或依赖 `app.vault.getResourcePath()`（MIME 不可控）。本地服务器为推荐路径。
 
 ---
@@ -485,17 +488,20 @@ export interface SplitElement {
 - **实现**:
   - 正则匹配 `<grid\s+([^>]*)>([\s\S]*?)</grid>`，替换为 `<!--GRID_0-->` 占位符
   - 解析属性: `dimension`, `position`, `absolute`, `style`, `class`, `shape`, `frag`, `animate`
-  - **position 规范化（在此一处完成，Transformer 不再重复映射）**:
+  - **position 规范化（在此一处完成，Transformer 不再重复映射）**，同时产出 `anchor`（元素自身回移量）:
     ```typescript
-    // 输入 "20 25"   → ['20%', '25%']
-    // 输入 "top"      → ['50%', '0%']     // 单关键字: 水平居中 + 指定边
-    // 输入 "topleft"  → ['0%', '0%'];  topright → ['100%','0%']
-    // 输入 "bottomleft" → ['0%','100%']; bottomright → ['100%','100%']
-    // 输入 "left"     → ['0%','50%'];  right → ['100%','50%'];  center → ['50%','50%']
-    // 输入 "-6 -8"    → ['calc(100% - 6%)', 'calc(100% - 8%)']
-    // absolute=true   → 单位用 px
+    // position                          anchor
+    // "20 25"     → ['20%','25%']       ['0','0']          // 数值 = 左上角对齐
+    // "top"       → ['50%','0%']        ['-50%','0']       // 单关键字: 另一轴居中
+    // "topleft"   → ['0%','0%']         ['0','0']
+    // "topright"  → ['100%','0%']       ['-100%','0']
+    // "bottomright" → ['100%','100%']   ['-100%','-100%']
+    // "center"    → ['50%','50%']       ['-50%','-50%']
+    // "-6 -8"     → ['calc(100% - 6%)', 'calc(100% - 8%)']  ['-100%','-100%']  // 距右/下边缘
+    // absolute=true → 单位用 px；非法数值（如 "20%"）回落到 0，不得产生 NaN
+    // 规则: 关键字 anchor = -该百分比；负数 anchor = -100%；非负数值 anchor = 0
     ```
-- **验收**: 各 position 写法输出规范化后的 `[left, top]` 值；grid 替换为占位符
+- **验收**: 各 position 写法输出规范化后的 `[left, top]` 与 `anchor`；grid 替换为占位符
 
 #### Task 2.2: Grid 转换器（dimension / position / absolute）
 - **输出**: `src/transformers/grid.ts`
@@ -506,11 +512,14 @@ export interface SplitElement {
       const unit = grid.absolute ? 'px' : '%';
       const [w, h] = grid.dimension;
       const [left, top] = grid.position; // 已规范化，直接拼接
-      return `position: absolute; width: ${w}${unit}; height: ${h}${unit}; left: ${left}; top: ${top};`;
+      const [ax, ay] = grid.anchor;
+      const base = `position: absolute; width: ${w}${unit}; height: ${h}${unit}; left: ${left}; top: ${top};`;
+      // anchor 全零（数值定位）时不输出 transform，避免干扰用户自定义 transform
+      return ax === '0' && ay === '0' ? base : `${base} transform: translate(${ax}, ${ay});`;
     }
   }
   ```
-- **验收**: `dimension="60 30" position="20 25"` → `position: absolute; width: 60%; height: 30%; left: 20%; top: 25%;`；`position="-6 -8"` → `left: calc(100% - 6%); top: calc(100% - 8%);`
+- **验收**: `dimension="60 30" position="20 25"` → `position: absolute; width: 60%; height: 30%; left: 20%; top: 25%;`（无 transform）；`position="-6 -8"` → `left: calc(100% - 6%); top: calc(100% - 8%); transform: translate(-100%, -100%);`；`position="center"` → `left: 50%; top: 50%; transform: translate(-50%, -50%);`
 
 #### Task 2.3: Shape 转换器
 - **输出**: `src/transformers/shape.ts`
@@ -544,7 +553,9 @@ export interface SplitElement {
 #### Task 2.7: CSS 样式系统
 - **输出**: `src/styles/grid.scss`, `split.scss`, `canvas.scss`, `reveal-overrides.scss`
 - **实现**: `.grid`（absolute + flex 居中）、`.split`（flex）、画布 CSS 变量（`--canvas-width/height/root-font-size`）
-- **验收**: SCSS 编译后 Grid/Split 布局正确
+- **⚠️ 画布高度（实现期实测补充）**: reveal.js 的 `<section>` 默认 `height: auto`，grid 的 `height` / `top` 百分比会**塌成 0**（整页看起来是空白）。含 grid 的页必须标记为固定画布：`templateEngine` 给该 `<section>`（含垂直栈的外层）加 `rfo-canvas` class，CSS 置 `height: 100%; top: 0 !important; padding: 0`（`center: true` 时 reveal 会写内联 `top`，需压掉）。纯文本页不加，保留 reveal 原生垂直居中。
+- **`--root-font-size` 必须真正注入**：`canvasCalculator.computeRootFontSize` 的结果要由 iframe 客户端写到 `document.documentElement`，否则 `autoFontScale` / `fontScale` 两个设置项形同虚设。
+- **验收**: SCSS 编译后 Grid/Split 布局正确；`position="bottomright"` 的块贴在画布右下角内侧且高度非 0
 
 ---
 
@@ -704,7 +715,7 @@ export interface Transformer {
  4. noteProcessor.ts      → 逐页提取 note: 备注（分页后执行，避免跨页边界）
  5. gridParser.ts         → 每页内解析 <grid> → 占位符；position 在此规范化
  6. splitParser.ts        → 每页内解析 <split> → 占位符
- 7. renderMarkdownToHtml  → 渲染整页 Markdown（占位符为 HTML 注释，安全通过）
+ 7. renderMarkdownToHtml  → 渲染整页 Markdown（占位符为文本标记 ⟦RFO-GRID-n⟧，渲染器原样保留）
  8.   └─ 对每个 grid.children / split.columns 二次调用 renderMarkdownToHtml
  9. imageProcessor.ts     → wikilink 尺寸 / 视频 / Excalidraw（后处理已渲染的 HTML）
 10. svgProcessor.ts       → ```svg → data URI 图片
@@ -712,9 +723,28 @@ export interface Transformer {
 12. mermaidProcessor.ts   → ```mermaid → SVG
 13. codeBlockProcessor.ts → 长代码自适应测量
 14. elementComment.ts     → .element: / .slide:
-15. 占位符替换             → 调用 Transformer 生成最终 grid/split HTML
+15. 占位符替换             → 调用 Transformer 生成最终 grid/split HTML（多轮，解开嵌套）
 16. templateEngine.ts     → 注入 reveal.html 模板 → 推送服务器 /deck
 ```
+
+> **第 9~14 步的作用范围（易错点）**：此时页面 HTML 里 grid/split 只是占位符注释，内容还在
+> `grid.children` / `split.columns` 各自的字符串中。后处理必须**对这三处分别执行**，
+> 否则 grid 里的图片不会被改写成 `/vault` 路由（预览直接裂图）、代码块/短代码也不会被转换。
+> 各处解析出的 `.slide:` 属性统一并入当前页。
+>
+> **占位符绝不能用 HTML 注释**：Obsidian 的 MarkdownRenderer 会把 `<!-- ... -->` 整段丢弃。
+> 一页正文在解析后往往只剩占位符，渲染结果就是空字符串——整个 deck 每页全白。
+> 必须用普通文本标记（`⟦RFO-GRID-0⟧`），渲染器当文字保留，之后再字符串替换。
+> 代价是标记会被包进 `<p dir="auto">`，替换时要连段落包装一起处理。
+>
+> **第 15 步要多轮、且每轮只扫一遍**：grid 里可以放 split、split 里可以放 grid，
+> 一轮替换会把内层占位符原样留在插入的 HTML 里（内容整段丢失）。
+> 每轮必须用一条正则一次扫描完成（`String.replace` 不重扫刚插入的内容），
+> 否则本轮新插入内容的 `<p>` 包装来不及处理，会渲染成 `<p><div class="grid">`。
+>
+> **代码块保护范围**：`slideSplitter` 的代码块下标必须按**当前被切分的字符串**现算。
+> 分页是多轮的（水平 → headingDivider → 垂直），复用整篇正文算出的下标会整体错位，
+> 结果是第二页起代码块内的 `xxx` / `---` 照样触发分页。
 
 ---
 
@@ -806,5 +836,102 @@ const config: RevealConfig = {
 
 ---
 
-*规划版本: v3.0 (reveal.js 6.x, AI-oriented, 修正版)*  
+## 十、实施回写（2026-08-13，Phase 0–5 完成后实测）
+
+**已核实的 reveal.js 6.0.1 事实**:
+- 实际安装版本 6.0.1；exports 裸模块名 `reveal.js`、`reveal.js/plugin/{notes,highlight,math,zoom}` 均可用，类型内置（`RevealConfig`/`RevealApi` 从包根导出）。
+- `reveal.css`/`reset.css` 实体文件在 `dist/` 下（exports 已映射根路径）；highlight 主题在 `dist/plugin/highlight/*.css`。
+- `scrollActivationWidth?: number` 存在，传 `null` 即禁用自动滚动视图（类型上需 cast）。
+- **`lightbox` 配置项在 6.0.1 中不存在**（源码与类型均无），规划的 `lightbox: true` 未采用。
+- math 插件默认实现是 MathJax2 且从 CDN 加载；MathJax4 需显式 `RevealMath.MathJax4()`。当前保留默认 + 依赖 Obsidian MarkdownRenderer 预渲染公式，未打包 MathJax。
+- `?print-pdf` 由 reveal.js 6 内置检测并注入打印样式，PDF 导出无需额外 pdf.css。
+
+**实现期偏差点**:
+- 实时刷新采用 SSE（`/events`）+ 客户端（reveal.bundle.mjs）拉取 `/deck` 重渲染；`RevealEngine` 为插件侧门面，实际初始化在 iframe 内完成。
+- `noteProcessor` / `cssProcessor` 提前在 Phase 2 落地（管线槽位需要）；`embedProcessor` 实际插入在分页后、备注提取前（```slide 块内 `note:` 字段会与备注分隔符冲突）。
+- Transformer 接口实现为累加式 `TransformerResult { css, classes, attrs }`（规划中单 CSS 字符串返回值无法表达 class/属性）。
+- 图片经预览服务器 `/vault/*` 路由供给 iframe（`app://` resource URL 在 iframe 中不可加载，已改写）。
+- Excalidraw 仅支持「同名 .png 存在则引用」的最小方案（完整渲染依赖 Excalidraw 插件）。
+- Font Awesome 需用户经 `remoteCSS` 自行引入样式；emoji 内置约 60 个短代码映射。
+
+**状态**: Phase 0–5 完成；Task 5.4（社区发布）与 Phase 6（VSCode 扩展）未做。
+
+---
+
+## 十一、代码评审修正（2026-08-13，对照本规划逐条复核）
+
+用浏览器实跑预览服务器 + 单测复核后修正的**功能性缺陷**（均已补回归测试，146 测试通过）：
+
+| # | 问题 | 后果 | 修正 |
+|---|------|------|------|
+| 1 | grid 关键字/负数位置只写 `left/top`，缺元素自身回移 | `position="bottomright"` 整块推出画布，`center` 只有左上角在中心 | parser 产出 `anchor`，Transformer 输出 `transform: translate()`（见 Task 2.1/2.2） |
+| 2 | 含 grid 的 `<section>` 没有确定高度 | `dimension` 的高度百分比塌成 0，**整页空白** | `rfo-canvas` class + `height: 100%`（见 Task 2.7） |
+| 3 | 后处理只作用于页面 HTML，跳过 grid/split 内容 | grid 里的图片保持 `app://` 在 iframe 内裂图；```mermaid/chart/emoji 不生效 | 后处理链对页面、grid.children、split.columns 分别执行 |
+| 4 | 占位符只替换一轮 | split 里的 grid 内容整段丢失 | 多轮替换；同时补上 grid 内 `<split>` 的解析 |
+| 5 | `slideSplitter` 代码块下标按整篇正文算 | 第二页起代码块内的 `---`/`xxx` 仍会分页 | 下标按当前分块现算 |
+| 6 | `computeRootFontSize` 写了但没人调用 | `autoFontScale` / `fontScale` 两个设置项无效 | 客户端渲染时写入 `--root-font-size` |
+| 7 | `css`（本地 CSS 文件）收进 deck 后无人加载 | 设置页的「Local CSS files」无效 | 渲染后读取 vault 内文件，拼在文档级 CSS 之前（笔记内 `<style>` 优先级更高） |
+
+---
+
+## 十二、补齐实现（2026-08-13，第二轮）
+
+上一轮列出的「仍未实现」项已全部落地，默认端口按要求改为 **3000**：
+
+| 功能 | 实现 | 验证 |
+|------|------|------|
+| 默认端口 3000 | `DEFAULT_SETTINGS.port = 3000` | 全链路（含 README / 教程）同步 |
+| **端口占用自动顺延** | `PreviewServer.start()` 遇 `EADDRINUSE` 顺延重试，最多 10 个端口，Notice 告知实际端口 | 实测：本机 3000 已被 Obsidian 占用 → 自动落到 3001 并正常预览 |
+| 端口改完自动重启 | 设置页输入框 `change`（失焦/回车）触发 `restartServer()`，重启后重跑管线 | 图片 URL 带端口，只重启不重渲染会全部裂图，故一并重跑 |
+| **实际端口贯穿全链路** | 新增 `plugin.serverBase`，管线 / PDF 导出 / HTML 导出统一取**实际监听端口**而非设置值 | 顺延后导出的资源路径仍能对上 |
+| **`<grid>` / `<split>` 嵌套** | 解析改为「由内向外」逐层替换最内层标签（最多 8 层），占位符多轮解开 | 浏览器实测：内层 grid 百分比相对外层计算 |
+| **属性自动补全** | `EditorSuggest` 外壳 + 纯函数 `getSuggestContext()`；属性名 + `position`/`shape`/`frag`/`animate` 取值候选，受 `autoComplete` 开关控制 | 12 项单测覆盖触发/过滤/插入文本 |
+| **`![[img.png\|800]]` 尺寸** | 从 alt 后缀或 Obsidian `.image-embed` 容器取宽高，落到 `<img>`/`<video>` 本身（iframe 内没有 Obsidian 的 CSS，挂在容器上不生效） | 5 项单测 |
+| **fixtures 快照测试** | `tests/fixtures/full-deck.md` + `tests/engine/fixtures.test.ts`，快照覆盖 deck 结构与 `<section>` HTML | `npx vitest -u` 更新 |
+
+**修正的连带问题**: 占位符替换里「脱 `<p>` 包装」与「替换裸占位符」原本在同一轮内先后执行，
+导致本轮新插入内容的 `<p>` 包装没人处理（嵌套 grid 会渲染成 `<p><div class="grid">`）。
+现拆成两步：每轮先脱包装再替换。
+
+---
+
+## 十三、真实笔记实测修正（2026-08-13，第三轮）
+
+拿一篇 82 个 `<grid>` 的真实课件笔记在 Obsidian 里跑，发现两个**只有真实渲染器才会暴露**的问题：
+
+| # | 问题 | 现象 | 修正 |
+|---|------|------|------|
+| 1 | **占位符用了 HTML 注释** | Obsidian 的 MarkdownRenderer 直接丢弃 `<!-- ... -->`；页面正文解析后只剩占位符 → **17 页全部 html 为空**（备注正常，因为备注是普通 Markdown） | 占位符改为文本标记 `⟦RFO-GRID-n⟧`；新增 `tests/engine/obsidianRenderer.test.ts`，用「会删注释 + `<p dir="auto">` + 段内换行转 `<br>`」的渲染桩做回归 |
+| 2 | `drag` / `drop` 属性不认 | advanced-slides 语法写的笔记，82 个 grid 全落到默认值（满画布 + 居中）叠在一起 | `drag` / `drop` 作为 `dimension` / `position` 的别名支持 |
+
+**教训**：此前所有管线测试的渲染桩都会原样透传 HTML 注释，与真实 Obsidian 行为不符，
+导致核心机制（占位符）在单测全绿的情况下完全不可用。涉及外部渲染器的约定，
+测试桩必须复刻其**实际行为**（删注释、加属性、合并段落），不能想当然。
+
+**同时按需求调整**：
+- 预览面板默认改为**主编辑区右侧分栏**（与笔记并排，同 advanced-slides），设置页可选「独立窗口」或「右侧边栏」。
+- 尺寸/位置属性增加短写 **`dim` / `pos`**（优先级最高），`dimension`/`position` 与 `drag`/`drop` 继续可用；
+  自动补全候选只列短写，取值补全对三种拼法都生效。
+- 新增**版面辅助线**（设置项 `showGridGuides` + 命令 `Toggle Grid Guides`）：
+  画布铺 10% 标尺、每个 grid 画虚线边框并标注 `宽×高 @ left top`。
+  标注文字取自 `GridTransformer` 输出的 `data-rfo-box` 属性（CSS `content: attr()`），
+  用绝对定位伪元素实现，不会变成 flex 子项挤动内容，也不影响导出。
+- README 增加「完整教程：从空笔记到一份课件」（7 步走通画布/grid/分栏/插图备注/CSS 变量/辅助线/交付）。
+- 辅助线开关在 Slide Preview 面板标题栏加了按钮（`ItemView.addAction`），开着时按钮点亮；
+  命令、按钮、设置项走同一入口 `setGridGuides()`，切换只推 deck、不重载 iframe。
+- **iframe sandbox 补 `allow-popups` / `allow-popups-to-escape-sandbox` / `allow-modals`**：
+  演讲者视图（按 S）要 `window.open`，缺权限时返回 null，而 reveal.js 的 notes 插件
+  是先用后判空（`w.marked = ...` 在 `if (!w)` 之前），会抛
+  `Cannot set properties of null (setting 'marked')` 打断整页渲染。
+  客户端同时把这条报错翻译成可操作的提示。
+
+**仍未实现 / 已知限制**:
+- `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
+  改成按需动态 import 可显著瘦身，但会拆出额外 chunk，与「单文件离线播放」冲突，故维持现状。
+- Obsidian 内嵌块（`![[note#heading]]`）的渲染时序依赖 `MarkdownRenderer` 的异步加载行为，需在真实 Obsidian 内复核。
+- 嵌套层数上限 8 层（`gridParser` / `splitParser` 的 `MAX_NESTING`），超出部分保持原文。
+
+---
+
+*规划版本: v3.3 (reveal.js 6.x, AI-oriented, 真实笔记实测修正)*  
 *最后更新: 2026-08-13*
