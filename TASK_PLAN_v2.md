@@ -979,6 +979,13 @@ lint + 测试 + 构建 + 冒烟；冒烟会起真实服务器打一遍 `/assets`
 Windows 的盘符问题正是靠这条路才能在 CI 里挡住。
 发布（`release.yml`）由 tag 触发，校验 tag 与 manifest 版本一致后建草稿 release。
 
+**`.element:` / `.slide:` 也栽在同一个坑上（第五轮追加）**：Obsidian 删注释，
+这两个语法的处理器一直在渲染后找注释节点 —— 永远找不到，**静默失效**
+（用户报「调 font-size 没反应」才暴露）。改为与 grid 同样的思路：
+渲染前把注释换成文本标记 `⟦RFO-EL-n⟧`，渲染后按标记回填属性再抹掉标记。
+注释节点的老路径保留，兼容会透传注释的宿主。
+回归测试放在 `obsidianRenderer.test.ts`（渲染桩会删注释）。
+
 **仍未实现 / 已知限制**:
 - `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
   改成按需动态 import 可显著瘦身，但会拆出额外 chunk，与「单文件离线播放」冲突，故维持现状。

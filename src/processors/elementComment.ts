@@ -1,18 +1,42 @@
 /**
- * Element Comment 处理（DOM 操作，插件侧运行）：
+ * Element Comment 处理：
  *   <!-- .element: class="x" style="color:red" --> 作用于紧邻的前一个元素
  *   <!-- .slide: background-color="#fff" -->       收集为当前页 <section> 属性
- * 处理完的注释节点会被移除；其余注释原样保留。
+ *
+ * ⚠️ 必须在**渲染之前**把注释换成文本标记：Obsidian 的 MarkdownRenderer 会把
+ * HTML 注释整段删掉，等到渲染后再找注释节点，永远找不到 —— 这两个语法会静默失效
+ * （和 grid 占位符踩的是同一个坑）。
+ *
+ * 渲染后再按标记回填属性；标记本身随即从 DOM 中移除。
+ * 为兼容会保留注释的渲染器（测试桩、其它宿主），注释节点的老路径也一并保留。
  */
 import { normalizeSlideAttributes } from '../transformers/backgroundImage';
+
+export interface ElementDirective {
+  kind: 'element' | 'slide';
+  attrs: Record<string, string>;
+}
+
+export interface ElementExtractResult {
+  /** 注释已换成 ⟦RFO-EL-n⟧ 标记的文本 */
+  text: string;
+  directives: ElementDirective[];
+}
 
 export interface ElementCommentResult {
   html: string;
   slideAttributes: Record<string, string>;
 }
 
+const COMMENT_RE = /<!--\s*\.(element|slide):\s*([\s\S]*?)-->/g;
 const COMMENT_PATTERN = /^\s*\.(element|slide):\s*(.+?)\s*$/;
 const ATTR_PATTERN = /([\w-]+)\s*=\s*"([^"]*)"/g;
+
+const TOKEN_PREFIX = '⟦RFO-EL-';
+const TOKEN_CLOSE = '⟧';
+const TOKEN_RE = /⟦RFO-EL-(\d+)⟧/g;
+
+const token = (index: number) => `${TOKEN_PREFIX}${index}${TOKEN_CLOSE}`;
 
 /** 解析 key="value" 属性列表 */
 function parseAttributes(text: string): Record<string, string> {
@@ -25,7 +49,18 @@ function parseAttributes(text: string): Record<string, string> {
   return attrs;
 }
 
-/** 递归收集注释节点 */
+/** 渲染前：把 .element / .slide 注释换成文本标记 */
+export function extractElementComments(markdown: string): ElementExtractResult {
+  const directives: ElementDirective[] = [];
+  const text = markdown.replace(COMMENT_RE, (_whole, kind: string, body: string) => {
+    const index = directives.length;
+    directives.push({ kind: kind as 'element' | 'slide', attrs: parseAttributes(body) });
+    return token(index);
+  });
+  return { text, directives };
+}
+
+/** 递归收集注释节点（兼容保留注释的渲染器） */
 function collectComments(node: Node, out: Comment[]): void {
   if (node.nodeType === Node.COMMENT_NODE) {
     out.push(node as Comment);
@@ -34,25 +69,22 @@ function collectComments(node: Node, out: Comment[]): void {
   Array.from(node.childNodes).forEach((child) => collectComments(child, out));
 }
 
-/** 注释是否独占该元素（其余内容仅为空白文本） */
-function isOnlyContent(parent: Element, comment: Comment): boolean {
-  return Array.from(parent.childNodes).every(
-    (child) =>
-      child === comment ||
-      (child.nodeType === Node.TEXT_NODE && !(child.textContent ?? '').trim()),
-  );
+/** 递归收集含标记的文本节点 */
+function collectTokenNodes(node: Node, out: Text[]): void {
+  if (node.nodeType === Node.TEXT_NODE) {
+    if ((node.textContent ?? '').includes(TOKEN_PREFIX)) out.push(node as Text);
+    return;
+  }
+  Array.from(node.childNodes).forEach((child) => collectTokenNodes(child, out));
 }
 
-/** .element 注释的作用目标：紧邻的前一个元素兄弟节点 */
-function findElementTarget(comment: Comment, wrapper: Element | null): Element | null {
-  const prev = comment.previousElementSibling;
-  if (prev) return prev;
-  // 注释独占一个 <p>（Markdown 渲染器把注释行包成段落）：作用于 <p> 的前一个元素
-  if (wrapper) return wrapper.previousElementSibling;
-  // 注释在元素内部末尾（如 "text <!-- .element: -->"）：作用于父元素本身
-  const parent = comment.parentElement;
-  if (parent && parent.tagName !== 'BODY') return parent;
-  return null;
+/** 元素除了这个节点之外是否只剩空白 */
+function isOnlyContent(parent: Element, node: Node, remainingText = ''): boolean {
+  return Array.from(parent.childNodes).every(
+    (child) =>
+      child === node ||
+      (child.nodeType === Node.TEXT_NODE && !(child.textContent ?? '').trim()),
+  ) && !remainingText.trim();
 }
 
 /** class 合并、style 追加、其余 setAttribute */
@@ -71,28 +103,78 @@ function applyAttributes(el: Element | null, attrs: Record<string, string>): voi
   }
 }
 
-export function processElementComments(html: string): ElementCommentResult {
+/**
+ * 标记的作用目标：
+ *   `<h1>标题⟦tok⟧</h1>`        → 该元素本身（注释写在行尾）
+ *   `<p>⟦tok⟧</p>` 独占一段      → 上一个兄弟元素，并删掉这个空段落
+ */
+function resolveTarget(node: Text, remaining: string): Element | null {
+  const parent = node.parentElement;
+  if (!parent) return null;
+
+  if (isOnlyContent(parent, node, remaining)) {
+    const target = parent.previousElementSibling;
+    if (target) {
+      parent.remove();
+      return target;
+    }
+    // 没有前一个元素（比如整页只有这条指令）：作用于父元素本身
+  }
+  return parent.tagName === 'BODY' ? null : parent;
+}
+
+/** 渲染后：按标记回填属性，并处理仍以注释形式存在的指令 */
+export function applyElementComments(
+  html: string,
+  directives: ElementDirective[] = [],
+): ElementCommentResult {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const slideAttributes: Record<string, string> = {};
 
+  // 1. 文本标记（Obsidian 走这条）
+  const textNodes: Text[] = [];
+  collectTokenNodes(doc.body, textNodes);
+
+  for (const node of textNodes) {
+    const matches = [...node.data.matchAll(TOKEN_RE)];
+    if (matches.length === 0) continue;
+
+    const remaining = node.data.replace(TOKEN_RE, '');
+    const applicable = matches
+      .map((match) => directives[Number(match[1])])
+      .filter((directive): directive is ElementDirective => directive !== undefined);
+
+    const elementAttrs = applicable.filter((d) => d.kind === 'element');
+    applicable
+      .filter((d) => d.kind === 'slide')
+      .forEach((d) => Object.assign(slideAttributes, d.attrs));
+
+    // 先取目标（可能连带删掉空段落），再把标记文字抹掉
+    const target = elementAttrs.length > 0 || applicable.length > 0 ? resolveTarget(node, remaining) : null;
+    node.data = remaining;
+    for (const directive of elementAttrs) applyAttributes(target, directive.attrs);
+  }
+
+  // 2. 注释节点（保留注释的渲染器）
   const comments: Comment[] = [];
   collectComments(doc.body, comments);
 
   for (const comment of comments) {
-    // 非 .element/.slide 注释跳过
     const match = COMMENT_PATTERN.exec(comment.data);
     if (!match) continue;
     const attrs = parseAttributes(match[2]);
 
-    // 注释独占 <p> 时，处理后一并移除空段落包装
     const parent = comment.parentElement;
-    const wrapper =
-      parent && parent.tagName === 'P' && isOnlyContent(parent, comment) ? parent : null;
+    const wrapper = parent && parent.tagName === 'P' && isOnlyContent(parent, comment) ? parent : null;
 
     if (match[1] === 'slide') {
       Object.assign(slideAttributes, attrs);
     } else {
-      applyAttributes(findElementTarget(comment, wrapper), attrs);
+      const target = wrapper
+        ? wrapper.previousElementSibling
+        : (comment.previousElementSibling ??
+          (parent && parent.tagName !== 'BODY' ? parent : null));
+      applyAttributes(target, attrs);
     }
     comment.remove();
     wrapper?.remove();
@@ -102,4 +184,9 @@ export function processElementComments(html: string): ElementCommentResult {
     html: doc.body.innerHTML,
     slideAttributes: normalizeSlideAttributes(slideAttributes),
   };
+}
+
+/** 旧接口：仅处理注释节点 */
+export function processElementComments(html: string): ElementCommentResult {
+  return applyElementComments(html, []);
 }

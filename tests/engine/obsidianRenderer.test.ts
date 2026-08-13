@@ -78,3 +78,22 @@ describe('placeholders survive the Obsidian renderer', () => {
     expect(deck.pages[0].notes).toHaveLength(1);
   });
 });
+
+describe('element comments survive the Obsidian renderer', () => {
+  it('applies .element style to the heading it follows', async () => {
+    const deck = await run('# 标题<!-- .element: style="font-size:100px" -->');
+    expect(deck.pages[0].html).toContain('font-size:100px');
+  });
+
+  it('applies .element inside a grid', async () => {
+    const deck = await run(
+      '<grid dim="76 24" pos="12 30">\n\n# 标题<!-- .element: style="font-size:100px" -->\n\n</grid>',
+    );
+    expect(deck.pages[0].html).toContain('font-size:100px');
+  });
+
+  it('collects .slide attributes', async () => {
+    const deck = await run('内容\n\n<!-- .slide: background-color="#101010" -->');
+    expect(deck.pages[0].attributes['data-background-color']).toBe('#101010');
+  });
+});

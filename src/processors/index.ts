@@ -13,7 +13,8 @@ import { processChartBlocks } from './chartProcessor';
 import { processMermaidBlocks } from './mermaidProcessor';
 import { processSlideEmbeds } from './embedProcessor';
 import { processInlineMarkup } from './footnoteProcessor';
-import { processElementComments } from './elementComment';
+import { applyElementComments, extractElementComments } from './elementComment';
+import type { ElementDirective } from './elementComment';
 import { createDefaultRegistry, renderGridHtml, renderSplitHtml } from '../transformers';
 import { splitPlaceholder } from '../constants';
 
@@ -124,8 +125,12 @@ export class PipelineOrchestrator {
         config.notesSeparator ?? settings.notesSeparator,
       );
 
+      // 4.5 <!-- .element: --> / <!-- .slide: --> → 文本标记
+      //     必须在渲染前抽走：Obsidian 会把 HTML 注释整段删掉
+      const { text: marked, directives } = extractElementComments(noted);
+
       // 5/6. grid / split → 占位符
-      const gridParsed = parseGridTags(noted);
+      const gridParsed = parseGridTags(marked);
       const splitParsed = parseSplitTags(gridParsed.html);
       const grids = gridParsed.grids;
       const splits = splitParsed.splits;
@@ -158,18 +163,18 @@ export class PipelineOrchestrator {
 
       // 9~14. 后处理。grid/split 的内容此时还在各自的字符串里（页面 html 中只有占位符），
       //       必须逐份处理，否则 grid 里的图片不会被改写、代码块不会被转换。
-      const pageResult = this.postProcess(html, { serverBase, fileExists });
+      const pageResult = this.postProcess(html, { serverBase, fileExists, directives });
       html = pageResult.html;
       const slideAttributes = { ...pageResult.slideAttributes };
 
       for (const grid of grids) {
-        const result = this.postProcess(grid.children, { serverBase, fileExists });
+        const result = this.postProcess(grid.children, { serverBase, fileExists, directives });
         grid.children = result.html;
         Object.assign(slideAttributes, result.slideAttributes);
       }
       for (const split of splits) {
         split.columns = split.columns.map((col) => {
-          const result = this.postProcess(col, { serverBase, fileExists });
+          const result = this.postProcess(col, { serverBase, fileExists, directives });
           Object.assign(slideAttributes, result.slideAttributes);
           return result.html;
         });
@@ -224,14 +229,18 @@ export class PipelineOrchestrator {
    */
   private postProcess(
     html: string,
-    options: { serverBase?: string; fileExists?: (absolutePath: string) => boolean },
+    options: {
+      serverBase?: string;
+      fileExists?: (absolutePath: string) => boolean;
+      directives?: ElementDirective[];
+    },
   ): { html: string; slideAttributes: Record<string, string> } {
     let result = processImages(html, options);
     result = processSvgBlocks(result);
     result = processChartBlocks(result);
     result = processMermaidBlocks(result);
     result = processInlineMarkup(result);
-    const elementResult = processElementComments(result);
+    const elementResult = applyElementComments(result, options.directives);
     return { html: elementResult.html, slideAttributes: elementResult.slideAttributes };
   }
 
