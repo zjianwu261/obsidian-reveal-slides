@@ -61,7 +61,9 @@ const RevealPlugin = require(path.join(root, 'dist', 'main.js')).default;
 const plugin = new RevealPlugin();
 plugin.app = {
   vault: { adapter: new FileSystemAdapter() },
-  workspace: { getLeavesOfType: () => [] },
+  // 起 / 停服务器都会重跑一次管线（资源 URL 随通道变），这里没有打开的笔记，
+  // 走的是「空 deck」分支
+  workspace: { getLeavesOfType: () => [], getActiveFile: () => null },
 };
 plugin.manifest = { dir: 'dist' };
 plugin.settings = { port: 8399 };

@@ -109,9 +109,16 @@ export function processImages(html: string, options: ImageProcessOptions = {}): 
     // 这里仅支持其导出的同名 png 文件，不存在时保留原始链接。
     if (ext === 'excalidraw' && absolutePath) {
       const pngPath = absolutePath.replace(/\.excalidraw$/i, '.png');
-      if (serverBase && fileExists?.(pngPath)) {
+      if (fileExists?.(pngPath)) {
         const img = doc.createElement('img');
-        img.setAttribute('src', toVaultUrl(serverBase, pngPath));
+        // 无 serverBase（内联通道）时保持 app:// 形态，只把扩展名换掉；
+        // 尾部的 ?mtime 是缓存参数，换了文件就不该再带着
+        img.setAttribute(
+          'src',
+          serverBase
+            ? toVaultUrl(serverBase, pngPath)
+            : raw.split('?')[0].replace(/\.excalidraw$/i, '.png'),
+        );
         img.setAttribute('alt', size.alt ?? el.getAttribute('alt') ?? 'excalidraw');
         applySize(img, { ...size, alt: undefined });
         el.replaceWith(img);

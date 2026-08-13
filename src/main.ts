@@ -117,7 +117,8 @@ export default class RevealPlugin extends Plugin {
   }
 
   async onunload(): Promise<void> {
-    await this.stopServer();
+    // 直接关服务器：卸载时重跑管线、刷新面板都没有意义
+    await this.shutdownServer();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE_SLIDE_PREVIEW);
   }
 
@@ -133,24 +134,43 @@ export default class RevealPlugin extends Plugin {
     if (this.server?.running) return;
     // 移动端没有 Node，起不了 HTTP 服务器：预览走内联通道（见 inlinePreview.ts）
     if (Platform.isMobile) {
-      this.refreshPreviewViews();
+      await this.switchPreviewChannel();
       return;
     }
     // 动态 import：模块顶层 import 了 http/fs/path，移动端一旦求值就会崩
     const { PreviewServer } = await import('./server/previewServer');
-    this.server = new PreviewServer(this);
+    const server = new PreviewServer(this);
     try {
-      await this.server.start(this.settings.port);
-      this.refreshPreviewViews();
+      await server.start(this.settings.port);
+      // 起成功了才认：失败时 this.server 必须保持 null，
+      // 否则 serverBase 会给出一个没人监听的地址，资源 URL 全指向空端口
+      this.server = server;
     } catch {
-      // Notice 已在 server 内提示
+      // Notice 已在 server 内提示，退回内联通道
     }
+    await this.switchPreviewChannel();
   }
 
   async stopServer(): Promise<void> {
     if (!this.server) return;
-    await this.server.stop();
+    await this.shutdownServer();
+    await this.switchPreviewChannel();
+  }
+
+  /** 只关服务器，不动预览（卸载与重启用） */
+  private async shutdownServer(): Promise<void> {
+    const server = this.server;
     this.server = null;
+    await server?.stop();
+  }
+
+  /**
+   * 预览通道切换（服务器起 / 停）后必须重跑管线：
+   * 资源 URL 是按通道决定的 —— 服务器模式改写成 /vault 路由，内联模式保持 app:// 原样。
+   * 用错一种，整页图片全裂。先重渲染再刷新面板，页面加载后拿到的才是新 deck。
+   */
+  private async switchPreviewChannel(): Promise<void> {
+    await this.renderActiveFile();
     this.refreshPreviewViews();
   }
 
@@ -160,10 +180,12 @@ export default class RevealPlugin extends Plugin {
    */
   async restartServer(): Promise<void> {
     const wasRunning = this.server?.running ?? false;
-    await this.stopServer();
-    if (!wasRunning) return;
-    await this.startServer();
-    await this.renderActiveFile();
+    await this.shutdownServer();
+    if (wasRunning) {
+      await this.startServer(); // 内部已重跑管线并刷新预览
+      return;
+    }
+    await this.switchPreviewChannel();
   }
 
   /**
@@ -182,9 +204,16 @@ export default class RevealPlugin extends Plugin {
     this.forEachPreview((preview) => preview.pushGoto(page));
   }
 
-  /** 预览服务器根地址（服务器未运行时按设置端口给出占位值） */
-  get serverBase(): string {
-    return this.server?.running ? this.server.base : `http://127.0.0.1:${this.settings.port}`;
+  /**
+   * 预览服务器根地址；服务器没在跑时为 undefined。
+   *
+   * 不能在这里编一个占位地址：管线拿它把 app:// 资源改写成 /vault 路由，
+   * 而内联通道（移动端始终如此，桌面端服务器起不来时也一样）靠的正是
+   * blob 页面与宿主同源、app:// 能直接加载 —— 改写成一个没人监听的端口，
+   * 结果就是每张图片都裂。
+   */
+  get serverBase(): string | undefined {
+    return this.server?.running ? this.server.base : undefined;
   }
 
   /** 更新当前 deck 并推送到所有预览客户端 */
@@ -337,13 +366,20 @@ export default class RevealPlugin extends Plugin {
     }
   }
 
+  /**
+   * 重新渲染并推送预览。内联通道也要能刷新 —— 移动端根本没有服务器，
+   * 早先这里直接以「服务器没跑」告退，于是工具栏的刷新按钮和快捷键
+   * 在手机上永远是死的（关掉自动刷新后就再也更新不了预览）。
+   */
   async reloadPreview(): Promise<void> {
-    if (!this.server?.running) {
-      new Notice('reveal-for-obsidian: preview server is not running');
+    await this.renderActiveFile();
+    if (this.server?.running) {
+      this.server.broadcast();
       return;
     }
-    await this.renderActiveFile();
-    this.server.broadcast();
+    // 内联模式：renderActiveFile 已经把 deck 推过去了，
+    // 只有页面还没就绪（加载失败 / 尚未报到）才需要重建 shell
+    this.forEachPreview((view) => view.reloadIfNotReady());
   }
 
   /** 导出 PDF：先重跑管线确保 deck 最新，再打开 ?print-pdf 打印视图 */
@@ -354,9 +390,20 @@ export default class RevealPlugin extends Plugin {
 
   /** 导出独立 HTML：先重跑管线确保 deck 最新，再打包单文件导出 */
   async exportHtml(): Promise<void> {
+    // htmlExporter 顶层 import 了 fs / path，移动端一求值就抛。
+    // 先挡在动态 import 之前 —— 否则这里 reject 出去没人接，用户什么也看不到。
+    if (Platform.isMobile) {
+      new Notice('reveal-for-obsidian: HTML export needs the desktop app');
+      return;
+    }
     await this.renderActiveFile();
-    const { exportHtml: runHtmlExport } = await import('./export/htmlExporter');
-    await runHtmlExport(this);
+    try {
+      const { exportHtml: runHtmlExport } = await import('./export/htmlExporter');
+      await runHtmlExport(this);
+    } catch (err) {
+      console.error('[reveal-for-obsidian] html export failed', err);
+      new Notice(`reveal-for-obsidian: HTML export failed - ${String(err)}`);
+    }
   }
 
   private refreshPreviewViews(): void {

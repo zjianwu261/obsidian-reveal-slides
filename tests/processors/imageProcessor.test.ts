@@ -63,6 +63,15 @@ describe('processImages', () => {
     expect(out).not.toContain('.excalidraw');
   });
 
+  // 内联通道没有 serverBase，但 png 替换照样得做，只是保持 app:// 形态
+  it('replaces excalidraw with the sibling png without a serverBase', () => {
+    const out = processImages('<a href="app://id/v/drawing.excalidraw?17">drawing</a>', {
+      fileExists: (p) => p === '/v/drawing.png',
+    });
+    expect(out).toContain('src="app://id/v/drawing.png"');
+    expect(out).not.toContain('.excalidraw');
+  });
+
   it('keeps excalidraw links when no sibling png exists', () => {
     const html = '<a href="app://id/v/drawing.excalidraw">drawing</a>';
     const out = processImages(html, { serverBase: BASE, fileExists: () => false });

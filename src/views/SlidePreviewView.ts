@@ -144,6 +144,11 @@ export class SlidePreviewView extends ItemView {
     this.revokeInlineUrl = null;
   }
 
+  /** 内联页面没就绪（加载失败或尚未报到）时重建 shell，让「刷新」在内联模式下也管用 */
+  reloadIfNotReady(): void {
+    if (!this.inlineReady) this.refresh();
+  }
+
   /** 内联页面报到后推送当前 deck（服务器模式下由 SSE 负责，不走这里） */
   handleInlineReady(): void {
     this.inlineReady = true;

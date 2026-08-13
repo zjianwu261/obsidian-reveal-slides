@@ -22,7 +22,11 @@ function sanitizeFileName(name: string): string {
  * 收集 deck 各页 html 中的 /vault 资源引用，复制到 filesDir，
  * 返回「原始 URL → files/<basename>」映射；重名文件自动加序号。
  */
-function collectAndCopyAssets(deck: SlideDeck, serverBase: string, filesDir: string): Record<string, string> {
+function collectAndCopyAssets(
+  deck: SlideDeck,
+  serverBase: string | undefined,
+  filesDir: string,
+): Record<string, string> {
   const mapping: Record<string, string> = {};
   const usedNames = new Set<string>();
 
