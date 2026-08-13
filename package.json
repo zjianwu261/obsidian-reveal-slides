@@ -1,6 +1,6 @@
 {
   "name": "reveal-for-obsidian",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reveal.js 6.x based presentation plugin for Obsidian. Markdown notes to slides, no built-in themes, layout via <grid> and inline CSS.",
   "main": "dist/main.js",
   "scripts": {
