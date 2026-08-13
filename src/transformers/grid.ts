@@ -6,15 +6,14 @@ export class GridTransformer implements Transformer {
   name = 'grid';
 
   transform(grid: GridElement, result: TransformerResult): void {
-    const unit = grid.absolute ? 'px' : '%';
     const [w, h] = grid.dimension;
     const [left, top] = grid.position; // parser 阶段已规范化，直接拼接
     const [ax, ay] = grid.anchor;
 
     result.css.push(
       `position: absolute;`,
-      `width: ${w}${unit};`,
-      `height: ${h}${unit};`,
+      `width: ${w}%;`,
+      `height: ${h}%;`,
       `left: ${left};`,
       `top: ${top};`,
     );
@@ -25,6 +24,6 @@ export class GridTransformer implements Transformer {
     }
 
     // 供「显示 grid 范围」的辅助线读取（CSS 的 content: attr()），平时不影响渲染
-    result.attrs['data-rfo-box'] = `${w}×${h}${unit} @ ${left} ${top}`;
+    result.attrs['data-rfo-box'] = `${w}×${h}% @ ${left} ${top}`;
   }
 }

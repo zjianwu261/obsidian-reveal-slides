@@ -4,58 +4,53 @@ import { gridPlaceholder } from '../../src/constants';
 
 describe('normalizePosition', () => {
   it('numeric pair → percentages', () => {
-    expect(normalizePosition('20 25', false)).toEqual(['20%', '25%']);
-  });
-
-  it('numeric pair with absolute → px', () => {
-    expect(normalizePosition('200 150', true)).toEqual(['200px', '150px']);
+    expect(normalizePosition('20 25')).toEqual(['20%', '25%']);
   });
 
   it('single keyword centers the other axis', () => {
-    expect(normalizePosition('top', false)).toEqual(['50%', '0%']);
-    expect(normalizePosition('bottom', false)).toEqual(['50%', '100%']);
-    expect(normalizePosition('left', false)).toEqual(['0%', '50%']);
-    expect(normalizePosition('right', false)).toEqual(['100%', '50%']);
-    expect(normalizePosition('center', false)).toEqual(['50%', '50%']);
+    expect(normalizePosition('top')).toEqual(['50%', '0%']);
+    expect(normalizePosition('bottom')).toEqual(['50%', '100%']);
+    expect(normalizePosition('left')).toEqual(['0%', '50%']);
+    expect(normalizePosition('right')).toEqual(['100%', '50%']);
+    expect(normalizePosition('center')).toEqual(['50%', '50%']);
   });
 
   it('corner keywords', () => {
-    expect(normalizePosition('topleft', false)).toEqual(['0%', '0%']);
-    expect(normalizePosition('topright', false)).toEqual(['100%', '0%']);
-    expect(normalizePosition('bottomleft', false)).toEqual(['0%', '100%']);
-    expect(normalizePosition('bottomright', false)).toEqual(['100%', '100%']);
+    expect(normalizePosition('topleft')).toEqual(['0%', '0%']);
+    expect(normalizePosition('topright')).toEqual(['100%', '0%']);
+    expect(normalizePosition('bottomleft')).toEqual(['0%', '100%']);
+    expect(normalizePosition('bottomright')).toEqual(['100%', '100%']);
   });
 
   it('negative numbers → calc()', () => {
-    expect(normalizePosition('-6 -8', false)).toEqual(['calc(100% - 6%)', 'calc(100% - 8%)']);
-    expect(normalizePosition('-60 -80', true)).toEqual(['calc(100% - 60px)', 'calc(100% - 80px)']);
+    expect(normalizePosition('-6 -8')).toEqual(['calc(100% - 6%)', 'calc(100% - 8%)']);
   });
 
   it('keyword pairs', () => {
-    expect(normalizePosition('left top', false)).toEqual(['0%', '0%']);
-    expect(normalizePosition('right bottom', false)).toEqual(['100%', '100%']);
+    expect(normalizePosition('left top')).toEqual(['0%', '0%']);
+    expect(normalizePosition('right bottom')).toEqual(['100%', '100%']);
   });
 });
 
 describe('resolvePosition anchors', () => {
   it('numeric positions anchor at the top-left corner', () => {
-    expect(resolvePosition('20 25', false).anchor).toEqual(['0', '0']);
+    expect(resolvePosition('20 25').anchor).toEqual(['0', '0']);
   });
 
   it('keywords pull the element back by the same percentage', () => {
-    expect(resolvePosition('center', false).anchor).toEqual(['-50%', '-50%']);
-    expect(resolvePosition('bottomright', false).anchor).toEqual(['-100%', '-100%']);
-    expect(resolvePosition('topleft', false).anchor).toEqual(['0', '0']);
-    expect(resolvePosition('top', false).anchor).toEqual(['-50%', '0']);
-    expect(resolvePosition('left top', false).anchor).toEqual(['0', '0']);
+    expect(resolvePosition('center').anchor).toEqual(['-50%', '-50%']);
+    expect(resolvePosition('bottomright').anchor).toEqual(['-100%', '-100%']);
+    expect(resolvePosition('topleft').anchor).toEqual(['0', '0']);
+    expect(resolvePosition('top').anchor).toEqual(['-50%', '0']);
+    expect(resolvePosition('left top').anchor).toEqual(['0', '0']);
   });
 
   it('negative numbers anchor at the far edge', () => {
-    expect(resolvePosition('-6 -8', false).anchor).toEqual(['-100%', '-100%']);
+    expect(resolvePosition('-6 -8').anchor).toEqual(['-100%', '-100%']);
   });
 
   it('non-numeric tokens fall back to 0 instead of NaN', () => {
-    expect(resolvePosition('20% 25%', false).position).toEqual(['0%', '0%']);
+    expect(resolvePosition('20% 25%').position).toEqual(['0%', '0%']);
   });
 });
 
@@ -81,13 +76,12 @@ describe('parseGridTags', () => {
     expect(grids[1].position).toEqual(['50%', '100%']);
   });
 
-  it('parses absolute / class / shape / frag / animate attributes', () => {
+  it('parses class / shape / frag / animate attributes', () => {
     const { grids } = parseGridTags(
-      '<grid dimension="100 50" position="10 10" absolute class="box hl" shape="hexagon" frag="2" animate="fade-in">x</grid>',
+      '<grid dimension="100 50" position="10 10" class="box hl" shape="hexagon" frag="2" animate="fade-in">x</grid>',
     );
     const grid = grids[0];
-    expect(grid.absolute).toBe(true);
-    expect(grid.position).toEqual(['10px', '10px']);
+    expect(grid.position).toEqual(['10%', '10%']);
     expect(grid.className).toBe('box hl');
     expect(grid.shape).toBe('hexagon');
     expect(grid.fragment).toBe('2');

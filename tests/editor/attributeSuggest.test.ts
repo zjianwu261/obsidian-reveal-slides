@@ -17,7 +17,6 @@ describe('getSuggestContext', () => {
     expect(labels('<grid ')).toEqual([
       'dim',
       'pos',
-      'absolute',
       'style',
       'class',
       'shape',
@@ -41,9 +40,8 @@ describe('getSuggestContext', () => {
   });
 
   it('inserts an opening quote for value attributes, nothing for boolean ones', () => {
-    const context = getSuggestContext('<grid ');
-    expect(context?.items.find((i) => i.label === 'dim')?.insert).toBe('dim="');
-    expect(context?.items.find((i) => i.label === 'absolute')?.insert).toBe('absolute');
+    expect(getSuggestContext('<grid ')?.items.find((i) => i.label === 'dim')?.insert).toBe('dim="');
+    expect(getSuggestContext('<split ')?.items.find((i) => i.label === 'even')?.insert).toBe('even');
   });
 
   it('suggests position keywords inside an open quote', () => {

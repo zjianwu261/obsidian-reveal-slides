@@ -15,7 +15,6 @@ function makeGrid(overrides: Partial<GridElement> = {}): GridElement {
     dimension: [60, 30],
     position: ['20%', '25%'],
     anchor: ['0', '0'],
-    absolute: false,
     style: '',
     className: '',
     shape: null,
@@ -37,16 +36,6 @@ describe('GridTransformer', () => {
     expect(result.css.join(' ')).toBe(
       'position: absolute; width: 60%; height: 30%; left: 20%; top: 25%;',
     );
-  });
-
-  it('uses px in absolute mode', () => {
-    const result = fresh();
-    new GridTransformer().transform(
-      makeGrid({ absolute: true, dimension: [200, 100], position: ['10px', '20px'] }),
-      result,
-    );
-    expect(result.css.join(' ')).toContain('width: 200px;');
-    expect(result.css.join(' ')).toContain('left: 10px;');
   });
 
   it('passes normalized calc() positions through', () => {

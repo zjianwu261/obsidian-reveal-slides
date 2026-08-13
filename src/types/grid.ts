@@ -1,9 +1,8 @@
 export interface GridElement {
   tag: 'grid';
-  dimension: [number, number];     // [宽%, 高%]（绝对模式时单位为 px）
+  dimension: [number, number];     // [宽%, 高%]，相对画布
   position: [string, string];      // 已规范化的 [left, top] CSS 值（含 % / calc / px）
   anchor: [string, string];        // 元素自身的回移量 [x, y] → transform: translate()
-  absolute: boolean;               // 是否按 px 解释
   style: string;                   // 内联 CSS
   className: string;
   shape: string | null;

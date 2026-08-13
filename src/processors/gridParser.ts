@@ -38,18 +38,17 @@ const V_KEYWORDS: Record<string, string> = { top: '0%', bottom: '100%', center: 
 /** 锚点：元素自身按百分比回移的量（配合 left/top 使用，见 resolvePosition） */
 type Axis = { value: string; anchor: string };
 
-function toCssNumber(token: string, absolute: boolean): Axis {
+function toCssNumber(token: string): Axis {
   const num = Number(token);
-  const unit = absolute ? 'px' : '%';
   if (!Number.isFinite(num)) {
     // 无法识别的数值（如写成 "20%"）：按 0 处理，避免生成 NaN
-    return { value: `0${unit}`, anchor: '0' };
+    return { value: '0%', anchor: '0' };
   }
   if (num < 0) {
     // 负数 = 距右/下边缘的间距，元素的远端边缘对齐到该点
-    return { value: `calc(100% - ${Math.abs(num)}${unit})`, anchor: '-100%' };
+    return { value: `calc(100% - ${Math.abs(num)}%)`, anchor: '-100%' };
   }
-  return { value: `${num}${unit}`, anchor: '0' };
+  return { value: `${num}%`, anchor: '0' };
 }
 
 /** 关键字位置：left/top 落在画布的百分比点上，元素同比例回移，才能真正贴边/居中 */
@@ -71,10 +70,11 @@ export interface ResolvedPosition {
  *   "topleft"    → 0% / 0%，不回移
  *   "bottomright"→ 100% / 100%，回移 -100% / -100%（右下角贴边）
  *   "-6 -8"      → calc(100% - 6%) / calc(100% - 8%)，回移 -100%（距右下边缘 6% / 8%）
- *   absolute=true → 单位用 px
+ * 单位一律是画布百分比：reveal 把整块画布等比缩放到窗口，百分比在任何屏幕上都成立，
+ * 而绝对像素会跟画布尺寸绑死（改 size 比例后就跑位），故不提供。
  * 关键字与负数必须配合 anchor 回移，否则元素会整体跑出画布。
  */
-export function resolvePosition(position: string, absolute: boolean): ResolvedPosition {
+export function resolvePosition(position: string): ResolvedPosition {
   const trimmed = position.trim().toLowerCase();
 
   const keyword = CORNER_KEYWORDS[trimmed] ?? SINGLE_KEYWORDS[trimmed];
@@ -87,7 +87,7 @@ export function resolvePosition(position: string, absolute: boolean): ResolvedPo
     const bIsKeyword = b in H_KEYWORDS || b in V_KEYWORDS;
 
     if (!aIsKeyword && !bIsKeyword) {
-      return fromAxes(toCssNumber(a, absolute), toCssNumber(b, absolute));
+      return fromAxes(toCssNumber(a), toCssNumber(b));
     }
     // 两个关键字组合（如 "left top"）
     const left = a in H_KEYWORDS ? H_KEYWORDS[a] : b in H_KEYWORDS ? H_KEYWORDS[b] : '50%';
@@ -104,8 +104,8 @@ function fromAxes(x: Axis, y: Axis): ResolvedPosition {
 }
 
 /** 仅取 [left, top]（保留原接口） */
-export function normalizePosition(position: string, absolute: boolean): [string, string] {
-  return resolvePosition(position, absolute).position;
+export function normalizePosition(position: string): [string, string] {
+  return resolvePosition(position).position;
 }
 
 function parseAttributes(attrText: string): Record<string, string | true> {
@@ -147,7 +147,6 @@ export function parseGridTags(input: string): GridParseResult {
 function parseInnermostGrids(input: string, grids: GridElement[]): string {
   return input.replace(INNERMOST_GRID_RE, (_whole, attrText: string, children: string) => {
     const attrs = parseAttributes(attrText ?? '');
-    const absolute = attrs.absolute === true || attrs.absolute === 'true';
     // 尺寸/位置支持三种写法，语义完全相同：
     //   dim / pos           —— 推荐的短写
     //   dimension / position —— 完整写法
@@ -155,14 +154,13 @@ function parseInnermostGrids(input: string, grids: GridElement[]): string {
     const dimensionAttr = attrs.dim ?? attrs.dimension ?? attrs.drag;
     const positionAttr = attrs.pos ?? attrs.position ?? attrs.drop;
     const position = typeof positionAttr === 'string' ? positionAttr : 'center';
-    const resolved = resolvePosition(position, absolute);
+    const resolved = resolvePosition(position);
 
     const grid: GridElement = {
       tag: 'grid',
       dimension: parseDimension(dimensionAttr),
       position: resolved.position,
       anchor: resolved.anchor,
-      absolute,
       style: typeof attrs.style === 'string' ? attrs.style : '',
       className: typeof attrs.class === 'string' ? attrs.class : '',
       shape: typeof attrs.shape === 'string' ? attrs.shape : null,

@@ -50,14 +50,13 @@ const POSITION_VALUES = [
 const GRID_ATTRIBUTES: AttributeDef[] = [
   // 短写优先；dimension/position 与 advanced-slides 的 drag/drop 同样可用，
   // 只是不进候选列表，免得四种拼法把面板刷满
-  { name: 'dim', detail: '宽 高（百分比，absolute 时为 px）', aliases: ['dimension', 'drag'] },
+  { name: 'dim', detail: '宽 高（画布百分比）', aliases: ['dimension', 'drag'] },
   {
     name: 'pos',
     detail: '位置：关键字或数值对',
     aliases: ['position', 'drop'],
     values: POSITION_VALUES,
   },
-  { name: 'absolute', detail: 'dim/pos 按 px 解释', boolean: true },
   { name: 'style', detail: '内联 CSS，可用 var(--x)' },
   { name: 'class', detail: '附加 HTML class' },
   {

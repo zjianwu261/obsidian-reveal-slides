@@ -44,8 +44,18 @@ export class SlidePreviewView extends ItemView {
       },
     });
 
+    // 标题栏按钮，从左到右：刷新 / 辅助线 / 导出 PDF / 导出 HTML
+    this.addAction('refresh-cw', 'Reload slide preview', () => {
+      void this.plugin.reloadPreview();
+    });
     this.guidesAction = this.addAction('grid', 'Toggle grid guides', () => {
       void this.plugin.toggleGridGuides();
+    });
+    this.addAction('printer', 'Export slides as PDF', () => {
+      void this.plugin.exportPdf();
+    });
+    this.addAction('download', 'Export slides as HTML', () => {
+      void this.plugin.exportHtml();
     });
     this.syncActions();
 

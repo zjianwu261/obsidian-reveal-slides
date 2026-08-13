@@ -34,7 +34,7 @@
 ## 功能一览
 
 - **Markdown → 幻灯片**：`---` 水平分页，`xxx` 垂直分页，也支持按标题级别自动分页
-- **`<grid>` 绝对定位**：百分比 / 像素坐标、方位关键字、负偏移（距右/下边缘），把任何内容放到画布任何位置
+- **`<grid>` 绝对定位**：百分比坐标、方位关键字、负偏移（距右/下边缘），把任何内容放到画布任何位置
 - **`<split>` 分栏**：一行标签搞定 flexbox 多栏布局
 - **动画**：reveal.js fragment 渐显、animate.css 风格入场动画、12 种内置图形裁切（shape）
 - **演讲者备注**：`note:` 逐页备注，按 `S` 打开演讲者视图
@@ -261,8 +261,8 @@ note:
 - 发学生：**Export Slides as HTML**，导出单文件 HTML，图片一并打包，脱离 Obsidian 也能放。
 - 要 PDF：**Export Slides as PDF**，打开打印视图后在浏览器里「打印 → 另存为 PDF」。
 
-两个导出都可以从 **预览面板右上角的「⋯」菜单**直接点，不必去命令面板；
-那个菜单里还有辅助线开关。
+预览面板标题栏有四个按钮，从左到右：**刷新**、**辅助线开关**、**导出 PDF**、**导出 HTML**，
+不必去命令面板。右上角的「⋯」菜单里也有同样的导出项。
 
 ### 常见的坑
 
@@ -279,12 +279,12 @@ note:
 | 命令 | 快捷键 | 作用 |
 |------|--------|------|
 | Show Slide Preview | `Ctrl/Cmd + Shift + E` | 打开/聚焦预览面板 |
-| Reload Slide Preview | `Ctrl/Cmd + Shift + R` | 强制重跑管线并刷新 |
+| Reload Slide Preview | `Ctrl/Cmd + Shift + R` | 强制重跑管线并刷新，标题栏也有按钮 |
 | Start Slide Preview Server | — | 手动启动本地预览服务器 |
 | Stop Slide Preview Server | — | 停止服务器 |
-| Toggle Grid Guides | — | 开关版面辅助线（grid 边框 + 10% 标尺），预览面板标题栏也有按钮 |
-| Export Slides as PDF | — | 打开打印视图（浏览器中 打印 → 另存为 PDF），预览面板「⋯」菜单也有 |
-| Export Slides as HTML | — | 导出单文件离线 HTML 到导出目录，预览面板「⋯」菜单也有 |
+| Toggle Grid Guides | — | 开关版面辅助线（grid 边框 + 10% 标尺），标题栏也有按钮 |
+| Export Slides as PDF | — | 打开打印视图（浏览器中 打印 → 另存为 PDF），标题栏与「⋯」菜单也有 |
+| Export Slides as HTML | — | 导出单文件离线 HTML 到导出目录，标题栏与「⋯」菜单也有 |
 
 ## 分页语法
 
@@ -353,15 +353,17 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 
 | 属性 | 说明 | 示例 |
 |------|------|------|
-| `dim` | 尺寸「宽 高」，默认百分比；`absolute` 时为 px | `dim="60 30"` |
+| `dim` | 尺寸「宽 高」，画布百分比 | `dim="60 30"` |
 | `pos` | 位置「左 上」，写法见下表 | `pos="20 25"` |
-| `absolute` | 出现即按像素解释 dim/pos | `absolute` |
 | `style` | 内联 CSS，原样透传（可用 CSS 变量） | `style="background: var(--brand);"` |
 | `class` | 追加 HTML class | `class="card shadow"` |
 | `shape` | 图形裁切（12 种内置） | `shape="hexagon"` |
 | `frag` | reveal.js fragment（数字=顺序，或动画名） | `frag="1"` / `frag="fade-up"` |
 | `animate` | 入场动画类（animate.css 命名） | `animate="fade-in"` |
 
+> **单位一律是画布百分比。** reveal.js 会把整块画布（默认 1920×1080）等比缩放到窗口，
+> 所以百分比布局在笔记本、投影仪、4K 大屏上表现一致，不需要也不提供绝对像素定位。
+>
 > **别名**：`dim` / `pos` 也可以写成完整的 `dimension` / `position`，
 > 或 advanced-slides 的 `drag` / `drop` —— 三种拼法语义完全相同，可以混用，
 > 已有的 advanced-slides 笔记不用改就能渲染。同一标签写了多种时以短写优先。
@@ -376,7 +378,6 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 | `pos="topleft"` / `topright` / `bottomleft` / `bottomright` | 四个角 |
 | `pos="left top"` | 两个关键字组合 |
 | `pos="-6 -8"` | **负数 = 距右/下边缘**（生成 `calc(100% - 6%)`） |
-| `pos="200 150" absolute` | 像素坐标 |
 
 > **定位锚点**：数值写法（`20 25`）对齐的是元素**左上角**；关键字与负数写法对齐的是元素对应的边或角
 > —— `center` 是元素中心落在画布中心，`bottomright` 是元素右下角贴画布右下角，`-6 -8` 是元素右下角距右/下边缘 6%/8%。
@@ -554,7 +555,7 @@ series:
 
 ## 版面辅助线（调版面利器）
 
-三种打开方式，效果一样：**Slide Preview 面板标题栏的网格按钮**（最顺手，点亮表示开着）、
+三种打开方式，效果一样：**面板标题栏的网格按钮**（最顺手，点亮表示开着）、
 命令面板的 **Toggle Grid Guides**、设置 → Preview → Show grid guides。
 
 - 画布上铺一层 **10% 一格的标尺**，`pos="30 40"` 该落在哪一格一目了然；

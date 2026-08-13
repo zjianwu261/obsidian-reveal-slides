@@ -934,9 +934,13 @@ const config: RevealConfig = {
   `deck.slide()`；已在目标页则不动，避免打断翻页动画。整个过程不重新拉取 deck。
 - 设置项 `syncCursor`（默认开）。
 
-**预览面板入口（第四轮追加）**：`ItemView.onPaneMenu` 给「⋯」菜单加了
-PDF 导出、HTML 导出、辅助线开关三项（辅助线标题按当前状态显示 Show/Hide），
-标题栏另有辅助线的图标按钮。
+**预览面板入口（第四轮追加）**：标题栏用 `ItemView.addAction` 放了四个按钮
+（刷新 / 辅助线 / 导出 PDF / 导出 HTML，辅助线开着时点亮），
+`onPaneMenu` 给「⋯」菜单加了同样的导出项与辅助线开关。
+
+**移除 `absolute` 像素定位**：reveal 把画布等比缩放到窗口，百分比在任何屏幕上都成立；
+绝对像素只跟画布尺寸绑定，改 `size` 比例后会跑位，属于纯粹的坑。
+`dim` / `pos` 现在只接受画布百分比，`GridElement.absolute` 与相关分支一并删除。
 
 **仍未实现 / 已知限制**:
 - `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
