@@ -18,18 +18,6 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'slides';
 }
 
-/** 从插件目录 dist/assets 读入需要内联的资源文本 */
-function readStandaloneAssets(assetsDir: string): StandaloneAssets {
-  const read = (relative: string) => fs.readFileSync(path.join(assetsDir, relative), 'utf8');
-  return {
-    resetCss: read('reset.css'),
-    revealCss: read('reveal.css'),
-    highlightCss: read(path.join('plugin', 'highlight', 'monokai.css')),
-    pluginCss: read('reveal-plugin.css'),
-    bundleJs: read('reveal.bundle.mjs'),
-  };
-}
-
 /**
  * 收集 deck 各页 html 中的 /vault 资源引用，复制到 filesDir，
  * 返回「原始 URL → files/<basename>」映射；重名文件自动加序号。
