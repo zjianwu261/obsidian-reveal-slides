@@ -14,7 +14,12 @@ import RevealZoom from 'reveal.js/plugin/zoom';
 import mermaid from 'mermaid';
 import Chart from 'chart.js/auto';
 import type { SlideDeck } from '../types/slide';
-import { buildSectionsHtml, buildRevealConfig, buildExtraCssHtml } from './templateEngine';
+import {
+  buildSectionsHtml,
+  buildRevealConfig,
+  buildExtraCssHtml,
+  pageIndexToPosition,
+} from './templateEngine';
 import { computeCanvasSize, computeRootFontSize } from './canvasCalculator';
 import { applyScrollViewGuard } from './scrollViewHandler';
 import { fitCodeBlocks } from '../processors/codeBlockProcessor';
@@ -28,6 +33,8 @@ declare global {
 
 let deck: RevealApi | null = null;
 let renderTimer: number | null = null;
+/** 最近一次渲染用的 deck 数据（goto 时换算页坐标要用） */
+let current: SlideDeck | null = null;
 
 /**
  * 把已知的晦涩报错翻译成能照做的提示。
@@ -128,8 +135,18 @@ async function hydrateMermaid(): Promise<void> {
   }
 }
 
+/** 跳到指定页（编辑器光标跟随）；已在该页则不动，避免打断翻页动画 */
+function gotoPage(pageIndex: number): void {
+  if (!deck || !current) return;
+  const target = pageIndexToPosition(current, pageIndex);
+  const now = deck.getIndices();
+  if (now.h === target.h && (now.v ?? 0) === target.v) return;
+  deck.slide(target.h, target.v);
+}
+
 async function render(): Promise<void> {
   const data = await loadDeck();
+  current = data;
   const slidesEl = document.querySelector<HTMLElement>('.slides');
   if (!slidesEl) return;
 
@@ -183,7 +200,19 @@ function scheduleRender(): void {
 
 function connectEvents(): void {
   const source = new EventSource('/events');
-  source.onmessage = () => scheduleRender();
+  source.onmessage = (event: MessageEvent<string>) => {
+    let message: { type?: string; page?: number } = {};
+    try {
+      message = JSON.parse(event.data) as typeof message;
+    } catch {
+      // 老格式或空消息：按整体刷新处理
+    }
+    if (message.type === 'goto' && typeof message.page === 'number') {
+      gotoPage(message.page);
+      return;
+    }
+    scheduleRender();
+  };
   source.onerror = () => {
     // SSE 断线自动重连由浏览器处理
   };

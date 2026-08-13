@@ -52,6 +52,8 @@ export interface PluginSettings {
   autoComplete: boolean;
   /** 预览里画出每个 <grid> 的边框与画布 10% 标尺，方便调版面 */
   showGridGuides: boolean;
+  /** 编辑器光标移动时，预览自动跳到光标所在页 */
+  syncCursor: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -84,4 +86,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   autoReload: true,
   autoComplete: true,
   showGridGuides: false,
+  syncCursor: true,
 };

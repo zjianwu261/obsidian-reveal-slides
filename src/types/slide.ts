@@ -10,6 +10,8 @@ export interface SlidePage {
   html: string;                    // 渲染后的 HTML 内容
   notes: SlideNote[];
   background?: string;             // data-background-color 或 data-background-image
+  /** 本页在源文件中的起始行（0 基，含 frontmatter 偏移），用于「光标跟随」 */
+  sourceLine: number;
   attributes: Record<string, string>; // <!-- .slide: --> 解析的属性
 }
 

@@ -1,4 +1,5 @@
 import { ItemView } from 'obsidian';
+import type { Menu } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
@@ -54,6 +55,38 @@ export class SlidePreviewView extends ItemView {
   /** 工具栏按钮的高亮状态跟随设置（辅助线开着时按钮点亮） */
   syncActions(): void {
     this.guidesAction?.classList.toggle('is-active', this.plugin.settings.showGridGuides);
+  }
+
+  /** 面板的「⋯」菜单：导出与辅助线，省得去命令面板翻 */
+  onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
+    super.onPaneMenu(menu, source);
+
+    menu.addItem((item) =>
+      item
+        .setTitle('Export slides as PDF')
+        .setIcon('printer')
+        .onClick(() => {
+          void this.plugin.exportPdf();
+        }),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle('Export slides as HTML')
+        .setIcon('download')
+        .onClick(() => {
+          void this.plugin.exportHtml();
+        }),
+    );
+
+    menu.addItem((item) =>
+      item
+        .setTitle(this.plugin.settings.showGridGuides ? 'Hide grid guides' : 'Show grid guides')
+        .setIcon('grid')
+        .onClick(() => {
+          void this.plugin.toggleGridGuides();
+        }),
+    );
   }
 
   /** 设置/刷新 iframe 地址（服务器启动后或端口变更时调用） */

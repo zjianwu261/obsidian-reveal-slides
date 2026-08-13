@@ -1,6 +1,14 @@
 export interface RawSlide {
   content: string;
   type: 'horizontal' | 'vertical';
+  /** 本页正文在 body 中的起始字符下标（供「光标跟随」换算行号） */
+  offset: number;
+}
+
+/** 分割结果的一段：内容 + 它在原字符串中的起始下标 */
+interface Chunk {
+  text: string;
+  offset: number;
 }
 
 export interface SplitResult {
@@ -42,17 +50,17 @@ function isInsideRanges(index: number, ranges: Range[]): boolean {
  * 代码范围按传入的 text 现算：分页是多轮的（水平 → headingDivider → 垂直），
  * 后续轮次拿到的是子串，复用上一轮的下标会整体错位。
  */
-function splitOutsideCode(text: string, separator: RegExp): string[] {
+function splitOutsideCode(text: string, separator: RegExp, baseOffset = 0): Chunk[] {
   const ranges = findCodeRanges(text);
-  const parts: string[] = [];
+  const parts: Chunk[] = [];
   let last = 0;
   for (const match of text.matchAll(separator)) {
     const start = match.index;
     if (isInsideRanges(start, ranges)) continue;
-    parts.push(text.slice(last, start));
+    parts.push({ text: text.slice(last, start), offset: baseOffset + last });
     last = start + match[0].length;
   }
-  parts.push(text.slice(last));
+  parts.push({ text: text.slice(last), offset: baseOffset + last });
   return parts;
 }
 
@@ -79,6 +87,16 @@ function normalizeSeparator(separator: string, fallback: RegExp): RegExp {
   }
 }
 
+/** 字符下标 → 0 基行号 */
+export function offsetToLine(text: string, offset: number): number {
+  let line = 0;
+  const end = Math.min(offset, text.length);
+  for (let i = 0; i < end; i++) {
+    if (text[i] === '\n') line++;
+  }
+  return line;
+}
+
 /**
  * 幻灯片分页器。
  * 1. 按水平分隔符分页；
@@ -100,15 +118,15 @@ export function splitSlides(
     const maxLevel = Math.max(...headingDivider);
     const headingRe = new RegExp(`\\r?\\n(?=#{1,${maxLevel}}\\s)`, 'g');
     const levels = new Set(headingDivider);
-    const refined: string[] = [];
+    const refined: Chunk[] = [];
     for (const chunk of horizontalChunks) {
-      const subs = splitOutsideCode(chunk, headingRe);
+      const subs = splitOutsideCode(chunk.text, headingRe, chunk.offset);
       subs.forEach((sub, i) => {
-        const headingMatch = /^(#{1,6})\s/.exec(sub.trimStart());
+        const headingMatch = /^(#{1,6})\s/.exec(sub.text.trimStart());
         const triggeredByHeading = i > 0;
         if (triggeredByHeading && headingMatch && !levels.has(headingMatch[1].length)) {
           // 该标题级别不在设定中：并回上一块（补回被正则吞掉的换行）
-          refined[refined.length - 1] += '\n' + sub;
+          refined[refined.length - 1].text += '\n' + sub.text;
         } else {
           refined.push(sub);
         }
@@ -121,11 +139,12 @@ export function splitSlides(
 
   const slides: RawSlide[] = [];
   for (const chunk of horizontalChunks) {
-    const parts = splitOutsideCode(chunk, verticalRe);
-    parts.forEach((content, i) => {
+    const parts = splitOutsideCode(chunk.text, verticalRe, chunk.offset);
+    parts.forEach((part, i) => {
       slides.push({
-        content,
+        content: part.text,
         type: i === 0 ? 'horizontal' : 'vertical',
+        offset: part.offset,
       });
     });
   }

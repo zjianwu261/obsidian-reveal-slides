@@ -146,7 +146,16 @@ export class PreviewServer {
 
   /** 通知所有 iframe 客户端 deck 已更新 */
   broadcast(): void {
-    const payload = `data: ${JSON.stringify({ type: 'update' })}\n\n`;
+    this.send({ type: 'update' });
+  }
+
+  /** 让预览跳到指定页（光标跟随），不重新拉取 deck */
+  gotoPage(pageIndex: number): void {
+    this.send({ type: 'goto', page: pageIndex });
+  }
+
+  private send(message: Record<string, unknown>): void {
+    const payload = `data: ${JSON.stringify(message)}\n\n`;
     for (const client of this.sseClients) {
       client.write(payload);
     }

@@ -67,6 +67,34 @@ export function buildSectionsHtml(deck: SlideDeck): string {
     .join('\n');
 }
 
+/** 扁平页序号 → reveal 的 [水平, 垂直] 坐标（与 buildSectionsHtml 的分组保持一致） */
+export function pageIndexToPosition(deck: SlideDeck, pageIndex: number): { h: number; v: number } {
+  let h = -1;
+  let v = 0;
+  for (let i = 0; i <= pageIndex && i < deck.pages.length; i++) {
+    if (deck.pages[i].type === 'vertical' && h >= 0) {
+      v++;
+    } else {
+      h++;
+      v = 0;
+    }
+  }
+  return { h: Math.max(h, 0), v };
+}
+
+/**
+ * 源码行号 → 页序号：取起始行不超过该行的最后一页。
+ * 页按 sourceLine 递增排列，光标落在页与页之间的空白处时归属上一页。
+ */
+export function lineToPageIndex(deck: SlideDeck, line: number): number {
+  let found = 0;
+  for (let i = 0; i < deck.pages.length; i++) {
+    if (deck.pages[i].sourceLine <= line) found = i;
+    else break;
+  }
+  return found;
+}
+
 /** SlideDeck.config → reveal.js 初始化配置（不含插件） */
 export function buildRevealConfig(deck: SlideDeck): RevealConfig {
   const config = deck.config;

@@ -13,9 +13,10 @@ const STYLE_RE = /<style[^>]*>([\s\S]*?)<\/style>/gi;
  */
 export function extractStyleBlocks(body: string): CssExtractResult {
   const blocks: string[] = [];
-  const stripped = body.replace(STYLE_RE, (_whole, css: string) => {
+  const stripped = body.replace(STYLE_RE, (whole, css: string) => {
     blocks.push(css.trim());
-    return '';
+    // 用等量空行占位：正文行号要与源文件对得上，否则「光标跟随」会跳错页
+    return '\n'.repeat((whole.match(/\n/g) ?? []).length);
   });
   return { body: stripped, css: blocks.join('\n\n') };
 }

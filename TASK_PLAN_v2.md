@@ -925,6 +925,19 @@ const config: RevealConfig = {
   `Cannot set properties of null (setting 'marked')` 打断整页渲染。
   客户端同时把这条报错翻译成可操作的提示。
 
+**光标跟随（第四轮追加）**：编辑器光标所在行 → 预览自动翻到对应页。
+- 分页器为每页记录源码起始行 `sourceLine`；`cssProcessor` 剥离 `<style>` 时用**等量空行**占位，
+  frontmatter 的行数也计入偏移，否则行号会整体错位。
+- 光标监听用 CodeMirror 6 的 `EditorView.updateListener`（Obsidian 的 `editor-change`
+  只在内容变化时触发，纯移动光标收不到），同一行内移动不重复推送。
+- 服务端 SSE 增加 `{ type: 'goto', page }` 消息，客户端换算成 reveal 的 `[h, v]` 后
+  `deck.slide()`；已在目标页则不动，避免打断翻页动画。整个过程不重新拉取 deck。
+- 设置项 `syncCursor`（默认开）。
+
+**预览面板入口（第四轮追加）**：`ItemView.onPaneMenu` 给「⋯」菜单加了
+PDF 导出、HTML 导出、辅助线开关三项（辅助线标题按当前状态显示 Show/Hide），
+标题栏另有辅助线的图标按钮。
+
 **仍未实现 / 已知限制**:
 - `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
   改成按需动态 import 可显著瘦身，但会拆出额外 chunk，与「单文件离线播放」冲突，故维持现状。

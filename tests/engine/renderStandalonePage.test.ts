@@ -15,7 +15,7 @@ function makeDeck(overrides: Partial<SlideDeck> = {}): SlideDeck {
   return {
     title: 'My Talk',
     pages: [
-      { index: 0, type: 'horizontal', html: '<h1>Hi</h1>', notes: [], attributes: {} },
+      { index: 0, type: 'horizontal', sourceLine: 0, html: '<h1>Hi</h1>', notes: [], attributes: {} },
     ],
     config: {},
     cssVariables: '',
@@ -77,6 +77,7 @@ describe('buildSectionsHtml canvas layout', () => {
           {
             index: 0,
             type: 'horizontal',
+            sourceLine: 0,
             html: '<div class="grid" style="height: 30%;">x</div>',
             notes: [],
             attributes: {},
@@ -99,6 +100,7 @@ describe('buildSectionsHtml canvas layout', () => {
           {
             index: 0,
             type: 'horizontal',
+            sourceLine: 0,
             html: '<div class="grid">x</div>',
             notes: [],
             attributes: { class: 'mine' },
@@ -113,10 +115,11 @@ describe('buildSectionsHtml canvas layout', () => {
     const html = buildSectionsHtml(
       makeDeck({
         pages: [
-          { index: 0, type: 'horizontal', html: '<h1>Hi</h1>', notes: [], attributes: {} },
+          { index: 0, type: 'horizontal', sourceLine: 0, html: '<h1>Hi</h1>', notes: [], attributes: {} },
           {
             index: 1,
             type: 'vertical',
+            sourceLine: 0,
             html: '<div class="grid">x</div>',
             notes: [],
             attributes: {},

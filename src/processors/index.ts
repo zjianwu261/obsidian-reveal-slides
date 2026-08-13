@@ -3,7 +3,7 @@ import type { SlideDeck, SlideNote, SlidePage } from '../types/slide';
 import type { GridElement, SplitElement } from '../types/grid';
 import { extractFrontmatter } from './frontmatter';
 import { extractStyleBlocks } from './cssProcessor';
-import { splitSlides } from './slideSplitter';
+import { offsetToLine, splitSlides } from './slideSplitter';
 import { extractNotes } from './noteProcessor';
 import { parseGridTags } from './gridParser';
 import { parseSplitTags } from './splitParser';
@@ -95,7 +95,7 @@ export class PipelineOrchestrator {
     const { settings, sourcePath, renderMarkdown, serverBase, fileExists } = options;
 
     // 1. frontmatter
-    const { frontmatter, body: rawBody } = extractFrontmatter(markdown);
+    const { frontmatter, body: rawBody, bodyLine } = extractFrontmatter(markdown);
     const config = mergeConfig(settings, frontmatter);
 
     // 2. <style> 块 → 文档级 CSS
@@ -181,6 +181,8 @@ export class PipelineOrchestrator {
       pages.push({
         index: i,
         type: slides[i].type,
+        // cssProcessor 用等量空行替换 <style>，body 行号与源文件保持一致
+        sourceLine: bodyLine + offsetToLine(body, slides[i].offset),
         html,
         notes: await this.renderNotes(notes, renderMarkdown, sourcePath),
         attributes: slideAttributes,

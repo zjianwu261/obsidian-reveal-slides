@@ -3,6 +3,8 @@ import { load as parseYaml } from 'js-yaml';
 export interface FrontmatterResult {
   frontmatter: Record<string, unknown>;
   body: string;
+  /** body 的第一行在源文件中的行号（0 基），供行号换算 */
+  bodyLine: number;
 }
 
 const FRONTMATTER_RE = /^---\s*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/;
@@ -15,8 +17,9 @@ const FRONTMATTER_RE = /^---\s*\r?\n([\s\S]*?)\r?\n---[ \t]*(\r?\n|$)/;
 export function extractFrontmatter(markdown: string): FrontmatterResult {
   const match = FRONTMATTER_RE.exec(markdown);
   if (!match) {
-    return { frontmatter: {}, body: markdown };
+    return { frontmatter: {}, body: markdown, bodyLine: 0 };
   }
+  const bodyLine = (match[0].match(/\n/g) ?? []).length;
 
   const yamlText = match[1].replace(
     /^(\s*size\s*:\s*)(?!"|')(\d+\s*:\s*\d+)\s*$/gm,
@@ -31,8 +34,8 @@ export function extractFrontmatter(markdown: string): FrontmatterResult {
     }
   } catch {
     // 非法 YAML 时按无 frontmatter 处理，正文保留原样
-    return { frontmatter: {}, body: markdown };
+    return { frontmatter: {}, body: markdown, bodyLine: 0 };
   }
 
-  return { frontmatter, body: markdown.slice(match[0].length) };
+  return { frontmatter, body: markdown.slice(match[0].length), bodyLine };
 }

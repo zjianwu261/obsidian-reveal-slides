@@ -356,6 +356,16 @@ export class RevealSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Follow cursor')
+      .setDesc('Jump the preview to the slide the cursor is on while you edit')
+      .addToggle((toggle) =>
+        toggle.setValue(settings.syncCursor).onChange(async (value) => {
+          settings.syncCursor = value;
+          await save();
+        }),
+      );
+
+    new Setting(containerEl)
       .setName('Show grid guides')
       .setDesc('Outline every <grid> and draw a 10% ruler over the canvas (command: Toggle Grid Guides)')
       .addToggle((toggle) =>

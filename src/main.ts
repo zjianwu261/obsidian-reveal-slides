@@ -7,6 +7,7 @@ import { RevealSettingTab } from './settings';
 import { registerCommands } from './commands';
 import { SlidePreviewView } from './views/SlidePreviewView';
 import { GridAttributeSuggest } from './editor';
+import { createCursorSyncExtension } from './editor/cursorSync';
 import { PreviewServer } from './server/previewServer';
 import { PipelineOrchestrator } from './processors';
 import { RevealEngine } from './engine/revealEngine';
@@ -14,6 +15,7 @@ import { renderMarkdownToHtml } from './engine/renderEngine';
 import { exportPdf as runPdfExport } from './export/pdfExporter';
 import { exportHtml as runHtmlExport } from './export/htmlExporter';
 import { debounce } from './utils/debounce';
+import { lineToPageIndex } from './engine/templateEngine';
 import { VIEW_TYPE_SLIDE_PREVIEW } from './constants';
 
 function createEmptyDeck(message = 'Empty'): SlideDeck {
@@ -23,6 +25,7 @@ function createEmptyDeck(message = 'Empty'): SlideDeck {
       {
         index: 0,
         type: 'horizontal',
+        sourceLine: 0,
         html: `<h2>${message}</h2>`,
         notes: [],
         attributes: {},
@@ -55,6 +58,12 @@ export default class RevealPlugin extends Plugin {
     this.registerView(VIEW_TYPE_SLIDE_PREVIEW, (leaf) => new SlidePreviewView(leaf, this));
     this.addSettingTab(new RevealSettingTab(this.app, this));
     this.registerEditorSuggest(new GridAttributeSuggest(this));
+    this.registerEditorExtension(
+      createCursorSyncExtension({
+        enabled: () => this.settings.syncCursor,
+        onLineChange: (line) => this.syncPreviewToLine(line),
+      }),
+    );
     registerCommands(this);
 
     if (this.settings.autoStartServer) {
@@ -139,6 +148,18 @@ export default class RevealPlugin extends Plugin {
     if (!wasRunning) return;
     await this.startServer();
     await this.renderActiveFile();
+  }
+
+  /**
+   * 光标跟随：把光标所在行换算成页序号推给预览。
+   * 只在预览跟踪的就是当前编辑的这篇笔记时才推，避免在别的笔记里乱翻页。
+   */
+  private syncPreviewToLine(line: number): void {
+    if (!this.server?.running) return;
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view?.file || view.file.path !== this.lastMarkdownFile?.path) return;
+
+    this.server.gotoPage(lineToPageIndex(this.deck, line));
   }
 
   /** 预览服务器根地址（服务器未运行时按设置端口给出占位值） */
