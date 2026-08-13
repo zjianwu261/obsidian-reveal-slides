@@ -1,0 +1,60 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`fixture: full-deck > produces the expected deck structure 1`] = `
+{
+  "cssVariables": ":root { --brand: #2563eb; }",
+  "pages": [
+    {
+      "notes": 1,
+      "type": "horizontal",
+    },
+    {
+      "notes": 0,
+      "type": "horizontal",
+    },
+    {
+      "notes": 0,
+      "type": "horizontal",
+    },
+    {
+      "notes": 0,
+      "type": "vertical",
+    },
+  ],
+  "title": "Fixture Deck",
+  "transition": "fade",
+}
+`;
+
+exports[`fixture: full-deck > renders stable section html 1`] = `
+"<section>
+<h1>标题页</h1>
+<p>副标题一行</p>
+<aside class="notes"><p>这里是演讲者备注，**支持 Markdown**。</p></aside>
+</section>
+<section class="rfo-canvas">
+<div class="grid" style="position: absolute; width: 40%; height: 30%; left: 10%; top: 15%; background: var(--brand); color: #fff;" data-rfo-box="40×30% @ 10% 15%"><p>左上角的块</p></div>
+<div class="grid fragment animate__animated animate__fadeIn" style="position: absolute; width: 30%; height: 30%; left: 100%; top: 100%; transform: translate(-100%, -100%); clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);" data-rfo-box="30×30% @ 100% 100%" data-fragment-index="1"><p>六边形</p></div>
+<div class="grid wide" style="position: absolute; width: 80%; height: 20%; left: 50%; top: 50%; transform: translate(-50%, -50%);" data-rfo-box="80×20% @ 50% 50%"><div class="split" style="display: flex; width: 100%; gap: 2em;">
+<div class="split-column" style="flex: 1; min-width: 0;"><p>左栏</p></div>
+<div class="split-column" style="flex: 1; min-width: 0;"><p>右栏</p></div>
+</div></div>
+
+</section>
+<section>
+<section>
+<h2>代码与分隔符</h2>
+<pre><code class="language-js">// 代码块里的 --- 和 xxx 都不能触发分页
+const sep = '---';
+xxx</code></pre>
+<p>行内代码 \`a --- b\` 同理。</p>
+
+</section>
+<section data-background-color="#101010">
+<h3>垂直子页</h3>
+<ul><li>列表项 🚀</li><li>第二项</li></ul>
+
+
+</section>
+</section>"
+`;

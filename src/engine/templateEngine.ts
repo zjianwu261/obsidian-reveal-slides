@@ -4,9 +4,20 @@ import type { PluginSettings } from '../types/config';
 import { computeCanvasSize } from './canvasCalculator';
 import { escapeHtml } from '../utils/dom';
 
+/** 页面是否用 <grid> 定位：这类页要按固定画布渲染（见 grid.scss 的 .rfo-canvas） */
+function usesCanvasLayout(page: SlidePage): boolean {
+  return /class="grid[\s"]/.test(page.html);
+}
+
+/** 追加 class 而不丢掉 <!-- .slide: class="..." --> 写入的值 */
+function addClass(attrs: Record<string, string>, className: string): void {
+  attrs.class = attrs.class ? `${attrs.class} ${className}` : className;
+}
+
 /** 单页 → <section> HTML */
 function renderPageSection(page: SlidePage, deckBg?: string): string {
   const attrs: Record<string, string> = { ...page.attributes };
+  if (usesCanvasLayout(page)) addClass(attrs, 'rfo-canvas');
 
   const bg = page.background ?? deckBg;
   if (bg) {
@@ -49,7 +60,9 @@ export function buildSectionsHtml(deck: SlideDeck): string {
       }
       const [first, ...rest] = group;
       const children = rest.map((page) => renderPageSection(page, deck.bg)).join('\n');
-      return `<section>\n${renderPageSection(first, deck.bg)}\n${children}\n</section>`;
+      // 子页的 height: 100% 要落在有确定高度的父 section 上，故外层同样标记
+      const stackClass = group.some(usesCanvasLayout) ? ' class="rfo-canvas"' : '';
+      return `<section${stackClass}>\n${renderPageSection(first, deck.bg)}\n${children}\n</section>`;
     })
     .join('\n');
 }
@@ -83,6 +96,59 @@ export function buildRevealConfig(deck: SlideDeck): RevealConfig {
 /** 渲染用完整页面（服务器 /reveal.html 路由） */
 export function renderPage(template: string, deck: SlideDeck): string {
   return template.replace(/\{\{TITLE\}\}/g, escapeHtml(deck.title || 'Slide Preview'));
+}
+
+/** 独立导出需要的静态资源文本（由导出器从 dist/assets 读入后内联） */
+export interface StandaloneAssets {
+  resetCss: string;
+  revealCss: string;
+  highlightCss: string;
+  pluginCss: string;
+  bundleJs: string;
+}
+
+/**
+ * 渲染独立可播放的单文件 HTML（Task 5.2）。
+ * CSS / bundle JS 全部内联，deck 通过 window.__DECK__ 全局注入，
+ * 客户端（reveal-bundle.ts）检测到 __DECK__ 后不再 fetch / 不连 SSE，可离线播放。
+ */
+export function renderStandalonePage(deck: SlideDeck, assets: StandaloneAssets): string {
+  // "</" 会提前闭合内联 <script>，JSON 中转义为 "<\/"（字符串内 \/ === /，安全）
+  const deckJson = JSON.stringify(deck).replace(/<\//g, '<\\/');
+  // bundle 内字符串/正则字面量可能含 "</script"，同样转义（JS 中 \/ === /）
+  const bundleJs = assets.bundleJs.replace(/<\/script/gi, '<\\/script');
+  const title = escapeHtml(deck.title || 'Slide Preview');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title}</title>
+  <style>
+${assets.resetCss}
+  </style>
+  <style>
+${assets.revealCss}
+  </style>
+  <style>
+${assets.highlightCss}
+  </style>
+  <style>
+${assets.pluginCss}
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides"></div>
+  </div>
+  <script>window.__DECK__ = ${deckJson};</script>
+  <script type="module">
+${bundleJs}
+  </script>
+</body>
+</html>
+`;
 }
 
 /** 文档级 CSS / 远程 CSS 注入片段（客户端渲染时插入 <head>） */

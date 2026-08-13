@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { parseSplitTags } from '../../src/processors/splitParser';
+import { splitPlaceholder } from '../../src/constants';
 import { extractNotes } from '../../src/processors/noteProcessor';
 import { extractStyleBlocks } from '../../src/processors/cssProcessor';
 
 describe('parseSplitTags', () => {
   it('splits columns on blank lines', () => {
     const { html, splits } = parseSplitTags('<split even gap="2">left col\n\nright col</split>');
-    expect(html).toContain('<!--SPLIT_0-->');
+    expect(html).toContain(splitPlaceholder(0));
     expect(splits[0].columns).toEqual(['left col', 'right col']);
     expect(splits[0].even).toBe(true);
     expect(splits[0].gap).toBe(2);

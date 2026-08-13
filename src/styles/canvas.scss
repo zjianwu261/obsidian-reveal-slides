@@ -5,6 +5,102 @@
   --root-font-size: 40px;
 }
 
+/*
+ * 中性默认排版：本项目不内置主题（版面由 <grid> + style 搭建），
+ * 但没有 reveal 主题时浏览器默认样式过于朴素，这里提供一套可读的基础样式，
+ * 用户可通过 <style> 块 / css / remoteCSS 覆盖。
+ */
 .reveal {
   font-size: var(--root-font-size);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  color: #1a1a1a;
+  line-height: 1.4;
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 0 0 0.5em;
+    font-weight: 600;
+    line-height: 1.2;
+    text-transform: none;
+  }
+
+  h1 { font-size: 2em; }
+  h2 { font-size: 1.6em; }
+  h3 { font-size: 1.25em; }
+  h4 { font-size: 1em; }
+
+  p {
+    margin: 0 0 0.6em;
+  }
+
+  a {
+    color: #2563eb;
+    text-decoration: none;
+  }
+
+  ul, ol {
+    display: block;
+    margin: 0 0 0.6em;
+    padding-left: 1.4em;
+    text-align: left;
+  }
+
+  li {
+    margin: 0.2em 0;
+  }
+
+  blockquote {
+    margin: 0.6em 0;
+    padding: 0.4em 1em;
+    border-left: 4px solid #d0d0d0;
+    background: #f6f6f6;
+    font-style: normal;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    background: #f0f0f0;
+    border-radius: 4px;
+    padding: 0.1em 0.3em;
+  }
+
+  pre {
+    width: 100%;
+    margin: 0.5em 0;
+    font-size: 0.55em;
+    line-height: 1.4;
+
+    code {
+      display: block;
+      padding: 0.6em;
+      background: #2d2d2d;
+      color: #f8f8f2;
+      border-radius: 6px;
+      overflow-x: auto;
+      text-align: left;
+    }
+  }
+
+  table {
+    border-collapse: collapse;
+    margin: 0.5em auto;
+    font-size: 0.7em;
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.2em 0.6em;
+    }
+
+    th {
+      background: #f0f0f0;
+    }
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid #ccc;
+    margin: 0.8em auto;
+    width: 60%;
+  }
 }

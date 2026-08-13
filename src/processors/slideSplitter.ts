@@ -37,8 +37,13 @@ function isInsideRanges(index: number, ranges: Range[]): boolean {
   return ranges.some(([start, end]) => index >= start && index < end);
 }
 
-/** 按正则分割，但忽略代码范围内的匹配 */
-function splitOutsideCode(text: string, separator: RegExp, ranges: Range[]): string[] {
+/**
+ * 按正则分割，但忽略代码范围内的匹配。
+ * 代码范围按传入的 text 现算：分页是多轮的（水平 → headingDivider → 垂直），
+ * 后续轮次拿到的是子串，复用上一轮的下标会整体错位。
+ */
+function splitOutsideCode(text: string, separator: RegExp): string[] {
+  const ranges = findCodeRanges(text);
   const parts: string[] = [];
   let last = 0;
   for (const match of text.matchAll(separator)) {
@@ -51,11 +56,35 @@ function splitOutsideCode(text: string, separator: RegExp, ranges: Range[]): str
   return parts;
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const REGEX_META_RE = /[\\^$.*+?()[\]{}|]/;
+
+/**
+ * 分隔符归一化：
+ * - 含正则元字符 → 按正则编译（默认 '\r?\n---\r?\n' 走这条路）；
+ * - 纯字面量（用户在设置里直接填 '---' / 'xxx'）→ 转义并锚定为整行标记，
+ *   避免 'xxx' 这类裸标记在任意位置（甚至单词中间）误切分。
+ */
+function normalizeSeparator(separator: string, fallback: RegExp): RegExp {
+  try {
+    if (!REGEX_META_RE.test(separator)) {
+      return new RegExp(`\\r?\\n${escapeRegExp(separator)}\\r?\\n`, 'g');
+    }
+    return new RegExp(separator, 'g');
+  } catch {
+    return fallback;
+  }
+}
+
 /**
  * 幻灯片分页器。
  * 1. 按水平分隔符分页；
  * 2. 每块内部再按垂直分隔符分页（首块为 horizontal，其余为 vertical）；
- * 3. headingDivider 设置时，指定级别的标题另起新页。
+ * 3. headingDivider 设置时，指定级别的标题另起新页；
+ * 4. 过滤全空页（连续分隔符产生的空白页没有意义）。
  */
 export function splitSlides(
   body: string,
@@ -63,16 +92,9 @@ export function splitSlides(
   verticalSeparator: string,
   headingDivider?: number[] | null,
 ): SplitResult {
-  const ranges = findCodeRanges(body);
+  const horizontalRe = normalizeSeparator(separator, /\r?\n---\r?\n/g);
 
-  let horizontalRe: RegExp;
-  try {
-    horizontalRe = new RegExp(separator, 'g');
-  } catch {
-    horizontalRe = /\r?\n---\r?\n/g;
-  }
-
-  let horizontalChunks = splitOutsideCode(body, horizontalRe, ranges);
+  let horizontalChunks = splitOutsideCode(body, horizontalRe);
 
   if (headingDivider && headingDivider.length > 0) {
     const maxLevel = Math.max(...headingDivider);
@@ -80,7 +102,7 @@ export function splitSlides(
     const levels = new Set(headingDivider);
     const refined: string[] = [];
     for (const chunk of horizontalChunks) {
-      const subs = splitOutsideCode(chunk, headingRe, ranges);
+      const subs = splitOutsideCode(chunk, headingRe);
       subs.forEach((sub, i) => {
         const headingMatch = /^(#{1,6})\s/.exec(sub.trimStart());
         const triggeredByHeading = i > 0;
@@ -95,16 +117,11 @@ export function splitSlides(
     horizontalChunks = refined;
   }
 
-  let verticalRe: RegExp | null = null;
-  try {
-    verticalRe = new RegExp(verticalSeparator, 'g');
-  } catch {
-    verticalRe = /\r?\nxxx\r?\n/g;
-  }
+  const verticalRe = normalizeSeparator(verticalSeparator, /\r?\nxxx\r?\n/g);
 
   const slides: RawSlide[] = [];
   for (const chunk of horizontalChunks) {
-    const parts = splitOutsideCode(chunk, verticalRe, ranges);
+    const parts = splitOutsideCode(chunk, verticalRe);
     parts.forEach((content, i) => {
       slides.push({
         content,
@@ -113,5 +130,7 @@ export function splitSlides(
     });
   }
 
-  return { slides };
+  // 过滤全空页，但至少保留一页
+  const nonEmpty = slides.filter((s) => s.content.trim().length > 0);
+  return { slides: nonEmpty.length > 0 ? nonEmpty : slides.slice(0, 1) };
 }

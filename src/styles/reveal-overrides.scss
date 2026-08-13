@@ -1,15 +1,88 @@
 /* 覆盖 reveal.js 默认样式，对齐 Obsidian 渲染习惯（iframe 内生效） */
 .reveal {
-  /* Obsidian callout 已由 MarkdownRenderer 渲染为 .callout，
-     这里仅保证其在 reveal 默认 blockquote 样式下不被破坏 */
+  /* Obsidian callout 已由 MarkdownRenderer 渲染为 .callout（div），
+     这里覆盖 reveal 默认 blockquote 风格，还原左边框/背景/图标区域 */
   .callout {
     text-align: left;
     font-size: 0.7em;
+    margin: 0.5em 0;
+    padding: 0.6em 1em;
+    border-left: 4px solid rgba(128, 128, 128, 0.6);
+    border-radius: 6px;
+    background: rgba(128, 128, 128, 0.1);
+    box-shadow: none;
+
+    &[data-callout='note'],
+    &[data-callout='info'],
+    &[data-callout='todo'] {
+      border-left-color: #448aff;
+      background: rgba(68, 138, 255, 0.1);
+    }
+
+    &[data-callout='tip'],
+    &[data-callout='hint'],
+    &[data-callout='important'] {
+      border-left-color: #00c853;
+      background: rgba(0, 200, 83, 0.1);
+    }
+
+    &[data-callout='warning'],
+    &[data-callout='caution'],
+    &[data-callout='attention'] {
+      border-left-color: #ffab00;
+      background: rgba(255, 171, 0, 0.1);
+    }
+
+    &[data-callout='danger'],
+    &[data-callout='error'],
+    &[data-callout='failure'],
+    &[data-callout='bug'] {
+      border-left-color: #ff5252;
+      background: rgba(255, 82, 82, 0.1);
+    }
+
+    &[data-callout='quote'],
+    &[data-callout='cite'] {
+      border-left-color: #9e9e9e;
+      background: rgba(158, 158, 158, 0.1);
+    }
+
+    .callout-title {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 0.3em;
+    }
+
+    .callout-icon {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+
+    .callout-content {
+      > :first-child {
+        margin-top: 0;
+      }
+
+      > :last-child {
+        margin-bottom: 0;
+      }
+    }
   }
 
   section img {
     /* 保留 Obsidian 渲染出的宽高属性 */
     max-width: 100%;
     max-height: 100%;
+  }
+
+  /* ```svg 代码块转出的图片 */
+  img.rfo-svg {
+    max-width: 100%;
+    max-height: 100%;
+    background: transparent;
   }
 }

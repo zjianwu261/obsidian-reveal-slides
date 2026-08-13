@@ -37,7 +37,7 @@ describe('mergeConfig', () => {
     });
     expect(config.transition).toBe('fade');
     expect(config.title).toBe('My Talk');
-    expect((config as Record<string, unknown>).port).toBe(8347);
+    expect((config as Record<string, unknown>).port).toBe(3000);
   });
 });
 
@@ -94,5 +94,119 @@ describe('PipelineOrchestrator (MVP)', () => {
     const deck = await run('<style>:root { --brand: #f00; }</style>\n\n# Hi');
     expect(deck.cssVariables).toContain('--brand: #f00;');
     expect(deck.pages[0].html).not.toContain('--brand');
+  });
+
+  it('rewrites app:// image urls via serverBase', async () => {
+    const deck = await pipeline.run('<img src="app://id/Users/me/pic.png?1">', {
+      settings: { ...DEFAULT_SETTINGS },
+      sourcePath: 'test.md',
+      renderMarkdown: fakeRender,
+      serverBase: 'http://127.0.0.1:3000',
+    });
+    expect(deck.pages[0].html).toContain('http://127.0.0.1:3000/vault/Users/me/pic.png');
+  });
+
+  it('collects .slide comments into page attributes', async () => {
+    const deck = await run('Content\n\n<!-- .slide: background-color="#123456" -->');
+    expect(deck.pages[0].attributes['data-background-color']).toBe('#123456');
+    expect(deck.pages[0].html).not.toContain('.slide');
+  });
+
+  it('applies .element comments to the previous element', async () => {
+    const deck = await run('Hello world\n\n<!-- .element: class="big" -->');
+    expect(deck.pages[0].html).toContain('class="big"');
+  });
+
+  it('replaces emoji shortcodes in page html', async () => {
+    const deck = await run('Ship it :rocket:');
+    expect(deck.pages[0].html).toContain('🚀');
+  });
+
+  it('keeps grid placeholders intact through the new post-processors', async () => {
+    const deck = await run('<grid dimension="60 30" position="20 25">hi</grid>');
+    expect(deck.pages[0].html).toContain('class="grid"');
+    expect(deck.pages[0].html).not.toContain('GRID_0');
+  });
+
+  it('post-processes content inside a grid', async () => {
+    const deck = await pipeline.run(
+      '<grid dimension="60 30" position="center">\n<img src="app://id/Users/me/pic.png?1">\n\nShip it :rocket:\n</grid>',
+      {
+        settings: { ...DEFAULT_SETTINGS },
+        sourcePath: 'test.md',
+        renderMarkdown: fakeRender,
+        serverBase: 'http://127.0.0.1:3000',
+      },
+    );
+    const html = deck.pages[0].html;
+    expect(html).toContain('http://127.0.0.1:3000/vault/Users/me/pic.png');
+    expect(html).not.toContain('app://');
+    expect(html).toContain('🚀');
+  });
+
+  it('post-processes content inside a split column', async () => {
+    const deck = await pipeline.run('<split even>\n\n<img src="app://id/a/b.png?1">\n\nright\n\n</split>', {
+      settings: { ...DEFAULT_SETTINGS },
+      sourcePath: 'test.md',
+      renderMarkdown: fakeRender,
+      serverBase: 'http://127.0.0.1:3000',
+    });
+    expect(deck.pages[0].html).toContain('http://127.0.0.1:3000/vault/a/b.png');
+  });
+
+  it('resolves a grid nested inside a split column', async () => {
+    const deck = await run(
+      '<split even>\n\n<grid dimension="10 10" position="center">boxed</grid>\n\nright\n\n</split>',
+    );
+    const html = deck.pages[0].html;
+    expect(html).toContain('class="split"');
+    expect(html).toContain('class="grid"');
+    expect(html).toContain('boxed');
+    expect(html).not.toContain('GRID_');
+  });
+
+  it('resolves a split nested inside a grid', async () => {
+    const deck = await run(
+      '<grid dimension="80 40" position="center">\n<split even gap="1">left col\n\nright col</split>\n</grid>',
+    );
+    const html = deck.pages[0].html;
+    expect(html).toContain('class="grid"');
+    expect(html).toContain('class="split"');
+    expect(html).toContain('left col');
+    expect(html).toContain('right col');
+    expect(html).not.toContain('SPLIT_');
+  });
+
+  it('collects .slide comments written inside a grid', async () => {
+    const deck = await run(
+      '<grid dimension="50 50" position="center">\n\nContent\n\n<!-- .slide: background-color="#abcdef" -->\n\n</grid>',
+    );
+    expect(deck.pages[0].attributes['data-background-color']).toBe('#abcdef');
+  });
+
+  it('resolves nested grids from the inside out', async () => {
+    const deck = await run(
+      '<grid dimension="80 80" position="center" style="background: #eee;">\n<grid dimension="50 50" position="topleft" style="background: red;">inner</grid>\n</grid>',
+    );
+    const html = deck.pages[0].html;
+    expect(html).toContain('width: 80%');
+    expect(html).toContain('width: 50%');
+    expect(html).toContain('inner');
+    expect(html).not.toContain('GRID_');
+    // 内层 div 必须落在外层 div 内部
+    expect(/<div class="grid"[^>]*>\s*<div class="grid"/.test(html)).toBe(true);
+  });
+
+  it('resolves nested splits', async () => {
+    const deck = await run('<split even>\n\n<split gap="1">a\n\nb</split>\n\nright\n\n</split>');
+    const html = deck.pages[0].html;
+    expect(html).not.toContain('SPLIT_');
+    expect(html).toContain('gap: 1em');
+    expect((html.match(/class="split"/g) ?? []).length).toBe(2);
+  });
+
+  it('leaves an unmatched grid tag alone instead of looping', async () => {
+    const deck = await run('<grid dimension="10 10">no closing tag');
+    expect(deck.pages[0].html).toContain('no closing tag');
   });
 });

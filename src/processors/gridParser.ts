@@ -1,14 +1,21 @@
 import type { GridElement } from '../types/grid';
-import { GRID_PLACEHOLDER_PREFIX } from '../constants';
+import { GRID_PLACEHOLDER_PREFIX, PLACEHOLDER_CLOSE, gridPlaceholder } from '../constants';
 
 export interface GridParseResult {
-  /** 替换为 <!--GRID_n--> 占位符后的文本 */
+  /** 替换为 ⟦RFO-GRID-n⟧ 占位符后的文本 */
   html: string;
   grids: GridElement[];
 }
 
-const GRID_RE = /<grid(?:\s+([^>]*))?>([\s\S]*?)<\/grid>/g;
+/**
+ * 只匹配「最内层」grid：内容里不再出现 <grid 开标签。
+ * 由内向外反复替换即可支持嵌套（外层 grid 的 children 里留着内层的占位符）。
+ */
+const INNERMOST_GRID_RE = /<grid(?:\s+([^>]*))?>((?:(?!<grid[\s>])[\s\S])*?)<\/grid>/g;
 const ATTR_RE = /([\w-]+)(?:\s*=\s*"([^"]*)")?/g;
+
+/** 嵌套解析的最大层数（防病态输入死循环） */
+const MAX_NESTING = 8;
 
 const SINGLE_KEYWORDS: Record<string, [string, string]> = {
   top: ['50%', '0%'],
@@ -28,29 +35,50 @@ const CORNER_KEYWORDS: Record<string, [string, string]> = {
 const H_KEYWORDS: Record<string, string> = { left: '0%', right: '100%', center: '50%' };
 const V_KEYWORDS: Record<string, string> = { top: '0%', bottom: '100%', center: '50%' };
 
-function toCssNumber(token: string, absolute: boolean): string {
+/** 锚点：元素自身按百分比回移的量（配合 left/top 使用，见 resolvePosition） */
+type Axis = { value: string; anchor: string };
+
+function toCssNumber(token: string, absolute: boolean): Axis {
   const num = Number(token);
   const unit = absolute ? 'px' : '%';
-  if (num < 0) {
-    return `calc(100% - ${Math.abs(num)}${unit})`;
+  if (!Number.isFinite(num)) {
+    // 无法识别的数值（如写成 "20%"）：按 0 处理，避免生成 NaN
+    return { value: `0${unit}`, anchor: '0' };
   }
-  return `${num}${unit}`;
+  if (num < 0) {
+    // 负数 = 距右/下边缘的间距，元素的远端边缘对齐到该点
+    return { value: `calc(100% - ${Math.abs(num)}${unit})`, anchor: '-100%' };
+  }
+  return { value: `${num}${unit}`, anchor: '0' };
+}
+
+/** 关键字位置：left/top 落在画布的百分比点上，元素同比例回移，才能真正贴边/居中 */
+function toKeywordAxis(percent: string): Axis {
+  return { value: percent, anchor: percent === '0%' ? '0' : `-${percent}` };
+}
+
+export interface ResolvedPosition {
+  /** 规范化后的 [left, top] CSS 值 */
+  position: [string, string];
+  /** 元素自身的回移量 [x, y]，交给 transform: translate() */
+  anchor: [string, string];
 }
 
 /**
  * position 规范化（只在此一处完成，Transformer 直接拼接）。
- *   "20 25"      → ['20%', '25%']
- *   "top"        → ['50%', '0%']     （单关键字: 另一轴居中）
- *   "topleft"    → ['0%', '0%']      （角关键字）
- *   "left"       → ['0%', '50%']
- *   "-6 -8"      → ['calc(100% - 6%)', 'calc(100% - 8%)']
+ *   "20 25"      → left/top = 20% / 25%，元素左上角对齐该点
+ *   "top"        → 50% / 0%，回移 -50% / 0（单关键字: 另一轴居中）
+ *   "topleft"    → 0% / 0%，不回移
+ *   "bottomright"→ 100% / 100%，回移 -100% / -100%（右下角贴边）
+ *   "-6 -8"      → calc(100% - 6%) / calc(100% - 8%)，回移 -100%（距右下边缘 6% / 8%）
  *   absolute=true → 单位用 px
+ * 关键字与负数必须配合 anchor 回移，否则元素会整体跑出画布。
  */
-export function normalizePosition(position: string, absolute: boolean): [string, string] {
+export function resolvePosition(position: string, absolute: boolean): ResolvedPosition {
   const trimmed = position.trim().toLowerCase();
 
-  if (trimmed in CORNER_KEYWORDS) return CORNER_KEYWORDS[trimmed];
-  if (trimmed in SINGLE_KEYWORDS) return SINGLE_KEYWORDS[trimmed];
+  const keyword = CORNER_KEYWORDS[trimmed] ?? SINGLE_KEYWORDS[trimmed];
+  if (keyword) return fromAxes(toKeywordAxis(keyword[0]), toKeywordAxis(keyword[1]));
 
   const tokens = trimmed.split(/\s+/);
   if (tokens.length === 2) {
@@ -59,16 +87,25 @@ export function normalizePosition(position: string, absolute: boolean): [string,
     const bIsKeyword = b in H_KEYWORDS || b in V_KEYWORDS;
 
     if (!aIsKeyword && !bIsKeyword) {
-      return [toCssNumber(a, absolute), toCssNumber(b, absolute)];
+      return fromAxes(toCssNumber(a, absolute), toCssNumber(b, absolute));
     }
     // 两个关键字组合（如 "left top"）
     const left = a in H_KEYWORDS ? H_KEYWORDS[a] : b in H_KEYWORDS ? H_KEYWORDS[b] : '50%';
     const top = a in V_KEYWORDS ? V_KEYWORDS[a] : b in V_KEYWORDS ? V_KEYWORDS[b] : '50%';
-    return [left, top];
+    return fromAxes(toKeywordAxis(left), toKeywordAxis(top));
   }
 
   // 无法识别时居中，避免布局崩坏
-  return ['50%', '50%'];
+  return fromAxes(toKeywordAxis('50%'), toKeywordAxis('50%'));
+}
+
+function fromAxes(x: Axis, y: Axis): ResolvedPosition {
+  return { position: [x.value, y.value], anchor: [x.anchor, y.anchor] };
+}
+
+/** 仅取 [left, top]（保留原接口） */
+export function normalizePosition(position: string, absolute: boolean): [string, string] {
+  return resolvePosition(position, absolute).position;
 }
 
 function parseAttributes(attrText: string): Record<string, string | true> {
@@ -88,19 +125,43 @@ function parseDimension(value: string | true | undefined): [number, number] {
   return [100, 100];
 }
 
-/** 解析 <grid> 标签为占位符 + GridElement 列表（children 为未渲染的 Markdown） */
+/**
+ * 解析 <grid> 标签为占位符 + GridElement 列表（children 为未渲染的 Markdown）。
+ * 支持嵌套：由内向外逐层替换，内层 grid 的索引小于外层，
+ * 外层的 children 里保留 ⟦RFO-GRID-n⟧ 占位符，由管线的多轮替换解开。
+ */
 export function parseGridTags(input: string): GridParseResult {
   const grids: GridElement[] = [];
 
-  const html = input.replace(GRID_RE, (_whole, attrText: string, children: string) => {
+  let html = input;
+  for (let depth = 0; depth < MAX_NESTING && html.includes('</grid>'); depth++) {
+    const next = parseInnermostGrids(html, grids);
+    if (next === html) break; // 没有成对标签可解析，避免空转
+    html = next;
+  }
+
+  return { html, grids };
+}
+
+/** 替换当前文本中所有最内层 grid，返回替换后的文本 */
+function parseInnermostGrids(input: string, grids: GridElement[]): string {
+  return input.replace(INNERMOST_GRID_RE, (_whole, attrText: string, children: string) => {
     const attrs = parseAttributes(attrText ?? '');
     const absolute = attrs.absolute === true || attrs.absolute === 'true';
-    const position = typeof attrs.position === 'string' ? attrs.position : 'center';
+    // 尺寸/位置支持三种写法，语义完全相同：
+    //   dim / pos           —— 推荐的短写
+    //   dimension / position —— 完整写法
+    //   drag / drop          —— obsidian-advanced-slides 的写法，老笔记无需改写
+    const dimensionAttr = attrs.dim ?? attrs.dimension ?? attrs.drag;
+    const positionAttr = attrs.pos ?? attrs.position ?? attrs.drop;
+    const position = typeof positionAttr === 'string' ? positionAttr : 'center';
+    const resolved = resolvePosition(position, absolute);
 
     const grid: GridElement = {
       tag: 'grid',
-      dimension: parseDimension(attrs.dimension),
-      position: normalizePosition(position, absolute),
+      dimension: parseDimension(dimensionAttr),
+      position: resolved.position,
+      anchor: resolved.anchor,
       absolute,
       style: typeof attrs.style === 'string' ? attrs.style : '',
       className: typeof attrs.class === 'string' ? attrs.class : '',
@@ -112,14 +173,12 @@ export function parseGridTags(input: string): GridParseResult {
 
     const index = grids.length;
     grids.push(grid);
-    return `<!--${GRID_PLACEHOLDER_PREFIX}${index}-->`;
+    return gridPlaceholder(index);
   });
-
-  return { html, grids };
 }
 
-/** 判断占位符注释是否对应 grid 索引 */
+/** 判断文本是否为 grid 占位符，是则返回索引 */
 export function isGridPlaceholder(text: string): number | null {
-  const match = new RegExp(`^${GRID_PLACEHOLDER_PREFIX}(\\d+)$`).exec(text.trim());
+  const match = new RegExp(`^${GRID_PLACEHOLDER_PREFIX}(\\d+)${PLACEHOLDER_CLOSE}$`).exec(text.trim());
   return match ? Number(match[1]) : null;
 }

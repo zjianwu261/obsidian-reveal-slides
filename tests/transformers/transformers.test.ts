@@ -14,6 +14,7 @@ function makeGrid(overrides: Partial<GridElement> = {}): GridElement {
     tag: 'grid',
     dimension: [60, 30],
     position: ['20%', '25%'],
+    anchor: ['0', '0'],
     absolute: false,
     style: '',
     className: '',
@@ -51,10 +52,31 @@ describe('GridTransformer', () => {
   it('passes normalized calc() positions through', () => {
     const result = fresh();
     new GridTransformer().transform(
-      makeGrid({ position: ['calc(100% - 6%)', 'calc(100% - 8%)'] }),
+      makeGrid({ position: ['calc(100% - 6%)', 'calc(100% - 8%)'], anchor: ['-100%', '-100%'] }),
       result,
     );
     expect(result.css.join(' ')).toContain('left: calc(100% - 6%);');
+  });
+
+  it('translates the element back for keyword / negative positions', () => {
+    const result = fresh();
+    new GridTransformer().transform(
+      makeGrid({ position: ['100%', '100%'], anchor: ['-100%', '-100%'] }),
+      result,
+    );
+    expect(result.css.join(' ')).toContain('transform: translate(-100%, -100%);');
+  });
+
+  it('exposes the box for the grid guides overlay', () => {
+    const result = fresh();
+    new GridTransformer().transform(makeGrid(), result);
+    expect(result.attrs['data-rfo-box']).toBe('60×30% @ 20% 25%');
+  });
+
+  it('omits the transform when the element anchors at its top-left corner', () => {
+    const result = fresh();
+    new GridTransformer().transform(makeGrid(), result);
+    expect(result.css.join(' ')).not.toContain('transform');
   });
 });
 
