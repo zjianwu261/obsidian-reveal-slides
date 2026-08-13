@@ -1,3 +1,5 @@
+import { findCodeRanges, isInsideCode } from '../utils/codeRanges';
+
 export interface RawSlide {
   content: string;
   type: 'horizontal' | 'vertical';
@@ -15,36 +17,6 @@ export interface SplitResult {
   slides: RawSlide[];
 }
 
-type Range = [number, number];
-
-/**
- * 标记代码块 / 行内代码的范围，分页时跳过这些范围内的分隔符。
- */
-export function findCodeRanges(text: string): Range[] {
-  const ranges: Range[] = [];
-
-  // 围栏代码块 ``` 或 ~~~
-  const fenceRe = /^(`{3,}|~{3,})[^\n]*\r?\n[\s\S]*?(?:^\1[ \t]*$|$(?![\s\S]))/gm;
-  for (const match of text.matchAll(fenceRe)) {
-    ranges.push([match.index, match.index + match[0].length]);
-  }
-
-  // 行内代码（可跨行，排除已在围栏代码块内的部分）
-  const inlineRe = /`[^`]+`/g;
-  for (const match of text.matchAll(inlineRe)) {
-    const start = match.index;
-    if (!isInsideRanges(start, ranges)) {
-      ranges.push([start, start + match[0].length]);
-    }
-  }
-
-  return ranges;
-}
-
-function isInsideRanges(index: number, ranges: Range[]): boolean {
-  return ranges.some(([start, end]) => index >= start && index < end);
-}
-
 /**
  * 按正则分割，但忽略代码范围内的匹配。
  * 代码范围按传入的 text 现算：分页是多轮的（水平 → headingDivider → 垂直），
@@ -56,7 +28,7 @@ function splitOutsideCode(text: string, separator: RegExp, baseOffset = 0): Chun
   let last = 0;
   for (const match of text.matchAll(separator)) {
     const start = match.index;
-    if (isInsideRanges(start, ranges)) continue;
+    if (isInsideCode(start, ranges)) continue;
     parts.push({ text: text.slice(last, start), offset: baseOffset + last });
     last = start + match[0].length;
   }

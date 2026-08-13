@@ -1,5 +1,6 @@
 import type { SplitElement } from '../types/grid';
 import { SPLIT_PLACEHOLDER_PREFIX, PLACEHOLDER_CLOSE, splitPlaceholder } from '../constants';
+import { replaceOutsideCode } from '../utils/codeRanges';
 
 export interface SplitParseResult {
   html: string;
@@ -45,12 +46,15 @@ export function parseSplitTags(input: string): SplitParseResult {
   return { html, splits };
 }
 
-/** 替换当前文本中所有最内层 split，返回替换后的文本 */
+/**
+ * 替换当前文本中所有最内层 split，返回替换后的文本。
+ * 代码块里的 `<split>` 是示例，原样保留。
+ */
 function parseInnermostSplits(input: string, splits: SplitElement[]): string {
-  return input.replace(INNERMOST_SPLIT_RE, (_whole, attrText: string, content: string) => {
-    const attrs = parseAttributes(attrText);
+  return replaceOutsideCode(input, INNERMOST_SPLIT_RE, (_whole, attrText, content) => {
+    const attrs = parseAttributes(attrText ?? '');
 
-    const columns = content
+    const columns = (content ?? '')
       .split(/\n\s*\n/)
       .map((col) => col.trim())
       .filter((col) => col.length > 0);

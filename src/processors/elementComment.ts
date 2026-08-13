@@ -11,6 +11,7 @@
  * 为兼容会保留注释的渲染器（测试桩、其它宿主），注释节点的老路径也一并保留。
  */
 import { normalizeSlideAttributes } from '../transformers/backgroundImage';
+import { replaceOutsideCode } from '../utils/codeRanges';
 
 export interface ElementDirective {
   kind: 'element' | 'slide';
@@ -49,12 +50,16 @@ function parseAttributes(text: string): Record<string, string> {
   return attrs;
 }
 
-/** 渲染前：把 .element / .slide 注释换成文本标记 */
+/**
+ * 渲染前：把 .element / .slide 注释换成文本标记。
+ * 代码块里的注释是语法示例，原样保留 —— 否则「教怎么写 .element」的那页
+ * 会看到示例被替换成标记，属性还套到了代码块上。
+ */
 export function extractElementComments(markdown: string): ElementExtractResult {
   const directives: ElementDirective[] = [];
-  const text = markdown.replace(COMMENT_RE, (_whole, kind: string, body: string) => {
+  const text = replaceOutsideCode(markdown, COMMENT_RE, (_whole, kind, body) => {
     const index = directives.length;
-    directives.push({ kind: kind as 'element' | 'slide', attrs: parseAttributes(body) });
+    directives.push({ kind: kind as 'element' | 'slide', attrs: parseAttributes(body ?? '') });
     return token(index);
   });
   return { text, directives };

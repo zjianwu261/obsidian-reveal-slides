@@ -1,5 +1,6 @@
 import type { GridElement } from '../types/grid';
 import { GRID_PLACEHOLDER_PREFIX, PLACEHOLDER_CLOSE, gridPlaceholder } from '../constants';
+import { replaceOutsideCode } from '../utils/codeRanges';
 
 export interface GridParseResult {
   /** 替换为 ⟦RFO-GRID-n⟧ 占位符后的文本 */
@@ -143,9 +144,13 @@ export function parseGridTags(input: string): GridParseResult {
   return { html, grids };
 }
 
-/** 替换当前文本中所有最内层 grid，返回替换后的文本 */
+/**
+ * 替换当前文本中所有最内层 grid，返回替换后的文本。
+ * 代码块里的 `<grid>` 是示例，原样保留（每轮都要重新算范围：文本已被上一轮改写）。
+ */
 function parseInnermostGrids(input: string, grids: GridElement[]): string {
-  return input.replace(INNERMOST_GRID_RE, (_whole, attrText: string, children: string) => {
+  return replaceOutsideCode(input, INNERMOST_GRID_RE, (_whole, attrText, childText) => {
+    const children = childText ?? '';
     const attrs = parseAttributes(attrText ?? '');
     // 尺寸/位置支持三种写法，语义完全相同：
     //   dim / pos           —— 推荐的短写
