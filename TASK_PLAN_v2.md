@@ -986,6 +986,11 @@ Windows 的盘符问题正是靠这条路才能在 CI 里挡住。
 注释节点的老路径保留，兼容会透传注释的宿主。
 回归测试放在 `obsidianRenderer.test.ts`（渲染桩会删注释）。
 
+**文档合并（第五轮追加）**：`docs/` 整个去掉，全部并入 README。
+`docs/tutorial.md` 与 README 的七步教程完全重复，且停留在 `dimension`/`position`
+的老写法（会误导读者）；写作规范并为 README 的「写作规范」一节。
+Task 5.3 原计划的 `docs/tutorial.md` 因此作废——单一入口比分散文件更容易保持同步。
+
 **仍未实现 / 已知限制**:
 - `reveal.bundle.mjs` 约 4.9 MB（mermaid + Chart.js），独立导出的单文件 HTML 会一并内联。
   改成按需动态 import 可显著瘦身，但会拆出额外 chunk，与「单文件离线播放」冲突，故维持现状。
