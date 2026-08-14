@@ -356,6 +356,19 @@ export class RevealSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Follow active note')
+      .setDesc(
+        'Off (default): the preview stays on the note you opened it from — ' +
+          'run "Show Slide Preview" on another note to switch it. On: it follows whatever note you open.',
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(settings.followActiveNote).onChange(async (value) => {
+          settings.followActiveNote = value;
+          await save();
+        }),
+      );
+
+    new Setting(containerEl)
       .setName('Follow cursor')
       .setDesc('Jump the preview to the slide the cursor is on while you edit')
       .addToggle((toggle) =>

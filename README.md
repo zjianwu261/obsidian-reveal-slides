@@ -119,8 +119,11 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
 2. 按 `Ctrl/Cmd + Shift + E`（或命令面板执行 **Show Slide Preview**）。
 3. 笔记右侧出现 **Slide Preview** 面板，显示渲染后的幻灯片，方向键翻页。
    光标在源码里移到哪一页，预览就自动翻到哪一页（可在设置里关掉）。
+4. **预览钉在这一篇上**：你去翻别的笔记查资料，它不会被带跑。
+   想换预览对象，就在新笔记上再执行一次 **Show Slide Preview**（不用关掉面板）。
+   想让它跟着当前笔记走，在设置 → Preview → Follow active note 打开。
    （想要独立窗口或放回侧边栏，见 [设置项说明](#设置项说明) 的 Preview location。）
-4. 继续编辑笔记，预览会在停笔 300ms 后自动更新。
+5. 继续编辑笔记，预览会在停笔 300ms 后自动更新。
 
 > 第一次使用如果没反应，看这里：[常见问题（排障）](#常见问题排障)。
 
@@ -698,7 +701,7 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 | 命令 | 快捷键 | 作用 |
 |------|--------|------|
-| Show Slide Preview | `Ctrl/Cmd + Shift + E` | 打开/聚焦预览面板 |
+| Show Slide Preview | `Ctrl/Cmd + Shift + E` | 打开/聚焦预览面板，并把预览对象**绑到当前笔记** |
 | Reload Slide Preview | `Ctrl/Cmd + Shift + R` | 强制重跑管线并刷新，标题栏也有按钮 |
 | Start Slide Preview Server | — | 手动启动本地预览服务器 |
 | Stop Slide Preview Server | — | 停止服务器 |
@@ -1002,7 +1005,7 @@ series:
 | Document | 默认标题、追加 CSS、全局背景 |
 | Preview Server | 自动启动开关、端口（默认 3000，端口被占用时自动顺延；改完失焦即重启服务器） |
 | Export | 导出目录 |
-| Preview | 面板位置（**默认与笔记并排**，可选独立窗口 / 右侧边栏）、滚动视图阈值、自动刷新、光标跟随、`<grid>`/`<split>` 属性自动补全、版面辅助线 |
+| Preview | 面板位置（**默认与笔记并排**，可选独立窗口 / 右侧边栏）、滚动视图阈值、自动刷新、跟随当前笔记（默认关）、光标跟随、`<grid>`/`<split>` 属性自动补全、版面辅助线 |
 
 ## 常见问题（排障）
 

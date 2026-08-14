@@ -54,6 +54,12 @@ export interface PluginSettings {
   showGridGuides: boolean;
   /** 编辑器光标移动时，预览自动跳到光标所在页 */
   syncCursor: boolean;
+  /**
+   * 切换笔记时预览是否跟着换。
+   * 默认关：预览钉在你让它预览的那一篇上，翻别的笔记查资料不会把它带跑；
+   * 想换对象就在新笔记上执行一次 Show Slide Preview。
+   */
+  followActiveNote: boolean;
 }
 
 export const DEFAULT_SETTINGS: PluginSettings = {
@@ -87,4 +93,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   autoComplete: true,
   showGridGuides: false,
   syncCursor: true,
+  followActiveNote: false,
 };

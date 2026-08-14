@@ -99,15 +99,11 @@ export default class RevealPlugin extends Plugin {
       }),
     );
 
-    // 切换笔记时切换预览内容。
-    //
-    // 两个事件缺一不可：
+    // 「跟随当前笔记」默认关闭：翻别的笔记查资料时，预览不该被带跑。
+    // 开启后两个事件缺一不可 ——
     //   file-open           同一个面板里换笔记（点链接、切标签页、快速切换器）
     //   active-leaf-change  在多个已打开的面板之间切焦点
-    // 只监听后者的话，在一个面板里连着看好几篇笔记时，预览会一直钉在最初那篇上。
-    //
-    // 两者都只在活动视图是 Markdown 时更新跟踪目标 ——
-    // 预览面板自己获得焦点时不能把渲染对象丢掉。
+    // 只监听后者的话，在一个面板里连着看好几篇笔记，预览会一直钉在最初那篇上。
     this.registerEvent(
       this.app.workspace.on('file-open', (file) => {
         if (file?.extension === 'md') this.trackNote(file);
@@ -140,8 +136,9 @@ export default class RevealPlugin extends Plugin {
     });
   }
 
-  /** 把预览的渲染对象切到这篇笔记；已经是它就不重复渲染 */
+  /** 把预览的渲染对象切到这篇笔记；已经是它、或未开启跟随，则不动 */
   private trackNote(file: TFile): void {
+    if (!this.settings.followActiveNote) return;
     if (file.path === this.lastMarkdownFile?.path) return;
     this.lastMarkdownFile = file;
     this.renderActiveFileDebounced();
@@ -402,8 +399,18 @@ export default class RevealPlugin extends Plugin {
     return relative !== null && this.app.vault.getAbstractFileByPath(relative) !== null;
   }
 
+  /**
+   * 打开/聚焦预览面板，并**把预览对象绑到当前这篇笔记**。
+   * 这是显式动作：不开跟随时，换预览对象就靠在新笔记上再执行一次本命令，
+   * 不必关掉面板重开。
+   */
   async activateView(): Promise<void> {
     const { workspace } = this.app;
+
+    const active = workspace.getActiveFile();
+    const retarget = active?.extension === 'md' && active.path !== this.lastMarkdownFile?.path;
+    if (active?.extension === 'md') this.lastMarkdownFile = active;
+    if (retarget) new Notice(`reveal-for-obsidian: 预览已切换到「${active!.basename}」`);
 
     let leaf: WorkspaceLeaf | null = null;
     const leaves = workspace.getLeavesOfType(VIEW_TYPE_SLIDE_PREVIEW);
