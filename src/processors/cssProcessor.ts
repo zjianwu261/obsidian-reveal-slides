@@ -25,3 +25,23 @@ export function extractStyleBlocks(body: string): CssExtractResult {
   });
   return { body: stripped, css: blocks.join('\n\n') };
 }
+
+const CSS_FENCE_RE = /^[ \t]*```+[ \t]*css[^\n]*\n([\s\S]*?)\n[ \t]*```+[ \t]*$/gim;
+
+/**
+ * 外部样式文件 → CSS 文本。
+ *
+ * `.md` 文件里取 ```css 代码块与 `<style>` 块，正文一概忽略 ——
+ * 好处是样式可以当普通笔记写：Obsidian 里有语法高亮、能折叠、能搜索，
+ * 而 `.css` 文件默认在文件树里根本不显示。
+ * 其余扩展名按纯 CSS 原样使用。
+ */
+export function cssFromFile(path: string, content: string): string {
+  if (!/\.md$/i.test(path)) return content;
+
+  const blocks: string[] = [];
+  for (const match of content.matchAll(CSS_FENCE_RE)) blocks.push(match[1].trim());
+  blocks.push(extractStyleBlocks(content).css);
+
+  return blocks.filter(Boolean).join('\n\n');
+}

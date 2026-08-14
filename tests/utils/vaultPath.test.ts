@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isInsideDir,
   sidecarCssCandidates,
+  themeCssCandidates,
   sidecarCssPath,
   nativePathToUrl,
   toVaultRelative,
@@ -115,5 +116,39 @@ describe('sidecarCssCandidates', () => {
 
   it('works for a note at the vault root', () => {
     expect(sidecarCssCandidates('第1章.md')[0]).toBe('第1章.css');
+  });
+});
+
+describe('themeCssCandidates', () => {
+  it('walks up from the note folder, nearest first', () => {
+    const paths = themeCssCandidates('学期/单片机/理论课/第1章.md');
+    // 每一级都给出四个候选：themes/ 与 theme/ 各自的 .css 与 .md
+    expect(paths.slice(0, 4)).toEqual([
+      '学期/单片机/理论课/themes/course.css',
+      '学期/单片机/理论课/themes/course.md',
+      '学期/单片机/理论课/theme/course.css',
+      '学期/单片机/理论课/theme/course.md',
+    ]);
+    expect(paths.slice(-4)).toEqual([
+      'themes/course.css',
+      'themes/course.md',
+      'theme/course.css',
+      'theme/course.md',
+    ]);
+    // 目录层数 + 库根，每层四个
+    expect(paths).toHaveLength(4 * 4);
+  });
+
+  it('accepts a markdown theme so it can be edited like a normal note', () => {
+    expect(themeCssCandidates('理论课/第1章.md')).toContain('理论课/theme/course.md');
+  });
+
+  it('falls back to the vault root for a note at the root', () => {
+    expect(themeCssCandidates('第1章.md')).toEqual([
+      'themes/course.css',
+      'themes/course.md',
+      'theme/course.css',
+      'theme/course.md',
+    ]);
   });
 });

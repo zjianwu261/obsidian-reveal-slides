@@ -44,6 +44,14 @@ export function registerCommands(plugin: RevealPlugin): void {
   });
 
   plugin.addCommand({
+    id: 'open-stylesheet',
+    name: 'Open Slide Stylesheet',
+    callback: () => {
+      void plugin.openStylesheet();
+    },
+  });
+
+  plugin.addCommand({
     id: 'export-pdf',
     name: 'Export Slides as PDF',
     callback: () => {

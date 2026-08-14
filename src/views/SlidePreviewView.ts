@@ -80,6 +80,15 @@ export class SlidePreviewView extends ItemView {
 
     menu.addItem((item) =>
       item
+        .setTitle('Open slide stylesheet')
+        .setIcon('paintbrush')
+        .onClick(() => {
+          void this.plugin.openStylesheet();
+        }),
+    );
+
+    menu.addItem((item) =>
+      item
         .setTitle('Export slides as PDF')
         .setIcon('printer')
         .onClick(() => {

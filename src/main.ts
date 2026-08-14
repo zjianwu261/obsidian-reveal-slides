@@ -10,12 +10,18 @@ import { SlidePreviewView } from './views/SlidePreviewView';
 import { GridAttributeSuggest } from './editor';
 import { createCursorSyncExtension } from './editor/cursorSync';
 import { PipelineOrchestrator } from './processors';
+import { cssFromFile } from './processors/cssProcessor';
 import { RevealEngine } from './engine/revealEngine';
 import { renderMarkdownToHtml } from './engine/renderEngine';
 import { exportPdf as runPdfExport } from './export/pdfExporter';
 import { debounce } from './utils/debounce';
 import { lineToPageIndex } from './engine/templateEngine';
-import { sidecarCssCandidates, toVaultRelative, urlPathToNative } from './utils/vaultPath';
+import {
+  sidecarCssCandidates,
+  themeCssCandidates,
+  toVaultRelative,
+  urlPathToNative,
+} from './utils/vaultPath';
 import { VIEW_TYPE_SLIDE_PREVIEW } from './constants';
 
 function createEmptyDeck(message = 'Empty'): SlideDeck {
@@ -276,7 +282,11 @@ export default class RevealPlugin extends Plugin {
     const parts: string[] = [];
     this.loadedCssPaths.clear();
 
-    // 1. frontmatter / 设置里指定的样式（课程主题）
+    // 0. 就近的课程主题（themes/course.css），约定优于配置，优先级最低
+    const theme = await this.readFirstCss(themeCssCandidates(note.path));
+    if (theme) parts.push(theme);
+
+    // 1. frontmatter / 设置里显式指定的样式（显式覆盖约定）
     for (const relative of deck.customCSS) {
       const path = relative.replace(/^[/\\]+/, '');
       const file = this.app.vault.getAbstractFileByPath(path);
@@ -284,16 +294,12 @@ export default class RevealPlugin extends Plugin {
         console.warn(`[reveal-for-obsidian] css file not found: ${relative}`);
         continue;
       }
-      this.loadedCssPaths.add(file.path);
-      parts.push(await this.app.vault.cachedRead(file));
+      parts.push(await this.readCssFile(file));
     }
 
     // 2. 这篇笔记专属的样式文件（同名 css / 同名文件夹 / 附件夹），存在即加载
-    const sidecar = await this.findSidecarCss(note);
-    if (sidecar) {
-      this.loadedCssPaths.add(sidecar.path);
-      parts.push(await this.app.vault.cachedRead(sidecar));
-    }
+    const sidecar = await this.readSidecarCss(note);
+    if (sidecar) parts.push(sidecar);
 
     // 3. 笔记内的 <style>：最靠后，优先级最高
     if (deck.cssVariables) parts.push(deck.cssVariables);
@@ -304,7 +310,7 @@ export default class RevealPlugin extends Plugin {
    * 找这篇笔记专属的 CSS：按候选顺序取第一个存在的。
    * 附件目录问 Obsidian 要（用户可能改过设置），取不到就只按约定目录找。
    */
-  private async findSidecarCss(note: TFile): Promise<TFile | null> {
+  private async readSidecarCss(note: TFile): Promise<string> {
     let attachmentDir: string | undefined;
     try {
       const probe = await this.app.fileManager.getAvailablePathForAttachment('style.css', note.path);
@@ -314,7 +320,33 @@ export default class RevealPlugin extends Plugin {
       // 拿不到附件目录不影响其余候选
     }
 
-    for (const path of sidecarCssCandidates(note.path, attachmentDir)) {
+    return this.readFirstCss(sidecarCssCandidates(note.path, attachmentDir));
+  }
+
+  /**
+   * 按候选顺序取第一份**有内容**的样式。
+   * 空文件不算数，继续往下找 —— 否则一个占位用的空 course.css
+   * 会把后面同名的 course.md 永久挡住，而且毫无迹象。
+   */
+  private async readFirstCss(paths: string[]): Promise<string> {
+    for (const path of paths) {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (!(file instanceof TFile)) continue;
+      const css = await this.readCssFile(file);
+      if (css.trim()) return css;
+    }
+    return '';
+  }
+
+  /** 读一个样式文件并登记（登记后它的改动也会触发重渲染）；.md 只取其中的 CSS */
+  private async readCssFile(file: TFile): Promise<string> {
+    this.loadedCssPaths.add(file.path);
+    return cssFromFile(file.path, await this.app.vault.cachedRead(file));
+  }
+
+  /** 取候选里第一个真实存在的文件 */
+  private findFirstFile(paths: string[]): TFile | null {
+    for (const path of paths) {
       const file = this.app.vault.getAbstractFileByPath(path);
       if (file instanceof TFile) return file;
     }
@@ -379,6 +411,27 @@ export default class RevealPlugin extends Plugin {
     await this.saveSettings();
     await this.renderActiveFile();
     this.syncPreviewActions();
+  }
+
+  /**
+   * 打开当前笔记生效的样式文件（就近的那一份），在旁边分栏打开。
+   * 样式一旦挪进独立文件就「藏得深」，靠记路径去找太别扭；
+   * 这里直接把渲染时实际读到的最后一份（最贴近本篇的那份）打开。
+   */
+  async openStylesheet(): Promise<void> {
+    const paths = [...this.loadedCssPaths];
+    const target = paths[paths.length - 1];
+
+    if (!target) {
+      const note = this.lastMarkdownFile;
+      const suggestion = note ? themeCssCandidates(note.path)[1] : 'themes/course.md';
+      new Notice(`reveal-for-obsidian: 没有找到样式文件，可新建 ${suggestion}`);
+      return;
+    }
+
+    const file = this.app.vault.getAbstractFileByPath(target);
+    if (!(file instanceof TFile)) return;
+    await this.app.workspace.getLeaf('split', 'vertical').openFile(file);
   }
 
   /** 切换版面辅助线（命令面板 / 预览面板工具栏按钮） */
