@@ -160,6 +160,15 @@ export function applyElementComments(
     for (const directive of elementAttrs) applyAttributes(target, directive.attrs);
   }
 
+  // 1.5 标记也可能被渲染器抄进属性里（Obsidian 的 <h1 data-heading="标题⟦tok⟧">），
+  //     文本节点那轮清不到，这里统一抹掉
+  doc.body.querySelectorAll('*').forEach((el) => {
+    for (const attr of Array.from(el.attributes)) {
+      if (!attr.value.includes(TOKEN_PREFIX)) continue;
+      el.setAttribute(attr.name, attr.value.replace(TOKEN_RE, ''));
+    }
+  });
+
   // 2. 注释节点（保留注释的渲染器）
   const comments: Comment[] = [];
   collectComments(doc.body, comments);

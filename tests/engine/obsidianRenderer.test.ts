@@ -18,7 +18,11 @@ const obsidianLikeRender = async (markdown: string): Promise<string> => {
       const trimmed = block.trim();
       if (!trimmed) return '';
       const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
-      if (heading) return `<h${heading[1].length}>${heading[2]}</h${heading[1].length}>`;
+      // Obsidian 会把整行标题文本抄进 data-heading，标记若不清理就会漏在那里
+      if (heading) {
+        const level = heading[1].length;
+        return `<h${level} data-heading="${heading[2]}" dir="auto">${heading[2]}</h${level}>`;
+      }
       // 段内换行 → <br>（Obsidian 的严格换行行为）
       return `<p dir="auto">${trimmed.split('\n').join('<br>')}</p>`;
     })
@@ -95,5 +99,13 @@ describe('element comments survive the Obsidian renderer', () => {
   it('collects .slide attributes', async () => {
     const deck = await run('内容\n\n<!-- .slide: background-color="#101010" -->');
     expect(deck.pages[0].attributes['data-background-color']).toBe('#101010');
+  });
+});
+
+describe('markers never leak into the output', () => {
+  it('strips the marker Obsidian copies into data-heading', async () => {
+    const deck = await run('# 标题<!-- .element: style="font-size:100px" -->');
+    expect(deck.pages[0].html).toContain('font-size:100px');
+    expect(deck.pages[0].html).not.toContain('RFO-EL-');
   });
 });
