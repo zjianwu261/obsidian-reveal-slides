@@ -68,6 +68,18 @@ const OVERRIDABLE_KEYS: (keyof PluginSettings)[] = [
   'enableOverview', 'scrollActivationWidth',
 ];
 
+/**
+ * frontmatter 的值 → 字符串数组。
+ * 单个字符串、数组都接受；嵌套数组会摊平 ——
+ * `css: [[course]]` 是很自然的写法（看着像 wikilink），
+ * 但 YAML 会把它解析成 [["course"]]，不摊平就会被静默丢掉。
+ */
+function toStringList(value: unknown): string[] {
+  if (typeof value === 'string') return value.trim() ? [value.trim()] : [];
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => toStringList(item));
+}
+
 /** 合并 frontmatter 配置到设置上（仅白名单键） */
 export function mergeConfig(
   settings: PluginSettings,
@@ -194,8 +206,9 @@ export class PipelineOrchestrator {
       });
     }
 
-    const cssList = Array.isArray(config.css) ? config.css : [];
-    const remoteList = Array.isArray(config.remoteCSS) ? config.remoteCSS : [];
+    // css / remoteCSS 允许写成单个字符串：`css: theme/course.md` 比套一层数组顺手
+    const cssList = toStringList(config.css);
+    const remoteList = toStringList(config.remoteCSS);
 
     return {
       title: (config.title as string | null) ?? '',

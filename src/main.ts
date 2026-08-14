@@ -17,6 +17,7 @@ import { exportPdf as runPdfExport } from './export/pdfExporter';
 import { debounce } from './utils/debounce';
 import { lineToPageIndex } from './engine/templateEngine';
 import {
+  cssRefCandidates,
   sidecarCssCandidates,
   themeCssCandidates,
   toVaultRelative,
@@ -287,11 +288,10 @@ export default class RevealPlugin extends Plugin {
     if (theme) parts.push(theme);
 
     // 1. frontmatter / 设置里显式指定的样式（显式覆盖约定）
-    for (const relative of deck.customCSS) {
-      const path = relative.replace(/^[/\\]+/, '');
-      const file = this.app.vault.getAbstractFileByPath(path);
-      if (!(file instanceof TFile)) {
-        console.warn(`[reveal-for-obsidian] css file not found: ${relative}`);
+    for (const ref of deck.customCSS) {
+      const file = this.resolveCssRef(ref, note);
+      if (!file) {
+        console.warn(`[reveal-for-obsidian] css file not found: ${ref}`);
         continue;
       }
       parts.push(await this.readCssFile(file));
@@ -336,6 +336,21 @@ export default class RevealPlugin extends Plugin {
       if (css.trim()) return css;
     }
     return '';
+  }
+
+  /**
+   * frontmatter 的 `css:` 条目 → 文件。
+   * 先按「相对本篇 / 库内绝对」找，再退回 Obsidian 的链接解析
+   * （这样 [[course]] 这种写法也能用，且笔记改名后链接会自动跟随）。
+   */
+  private resolveCssRef(ref: string, note: TFile): TFile | null {
+    for (const path of cssRefCandidates(ref, note.path)) {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) return file;
+    }
+
+    const linkpath = ref.trim().replace(/^\[\[/, '').replace(/\]\]$/, '');
+    return this.app.metadataCache.getFirstLinkpathDest(linkpath, note.path);
   }
 
   /** 读一个样式文件并登记（登记后它的改动也会触发重渲染）；.md 只取其中的 CSS */

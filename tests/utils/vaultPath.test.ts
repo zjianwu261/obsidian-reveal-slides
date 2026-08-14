@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  cssRefCandidates,
   isInsideDir,
   sidecarCssCandidates,
   themeCssCandidates,
@@ -150,5 +151,37 @@ describe('themeCssCandidates', () => {
       'theme/course.css',
       'theme/course.md',
     ]);
+  });
+});
+
+describe('cssRefCandidates', () => {
+  const note = '理论课/第1章.md';
+
+  it('resolves a path relative to the note first, then vault-absolute', () => {
+    expect(cssRefCandidates('theme/course.md', note)).toEqual([
+      '理论课/theme/course.md',
+      'theme/course.md',
+    ]);
+  });
+
+  it('tries .md then .css when the extension is left off', () => {
+    expect(cssRefCandidates('theme/course', note)).toEqual([
+      '理论课/theme/course.md',
+      'theme/course.md',
+      '理论课/theme/course.css',
+      'theme/course.css',
+    ]);
+  });
+
+  it('accepts a wikilink', () => {
+    expect(cssRefCandidates('[[course]]', note)).toContain('理论课/course.md');
+  });
+
+  it('strips a leading slash from a vault-absolute path', () => {
+    expect(cssRefCandidates('/themes/course.css', note)).toContain('themes/course.css');
+  });
+
+  it('ignores an empty reference', () => {
+    expect(cssRefCandidates('   ', note)).toEqual([]);
   });
 });

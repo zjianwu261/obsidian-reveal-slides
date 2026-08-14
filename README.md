@@ -499,14 +499,26 @@ margin: 0.01
 %%
 ```
 
-课程级文件在 frontmatter 引入（也可以在设置的 Local CSS files 里填，对所有笔记生效）：
+课程级文件在 frontmatter 用 `css:` 指定（也可以在设置的 Local CSS files 里填，对所有笔记生效）。
+写法很宽松，怎么顺手怎么来：
 
 ```yaml
 ---
 title: 第1章 如何学习单片机
-css: [themes/course.css]
+css: theme/course.md          # 相对本篇所在目录，单个值不必套数组
 ---
 ```
+
+| 写法 | 说明 |
+|------|------|
+| `css: theme/course.md` | **相对本篇笔记所在目录**，最常用 |
+| `css: theme/course` | 省略扩展名，先试 `.md` 再试 `.css` |
+| `css: "[[course]]"` | wikilink，能自动补全、笔记改名后自动跟随 |
+| `css: [a.md, b.css]` | 多份，按顺序叠加 |
+| `css: 课程/主题.css` | 库内绝对路径 |
+
+样式文件是 `.md` 时，取其中的 ```` ```css ```` 代码块与 `<style>` 块，正文一概忽略——
+所以主题笔记里可以正常写说明、写版式对照表。
 
 **优先级**（后加载的覆盖先加载的）：课程主题 → 笔记专属 CSS → 笔记内 `<style>` → grid 的 `style`。
 想让某一章的封面换个颜色，在后面任意一级写一句就行，不用去动主题文件。

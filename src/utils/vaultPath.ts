@@ -167,3 +167,29 @@ export function themeCssCandidates(notePath: string): string[] {
   }
   return candidates;
 }
+
+/**
+ * frontmatter 里 `css:` 条目 → 候选路径，按优先级排列。
+ *
+ * 允许几种写法，图的是「写起来短」：
+ *   [[course]]        wikilink（Obsidian 里能自动补全、能重命名跟随）
+ *   theme/course.md   相对本篇笔记所在目录
+ *   theme/course      省略扩展名（.md / .css 都试）
+ *   课程/主题.css      库内绝对路径
+ */
+export function cssRefCandidates(ref: string, notePath: string): string[] {
+  const cleaned = ref.trim().replace(/^\[\[/, '').replace(/\]\]$/, '').replace(/^[/\\]+/, '');
+  if (!cleaned) return [];
+
+  const { dir } = splitNotePath(notePath);
+  const withExtensions = /\.(css|md)$/i.test(cleaned)
+    ? [cleaned]
+    : [`${cleaned}.md`, `${cleaned}.css`];
+
+  const candidates: string[] = [];
+  for (const name of withExtensions) {
+    candidates.push(`${dir}${name}`); // 相对本篇优先
+    candidates.push(name); // 再按库内绝对路径
+  }
+  return [...new Set(candidates)];
+}

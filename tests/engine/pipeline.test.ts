@@ -209,4 +209,20 @@ describe('PipelineOrchestrator (MVP)', () => {
     const deck = await run('<grid dimension="10 10">no closing tag');
     expect(deck.pages[0].html).toContain('no closing tag');
   });
+
+  it('accepts css written as a single string, not just a list', async () => {
+    const deck = await run('---\ncss: theme/course.md\n---\n# Hi');
+    expect(deck.customCSS).toEqual(['theme/course.md']);
+  });
+
+  it('flattens the wikilink-looking form', async () => {
+    // YAML 把 [[course]] 解析成 [["course"]]，摊平后才拿得到
+    const deck = await run('---\ncss: [[course]]\n---\n# Hi');
+    expect(deck.customCSS).toEqual(['course']);
+  });
+
+  it('still accepts a list of stylesheets', async () => {
+    const deck = await run('---\ncss: [a.css, b.css]\n---\n# Hi');
+    expect(deck.customCSS).toEqual(['a.css', 'b.css']);
+  });
 });
