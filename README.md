@@ -318,12 +318,77 @@ note:
 | **外观层** | `<grid>` 的 `style` | 这一块的容器外观 | `background`、`border-radius`、`padding` |
 | **排版层** | `<style>` 里的 class | 字号、行距、对齐、间距 | `.cover h1 { font-size: 2.5rem }` |
 
-**判断标准**：这条样式在别的页面还会用到吗？
-会 → 写进 `<style>` 的 class；只此一处 → 写在 grid 的 `style`。
+**判断规则**，问两个问题：
 
-> `<!-- .element: -->` 不在这三层里。它是 reveal 的传统语法，本插件为兼容而支持，
-> 但它让正文变脏、无法复用、每处都要单独改。**默认不要用**，
-> 只在「某一个元素必须特事特办、且加 class 反而更绕」时才用。
+1. **这条样式作用于「这一块」还是「块里的某个元素」？**
+   块 → 写在 grid 的 `style`；元素 → 写进 class（用 `.cover h1` 这类后代选择器）。
+2. **别的页面还会用到吗？**
+   会 → class；只此一处 → grid 的 `style`。
+
+`dim` / `pos` 永远在 grid（没有别的地方能写），排版永远在 class，
+grid 的 `style` 只留「这一页独有的容器外观」。
+
+#### 拿一页封面练手
+
+常见的写法是这样，看着能用，但样式散落在三个地方：
+
+```markdown
+<grid dim="76 24" pos="12 30" style="background:var(--brand); color:#fff; border-radius:16px; text-align:center; padding:0 48px;">
+
+# 第1章 如何学习单片机<!-- .element: style="font-size:100px; margin:0; font-weight:600; line-height:1.25" -->
+
+《单片机原理与应用》<!-- .element: style="font-size:.7em; margin:.4em 0 0; opacity:.85" -->
+
+</grid>
+```
+
+逐条归位：
+
+| 声明 | 该去哪 | 理由 |
+|------|--------|------|
+| `dim` / `pos` | **grid** ✅ | 位置和尺寸，只有 grid 能表达 |
+| `background` / `border-radius` / `padding` | **grid** ✅ | 这块红底圆角是容器的外观 |
+| `color: #fff` | class 更合适 | 白字是「封面块」这个版式的固有属性，不是这一页独有 |
+| `text-align: center` | **class** ❌ | 排版；而且每个封面页都要重写一遍 |
+| h1 的 `font-size` / `margin` / `font-weight` / `line-height` | **class** ❌ | 纯排版 |
+| p 的 `font-size` / `margin` / `opacity` | **class** ❌ | 纯排版 |
+
+**两条 `.element:` 里全是排版属性，一条都不该留。** 整理后：
+
+```markdown
+<style>
+.cover { color: #fff; text-align: center; }
+.cover h1 { font-size: 2.5rem; margin: 0; font-weight: 600; line-height: 1.25; }
+.cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
+</style>
+
+<grid dim="76 24" pos="12 30" class="cover" style="background: var(--brand); border-radius: 16px; padding: 0 48px;">
+
+# 第1章 如何学习单片机
+
+《单片机原理与应用》
+
+</grid>
+```
+
+正文回到纯 Markdown。后面十几页封面只写 `class="cover"`，想调字号就改 `<style>` 里那一处。
+
+#### `.element:` 用来加行为，不用来写样式
+
+那 `<!-- .element: -->` 什么时候才该出场？**给正文里的单个元素挂 class 或属性**——
+样式交给 class，它负责的是行为。最典型的是逐条显示：
+
+```markdown
+- 要点一<!-- .element: class="fragment" -->
+- 要点二<!-- .element: class="fragment" -->
+- 要点三
+```
+
+`frag` 属性只能写在 `<grid>` 上，整块一起出现；要让列表**逐条**出现，只有 `.element:` 做得到
+（输出 `<li class="fragment">要点一</li>…`）。
+
+反过来，只要你在 `.element:` 里写的是 `font-size`、`margin`、`color` 这类东西，
+就说明它该进 class。
 
 ---
 
@@ -724,6 +789,8 @@ note:
 ```
 
 - `<!-- .element: ... -->`：作用于**紧邻的上一个元素**，支持 `class="..."`、`style="..."` 及任意 `key="value"` 属性。
+  最典型的用途是给列表项挂 `class="fragment"` 实现逐条显示——`frag` 属性只能写在 `<grid>` 上，整块一起出现。
+  **写样式请优先用 class**，理由见[写作规范](#写作规范)。
 - `<!-- .slide: ... -->`：作用于**当前页**，背景相关键（`background-color`、`background-image`、`background-size` 等）会自动映射为 reveal.js 的 `data-background-*`。
 
 ## 图片、视频与 Excalidraw
