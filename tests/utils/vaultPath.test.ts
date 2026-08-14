@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   isInsideDir,
+  sidecarCssCandidates,
+  sidecarCssPath,
   nativePathToUrl,
   toVaultRelative,
   urlPathToNative,
@@ -72,5 +74,46 @@ describe('toVaultRelative', () => {
 
   it('returns null for a file outside the vault', () => {
     expect(toVaultRelative('/Users/me/Vault', '/etc/passwd', 'posix')).toBeNull();
+  });
+});
+
+describe('sidecarCssPath', () => {
+  it('swaps the extension, keeping the folder', () => {
+    expect(sidecarCssPath('课程/理论课/第1章.md')).toBe('课程/理论课/第1章.css');
+  });
+
+  it('handles a note at the vault root', () => {
+    expect(sidecarCssPath('第1章.md')).toBe('第1章.css');
+  });
+
+  it('only strips the last extension', () => {
+    expect(sidecarCssPath('课程/v1.2 讲义.md')).toBe('课程/v1.2 讲义.css');
+  });
+});
+
+describe('sidecarCssCandidates', () => {
+  it('looks beside the note, in a same-named folder, and in assets/<note>/', () => {
+    expect(sidecarCssCandidates('理论课/第1章.md')).toEqual([
+      '理论课/第1章.css',
+      '理论课/第1章/第1章.css',
+      '理论课/第1章/style.css',
+      '理论课/assets/第1章/第1章.css',
+      '理论课/assets/第1章/style.css',
+    ]);
+  });
+
+  it('adds the attachment folder when one is known', () => {
+    const paths = sidecarCssCandidates('理论课/第1章.md', '理论课/附件/第1章');
+    expect(paths).toContain('理论课/附件/第1章/第1章.css');
+    expect(paths).toContain('理论课/附件/第1章/style.css');
+  });
+
+  it('does not repeat a candidate when the attachment folder is already covered', () => {
+    const paths = sidecarCssCandidates('理论课/第1章.md', '理论课/assets/第1章');
+    expect(new Set(paths).size).toBe(paths.length);
+  });
+
+  it('works for a note at the vault root', () => {
+    expect(sidecarCssCandidates('第1章.md')[0]).toBe('第1章.css');
   });
 });

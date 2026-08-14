@@ -15,7 +15,7 @@ import { renderMarkdownToHtml } from './engine/renderEngine';
 import { exportPdf as runPdfExport } from './export/pdfExporter';
 import { debounce } from './utils/debounce';
 import { lineToPageIndex } from './engine/templateEngine';
-import { toVaultRelative, urlPathToNative } from './utils/vaultPath';
+import { sidecarCssCandidates, toVaultRelative, urlPathToNative } from './utils/vaultPath';
 import { VIEW_TYPE_SLIDE_PREVIEW } from './constants';
 
 function createEmptyDeck(message = 'Empty'): SlideDeck {
@@ -52,6 +52,9 @@ export default class RevealPlugin extends Plugin {
   /** 最近活动的 Markdown 文件（预览面板获得焦点后仍跟踪原笔记） */
   private lastMarkdownFile: TFile | null = null;
 
+  /** 当前 deck 用到的外部 CSS 路径：这些文件改了同样要重渲染 */
+  private loadedCssPaths = new Set<string>();
+
   async onload(): Promise<void> {
     await this.loadSettings();
 
@@ -74,11 +77,11 @@ export default class RevealPlugin extends Plugin {
     this.registerEvent(
       this.app.vault.on('modify', (file) => {
         if (!this.settings.autoReload) return;
-        if (
-          file instanceof TFile &&
-          this.lastMarkdownFile &&
-          file.path === this.lastMarkdownFile.path
-        ) {
+        if (!(file instanceof TFile)) return;
+        // 笔记本身、以及它引用的样式文件（同名 CSS / 主题文件）改动都要重渲染
+        const tracked =
+          file.path === this.lastMarkdownFile?.path || this.loadedCssPaths.has(file.path);
+        if (tracked) {
           this.renderActiveFileDebounced();
         }
       }),
@@ -256,7 +259,7 @@ export default class RevealPlugin extends Plugin {
       if (!deck.title) {
         deck.title = file.basename;
       }
-      deck.cssVariables = await this.prependLocalCss(deck);
+      deck.cssVariables = await this.prependLocalCss(deck, file);
       this.updateDeck(deck);
     } catch (err) {
       // 管线任何一步失败都不能静默——否则预览永远停留在旧内容
@@ -269,8 +272,11 @@ export default class RevealPlugin extends Plugin {
    * 读取 css 配置指向的 vault 内 CSS 文件，拼在文档级 CSS 之前
    * （笔记里的 <style> 块优先级更高，放在后面）。读不到的路径跳过。
    */
-  private async prependLocalCss(deck: SlideDeck): Promise<string> {
+  private async prependLocalCss(deck: SlideDeck, note: TFile): Promise<string> {
     const parts: string[] = [];
+    this.loadedCssPaths.clear();
+
+    // 1. frontmatter / 设置里指定的样式（课程主题）
     for (const relative of deck.customCSS) {
       const path = relative.replace(/^[/\\]+/, '');
       const file = this.app.vault.getAbstractFileByPath(path);
@@ -278,10 +284,41 @@ export default class RevealPlugin extends Plugin {
         console.warn(`[reveal-for-obsidian] css file not found: ${relative}`);
         continue;
       }
+      this.loadedCssPaths.add(file.path);
       parts.push(await this.app.vault.cachedRead(file));
     }
+
+    // 2. 这篇笔记专属的样式文件（同名 css / 同名文件夹 / 附件夹），存在即加载
+    const sidecar = await this.findSidecarCss(note);
+    if (sidecar) {
+      this.loadedCssPaths.add(sidecar.path);
+      parts.push(await this.app.vault.cachedRead(sidecar));
+    }
+
+    // 3. 笔记内的 <style>：最靠后，优先级最高
     if (deck.cssVariables) parts.push(deck.cssVariables);
     return parts.join('\n\n');
+  }
+
+  /**
+   * 找这篇笔记专属的 CSS：按候选顺序取第一个存在的。
+   * 附件目录问 Obsidian 要（用户可能改过设置），取不到就只按约定目录找。
+   */
+  private async findSidecarCss(note: TFile): Promise<TFile | null> {
+    let attachmentDir: string | undefined;
+    try {
+      const probe = await this.app.fileManager.getAvailablePathForAttachment('style.css', note.path);
+      const slash = probe.lastIndexOf('/');
+      if (slash > 0) attachmentDir = probe.slice(0, slash);
+    } catch {
+      // 拿不到附件目录不影响其余候选
+    }
+
+    for (const path of sidecarCssCandidates(note.path, attachmentDir)) {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) return file;
+    }
+    return null;
   }
 
   /** 按 Obsidian 链接路径解析笔记并读取内容（```slide 嵌入用），不存在返回 null */

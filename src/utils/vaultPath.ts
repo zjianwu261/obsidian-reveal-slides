@@ -98,3 +98,43 @@ export function toVaultRelative(
   const relative = target.slice(base.length).replace(/^[\\/]+/, '');
   return relative.split(sep).join('/');
 }
+
+/** 拆出目录与主文件名（vault 路径一律用正斜杠） */
+function splitNotePath(notePath: string): { dir: string; stem: string } {
+  const slash = notePath.lastIndexOf('/');
+  const dir = slash >= 0 ? notePath.slice(0, slash + 1) : '';
+  const base = slash >= 0 ? notePath.slice(slash + 1) : notePath;
+  const dot = base.lastIndexOf('.');
+  return { dir, stem: dot > 0 ? base.slice(0, dot) : base };
+}
+
+/**
+ * 笔记路径 → 同名 CSS 的 vault 路径（同目录、同主名）。
+ *   "课程/第1章.md" → "课程/第1章.css"
+ */
+export function sidecarCssPath(notePath: string): string {
+  const { dir, stem } = splitNotePath(notePath);
+  return `${dir}${stem}.css`;
+}
+
+/**
+ * 「这篇笔记专属样式」的候选路径，按优先级排列，取第一个存在的。
+ * 覆盖几种常见的库布局，让人不必在 frontmatter 里声明 css:：
+ *   1. 笔记同级的同名 css
+ *   2. 同名文件夹里（附件与笔记同名文件夹放一起的习惯）
+ *   3. assets/<笔记名>/ 里（每篇笔记一个附件夹，很常见）
+ *   4. Obsidian 设置里的附件目录（由调用方探测后传入）
+ */
+export function sidecarCssCandidates(notePath: string, attachmentDir?: string): string[] {
+  const { dir, stem } = splitNotePath(notePath);
+  const inFolder = (folder: string) => [`${folder}/${stem}.css`, `${folder}/style.css`];
+
+  const candidates = [
+    `${dir}${stem}.css`,
+    ...inFolder(`${dir}${stem}`),
+    ...inFolder(`${dir}assets/${stem}`),
+  ];
+  if (attachmentDir) candidates.push(...inFolder(attachmentDir.replace(/\/+$/, '')));
+
+  return [...new Set(candidates)];
+}
