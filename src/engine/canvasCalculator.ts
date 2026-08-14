@@ -15,7 +15,9 @@ export function computeCanvasSize(settings: Pick<PluginSettings, 'size' | 'width
     return { width: settings.width, height: settings.height };
   }
 
-  const size = (settings.size ?? '16:9').trim();
+  // frontmatter 是用户手写的，`size: 1080`、`size: 16.9` 都会被 YAML 解析成数字，
+  // 直接 .trim() 会抛 TypeError 把整页渲染打断 —— 一律转成字符串再解析
+  const size = String(settings.size ?? '16:9').trim();
 
   const explicit = /^(\d+)\s*x\s*(\d+)$/i.exec(size);
   if (explicit) {

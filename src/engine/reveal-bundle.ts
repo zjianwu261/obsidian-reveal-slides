@@ -56,6 +56,11 @@ function explain(message: string): string {
   return message;
 }
 
+/** 渲染成功后清掉错误浮层：否则一条早已修好的报错会一直挂在屏幕上误导人 */
+function clearError(): void {
+  document.getElementById('rfo-error')?.remove();
+}
+
 /** 错误浮层：iframe 内的任何失败都直接显示出来，避免“白屏无提示” */
 function showError(message: string): void {
   let overlay = document.getElementById('rfo-error');
@@ -231,6 +236,8 @@ async function render(): Promise<void> {
   // Mermaid / Chart.js 客户端渲染（占位元素由插件侧处理器生成）
   await hydrateMermaid();
   hydrateCharts();
+
+  clearError();
 }
 
 function scheduleRender(): void {
