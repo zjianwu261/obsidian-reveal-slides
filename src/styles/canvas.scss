@@ -6,6 +6,16 @@
 }
 
 /*
+ * 让 rem 真正可用：把根字号落到 <html> 上。
+ * 只写 .reveal { font-size } 的话，rem 参照的仍是浏览器默认 16px —— 既跟画布无关，
+ * 也不受 fontScale / autoFontScale 影响。用户想用 rem 躲开 em 的嵌套连乘时会踩空。
+ * reveal.js 自身 CSS 不含任何 rem 单位，故此改动不影响它的布局。
+ */
+html {
+  font-size: var(--root-font-size);
+}
+
+/*
  * 中性默认排版：本项目不内置主题（版面由 <grid> + style 搭建），
  * 但没有 reveal 主题时浏览器默认样式过于朴素，这里提供一套可读的基础样式，
  * 用户可通过 <style> 块 / css / remoteCSS 覆盖。
