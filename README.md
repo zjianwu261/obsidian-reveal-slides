@@ -116,11 +116,11 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
    </grid>
    ````
 
-2. 按 `Ctrl/Cmd + Shift + E`（或命令面板执行 **Show Slide Preview**）。
+2. 按 `Alt + E`（或命令面板执行 **Show Slide Preview**）。
 3. 笔记右侧出现 **Slide Preview** 面板，显示渲染后的幻灯片，方向键翻页。
    光标在源码里移到哪一页，预览就自动翻到哪一页（可在设置里关掉）。
 4. **预览钉在这一篇上**：你去翻别的笔记查资料，它不会被带跑。
-   想换预览对象，就在新笔记上再执行一次 **Show Slide Preview**（不用关掉面板）。
+   想换预览对象，就在新笔记上再按一次 `Alt + E`（不用关掉面板）。
    想让它跟着当前笔记走，在设置 → Preview → Follow active note 打开。
    （想要独立窗口或放回侧边栏，见 [设置项说明](#设置项说明) 的 Preview location。）
 5. 继续编辑笔记，预览会在停笔 300ms 后自动更新。
@@ -155,7 +155,7 @@ margin: 0.01
 - `margin` 是画布四周留白（0~1），做满版设计就调小。
 - 想按标题自动分页，设置里填 Heading divider（比如 `1,2`），就不用手写 `---` 了。
 
-按 `Ctrl/Cmd + Shift + E` 打开预览，此时应该已经能翻页了。
+按 `Alt + E` 打开预览，此时应该已经能翻页了。
 
 ### 第 2 步：用 `<grid>` 摆版面
 
@@ -701,7 +701,7 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 | 命令 | 快捷键 | 作用 |
 |------|--------|------|
-| Show Slide Preview | `Ctrl/Cmd + Shift + E` | 打开/聚焦预览面板，并把预览对象**绑到当前笔记** |
+| Show Slide Preview | `Alt + E` | 打开/聚焦预览面板，并把预览对象**绑到当前笔记** |
 | Reload Slide Preview | `Ctrl/Cmd + Shift + R` | 强制重跑管线并刷新，标题栏也有按钮 |
 | Start Slide Preview Server | — | 手动启动本地预览服务器 |
 | Stop Slide Preview Server | — | 停止服务器 |

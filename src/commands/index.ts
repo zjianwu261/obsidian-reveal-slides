@@ -4,7 +4,7 @@ export function registerCommands(plugin: RevealPlugin): void {
   plugin.addCommand({
     id: 'show-slide-preview',
     name: 'Show Slide Preview',
-    hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'E' }],
+    hotkeys: [{ modifiers: ['Alt'], key: 'E' }],
     callback: () => {
       void plugin.activateView();
     },
