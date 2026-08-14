@@ -19,7 +19,6 @@ import { lineToPageIndex } from './engine/templateEngine';
 import {
   cssRefCandidates,
   sidecarCssCandidates,
-  themeCssCandidates,
   toVaultRelative,
   urlPathToNative,
 } from './utils/vaultPath';
@@ -283,11 +282,8 @@ export default class RevealPlugin extends Plugin {
     const parts: string[] = [];
     this.loadedCssPaths.clear();
 
-    // 0. 就近的课程主题（themes/course.css），约定优于配置，优先级最低
-    const theme = await this.readFirstCss(themeCssCandidates(note.path));
-    if (theme) parts.push(theme);
-
-    // 1. frontmatter / 设置里显式指定的样式（显式覆盖约定）
+    // 1. frontmatter 的 css: / 设置里的 Local CSS files —— 主题一律显式指定，
+    //    不做「按目录自动套用」那种隐式行为：改一份文件影响整片笔记，出问题时无从查起
     for (const ref of deck.customCSS) {
       const file = this.resolveCssRef(ref, note);
       if (!file) {
@@ -438,9 +434,10 @@ export default class RevealPlugin extends Plugin {
     const target = paths[paths.length - 1];
 
     if (!target) {
-      const note = this.lastMarkdownFile;
-      const suggestion = note ? themeCssCandidates(note.path)[1] : 'themes/course.md';
-      new Notice(`reveal-for-obsidian: 没有找到样式文件，可新建 ${suggestion}`);
+      new Notice(
+        'reveal-for-obsidian: 这篇笔记没有外部样式文件，' +
+          '可在 frontmatter 写 css: <主题笔记名> 指定一份',
+      );
       return;
     }
 

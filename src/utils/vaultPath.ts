@@ -139,34 +139,6 @@ export function sidecarCssCandidates(notePath: string, attachmentDir?: string): 
   return [...new Set(candidates)];
 }
 
-/**
- * 课程主题的候选路径：从笔记所在目录逐级向上找 `themes/course.css`，取最近的一个。
- *
- *   理论课/第1章.md  →  理论课/themes/course.css
- *                       理论课/theme/course.css
- *                       <上级>/themes/course.css …… 直到库根
- *
- * 好处是「放在哪一层，就管到哪一层」：主题放章节目录下，该目录所有笔记自动共用，
- * 别的课程不受影响；不必在每篇 frontmatter 里重复写路径。
- * `theme` / `themes` 两种目录名都认。
- */
-export function themeCssCandidates(notePath: string): string[] {
-  const { dir } = splitNotePath(notePath);
-  const segments = dir.replace(/\/+$/, '').split('/').filter(Boolean);
-
-  const candidates: string[] = [];
-  for (let depth = segments.length; depth >= 0; depth--) {
-    const prefix = depth > 0 ? `${segments.slice(0, depth).join('/')}/` : '';
-    // .md 变体：样式写在普通笔记的 ```css 代码块里，编辑体验比 .css 好
-    candidates.push(
-      `${prefix}themes/course.css`,
-      `${prefix}themes/course.md`,
-      `${prefix}theme/course.css`,
-      `${prefix}theme/course.md`,
-    );
-  }
-  return candidates;
-}
 
 /**
  * frontmatter 里 `css:` 条目 → 候选路径，按优先级排列。
