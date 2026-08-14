@@ -62,6 +62,12 @@ export default class RevealPlugin extends Plugin {
   private loadedCssPaths = new Set<string>();
 
   async onload(): Promise<void> {
+    // 装了新文件却没重载插件时，Obsidian 会一直跑旧代码而毫无迹象。
+    // 把版本与构建时间打出来，排查时一眼可辨。
+    console.info(
+      `[reveal-for-obsidian] v${this.manifest.version} (build ${__BUILD_STAMP__})`,
+    );
+
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE_SLIDE_PREVIEW, (leaf) => new SlidePreviewView(leaf, this));
@@ -93,16 +99,25 @@ export default class RevealPlugin extends Plugin {
       }),
     );
 
-    // 切换笔记时切换预览内容（仅在活动叶是 Markdown 视图时更新跟踪目标，
-    // 避免预览面板获得焦点后丢失渲染对象）
+    // 切换笔记时切换预览内容。
+    //
+    // 两个事件缺一不可：
+    //   file-open           同一个面板里换笔记（点链接、切标签页、快速切换器）
+    //   active-leaf-change  在多个已打开的面板之间切焦点
+    // 只监听后者的话，在一个面板里连着看好几篇笔记时，预览会一直钉在最初那篇上。
+    //
+    // 两者都只在活动视图是 Markdown 时更新跟踪目标 ——
+    // 预览面板自己获得焦点时不能把渲染对象丢掉。
+    this.registerEvent(
+      this.app.workspace.on('file-open', (file) => {
+        if (file?.extension === 'md') this.trackNote(file);
+      }),
+    );
+
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', () => {
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (view?.file) {
-          const changed = view.file.path !== this.lastMarkdownFile?.path;
-          this.lastMarkdownFile = view.file;
-          if (changed) this.renderActiveFileDebounced();
-        }
+        if (view?.file) this.trackNote(view.file);
       }),
     );
 
@@ -123,6 +138,13 @@ export default class RevealPlugin extends Plugin {
       }
       void this.renderActiveFile();
     });
+  }
+
+  /** 把预览的渲染对象切到这篇笔记；已经是它就不重复渲染 */
+  private trackNote(file: TFile): void {
+    if (file.path === this.lastMarkdownFile?.path) return;
+    this.lastMarkdownFile = file;
+    this.renderActiveFileDebounced();
   }
 
   async onunload(): Promise<void> {

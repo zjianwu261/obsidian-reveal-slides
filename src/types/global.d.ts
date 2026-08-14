@@ -11,3 +11,6 @@ declare module 'rfo:assets' {
   export const pluginCss: string;
   export const bundleJs: string;
 }
+
+/** 构建时间戳，由 esbuild 注入（见 esbuild.config.mjs） */
+declare const __BUILD_STAMP__: string;

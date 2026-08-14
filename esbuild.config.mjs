@@ -13,6 +13,10 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = process.argv[2] === 'production';
 
+// 构建标记：插件加载时打到控制台，用来确认 Obsidian 跑的到底是哪一次构建
+// （改了文件不重载插件时，很难判断在跑新代码还是旧代码）
+const buildStamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+
 const distDir = 'dist';
 const assetsDir = path.join(distDir, 'assets');
 mkdirSync(assetsDir, { recursive: true });
@@ -117,6 +121,7 @@ const pluginContext = await esbuild.context({
   external,
   format: 'cjs',
   target: 'es2018',
+  define: { __BUILD_STAMP__: JSON.stringify(buildStamp) },
   loader: { '.html': 'text' },
   logLevel: 'info',
   sourcemap: prod ? false : 'inline',
