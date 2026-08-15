@@ -76,6 +76,38 @@ describe('splitSlides', () => {
     expect(slides).toHaveLength(2);
   });
 
+  it('splits on a separator line with trailing spaces', () => {
+    // 编辑器和复制粘贴常在 '---' 后留下空格，肉眼看不出来，不该让分页失效
+    const { slides } = splitSlides('page1\n---  \npage2', SEP, VSEP);
+    expect(slides.map((s) => s.content)).toEqual(['page1', 'page2']);
+  });
+
+  it('splits on a vertical separator line with trailing tabs', () => {
+    const { slides } = splitSlides('h1\nxxx\t\nv1', SEP, VSEP);
+    expect(slides.map((s) => s.type)).toEqual(['horizontal', 'vertical']);
+  });
+
+  it('tolerates trailing spaces with CRLF line endings', () => {
+    const { slides } = splitSlides('p1\r\n--- \r\np2', SEP, VSEP);
+    expect(slides).toHaveLength(2);
+  });
+
+  it('tolerates trailing spaces for a literal separator setting', () => {
+    const { slides } = splitSlides('a\n---  \nb', '---', 'xxx');
+    expect(slides.map((s) => s.content)).toEqual(['a', 'b']);
+  });
+
+  it('tolerates trailing spaces when the separator is written with escaped newlines', () => {
+    // 设置输入框里手打的是反斜杠 + n 两个字符，不是真的换行
+    const { slides } = splitSlides('a\n---  \nb', '\\r?\\n---\\r?\\n', VSEP);
+    expect(slides.map((s) => s.content)).toEqual(['a', 'b']);
+  });
+
+  it('leaves a custom regex that does not end in a newline alone', () => {
+    const { slides } = splitSlides('a<!--sep-->b', '<!--sep-->', VSEP);
+    expect(slides).toHaveLength(1); // 字面量分隔符仍按整行标记处理，行内出现不切分
+  });
+
   it('treats a literal separator as a whole-line marker', () => {
     // 用户在设置里直接填 '---' / 'xxx'（非正则）时按整行标记处理
     const { slides } = splitSlides('a xxxxxxxxx b\n---\npage2', '---', 'xxx');

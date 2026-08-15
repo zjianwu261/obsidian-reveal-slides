@@ -42,18 +42,33 @@ function escapeRegExp(text: string): string {
 
 const REGEX_META_RE = /[\\^$.*+?()[\]{}|]/;
 
+/** 行尾空白：允许 '---  ' 这种带尾随空格的分隔行 */
+const TRAILING_WS = '[ \\t]*';
+
+/**
+ * 分隔行末尾的换行，两种写法都要认：
+ * 设置项默认值是用 TS 转义写的（真的 CR/LF 字符），而用户在设置输入框里手打的是
+ * 反斜杠 + r / n 两个字符。
+ */
+const NEWLINE_TAIL_RE = /(?:\\r\?|\r\?)?(?:\\n|\n)$/;
+
 /**
  * 分隔符归一化：
  * - 含正则元字符 → 按正则编译（默认 '\r?\n---\r?\n' 走这条路）；
  * - 纯字面量（用户在设置里直接填 '---' / 'xxx'）→ 转义并锚定为整行标记，
  *   避免 'xxx' 这类裸标记在任意位置（甚至单词中间）误切分。
+ *
+ * 两条路都在收尾的换行前补上 [ \t]*：`---` 后面跟一两个空格是编辑器和复制粘贴
+ * 的常事，肉眼看不出来，却会让整页分页失效 —— 而且失效得很隐蔽：上一页若有
+ * note:，备注会一路吃到下一个真分页符，把本该独立的一页整个吞进演讲者备注里。
  */
 function normalizeSeparator(separator: string, fallback: RegExp): RegExp {
   try {
     if (!REGEX_META_RE.test(separator)) {
-      return new RegExp(`\\r?\\n${escapeRegExp(separator)}\\r?\\n`, 'g');
+      return new RegExp(`\\r?\\n${escapeRegExp(separator)}${TRAILING_WS}\\r?\\n`, 'g');
     }
-    return new RegExp(separator, 'g');
+    // 用户自定义的正则若不以换行收尾，保持原样，不去猜他的意图
+    return new RegExp(separator.replace(NEWLINE_TAIL_RE, (tail) => `${TRAILING_WS}${tail}`), 'g');
   } catch {
     return fallback;
   }
@@ -82,7 +97,7 @@ export function splitSlides(
   verticalSeparator: string,
   headingDivider?: number[] | null,
 ): SplitResult {
-  const horizontalRe = normalizeSeparator(separator, /\r?\n---\r?\n/g);
+  const horizontalRe = normalizeSeparator(separator, /\r?\n---[ \t]*\r?\n/g);
 
   let horizontalChunks = splitOutsideCode(body, horizontalRe);
 
@@ -107,7 +122,7 @@ export function splitSlides(
     horizontalChunks = refined;
   }
 
-  const verticalRe = normalizeSeparator(verticalSeparator, /\r?\nxxx\r?\n/g);
+  const verticalRe = normalizeSeparator(verticalSeparator, /\r?\nxxx[ \t]*\r?\n/g);
 
   const slides: RawSlide[] = [];
   for (const chunk of horizontalChunks) {
