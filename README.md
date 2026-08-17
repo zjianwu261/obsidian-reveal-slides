@@ -439,6 +439,9 @@ margin: 0.01
 
 .bar  { font-size: .7rem; font-weight: 600; }
 .foot { font-size: .5rem; color: var(--brand); text-align: center; }
+
+.code pre      { width: 100%; margin: 0; font-size: .62rem; line-height: 1.6; }
+.code pre code { padding: .7em 1em; border-radius: 10px; background: #1e1f26; color: #e6e6e6; }
 </style>
 
 # 第一页
@@ -549,6 +552,7 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 .toc    /* 目录 */
 .bar    /* 每页顶部的标题条 */
 .body   /* 正文栏 */
+.code   /* 代码面板 */
 .foot   /* 页脚条 */
 .end    /* 结尾页 */
 ```
@@ -657,6 +661,37 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 - 要点二
 </grid>
 ```
+
+#### 代码页（代码 + 讲解）
+
+`class="code"` 的 grid 里放一个代码块，语言标记决定高亮，同一个 class 什么语言都能装。
+
+````markdown
+<grid dim="50 60" pos="5 18" class="code">
+
+```c
+// 单片机C语言SFR声明
+sfr P0 = 0x80;       // SFR 声明
+sfr TCON = 0x88;
+sbit IT0 = TCON^0;   // 位声明
+sbit LED = P0^0;
+```
+
+</grid>
+
+<grid dim="38 60" pos="57 18">
+- `sfr` 声明 8 位特殊功能寄存器
+- `sbit` 声明可寻址位
+</grid>
+````
+
+三点注意：
+
+- **围栏要带语言标记**（```` ```c ````、```` ```python ````），高亮全靠它；不写就是一片白字。
+- **字号别一页页手动调**：代码在 grid 里放不下时会自动往下缩字号（缩到 10px 仍放不下
+  才整体缩放），`.code` 里的 `.62rem` 是「放得下时」的字号。嫌小就把 grid 开大。
+- **长行不折行**，超宽同样触发自动缩小，而且缩的是整块——一行 120 列的代码会把
+  另外五行也一起拖小。该断行就断行，或者拆成两块 grid。
 
 #### 分栏（栏宽自动平分时更省事）
 

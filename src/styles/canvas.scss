@@ -70,9 +70,16 @@ html {
   code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.85em;
-    background: #f0f0f0;
     border-radius: 4px;
     padding: 0.1em 0.3em;
+
+    /*
+     * 底色跟着当前文字色走，别写死浅灰：本项目没有主题，页面上到处是自定色的 grid
+     * （标题条、页脚条常是深底白字）。写死 #f0f0f0 的话，白字落在浅灰块上直接糊成一片。
+     * 前一行是给不支持 color-mix 的引擎的兜底，灰色半透明在深浅底上都还能看。
+     */
+    background: rgba(128, 128, 128, 0.18);
+    background: color-mix(in srgb, currentColor 14%, transparent);
   }
 
   pre {

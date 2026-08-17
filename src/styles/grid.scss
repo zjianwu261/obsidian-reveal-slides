@@ -59,5 +59,14 @@
   pre {
     max-width: 100%;
     margin: 0;
+
+    /*
+     * <code> 自己滚动（overflow-x: auto，见 canvas.scss）时，超宽的行只会撑大 code 的
+     * scrollWidth，<pre> 的 scrollWidth 仍等于容器宽 —— fitCodeBlock 据此判定「放得下」，
+     * 于是长行被静默裁掉而不是缩小。让溢出穿透到 pre，宽度这一路的自适应才会触发。
+     */
+    code {
+      overflow: visible;
+    }
   }
 }
