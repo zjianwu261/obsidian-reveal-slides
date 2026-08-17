@@ -23,6 +23,7 @@ import {
 } from './templateEngine';
 import { computeCanvasSize, computeRootFontSize } from './canvasCalculator';
 import { applyScrollViewGuard } from './scrollViewHandler';
+import { applyHistoryGuard } from './historyGuard';
 import { fitCodeBlocks } from '../processors/codeBlockProcessor';
 
 declare global {
@@ -242,6 +243,8 @@ async function render(): Promise<void> {
   const config = buildRevealConfig(data);
   // 侧边栏窄宽度下防止误切滚动视图（scrollActivationWidth 缺省置 null）
   applyScrollViewGuard(config);
+  // blob: 页（移动端内联预览）改不了会话 URL，reveal 写 hash 会抛 SecurityError
+  applyHistoryGuard(config, location.protocol);
 
   if (!deck) {
     const instance = new Reveal({
