@@ -64,6 +64,19 @@ body.rfo-immersive {
     display: block;
   }
 
+  /*
+   * 竖屏手机上把整个预览转 90°（系统转屏拿不下来时的兜底，见 immersive.ts）。
+   * 元素宽高对调后铺满屏幕：rotate 把局部 +x 转到屏幕 +y、+y 转到屏幕 -x，
+   * 于是整块跑到屏幕左外侧，再沿局部 -y（即屏幕 +x）推回一个自身高度。
+   * 触摸坐标由浏览器一并映射，用户把手机向左转之后，滑动和轻点的方向都还是对的。
+   */
+  &.rfo-landscape .reveal-slide-preview-container {
+    width: 100vh;
+    height: 100vw;
+    transform: rotate(90deg) translateY(-100%);
+    transform-origin: top left;
+  }
+
   /* 移动端底栏是浮层，z-index 未必低于容器，显式藏掉最稳妥 */
   .mobile-navbar,
   .status-bar {

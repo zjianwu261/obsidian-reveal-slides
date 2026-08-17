@@ -24,6 +24,7 @@ import {
 import { computeCanvasSize, computeRootFontSize } from './canvasCalculator';
 import { applyScrollViewGuard } from './scrollViewHandler';
 import { applyHistoryGuard } from './historyGuard';
+import { installTapNavigation } from './tapNavigation';
 import { fitCodeBlocks } from '../processors/codeBlockProcessor';
 
 declare global {
@@ -266,6 +267,12 @@ async function render(): Promise<void> {
       fitCodeBlocks(instance.getCurrentSlide());
       notifyHostPage();
     });
+    // 手机上轻点翻页（只认触摸，鼠标点击照旧选字/点链接）
+    installTapNavigation(
+      document,
+      { next: () => instance.next(), prev: () => instance.prev() },
+      () => window.innerWidth,
+    );
   } else {
     deck.configure(config);
     deck.sync();

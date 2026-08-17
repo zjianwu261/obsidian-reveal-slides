@@ -4,7 +4,15 @@ import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
 import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
-import { ScreenWakeLock, isImmersive, setImmersive } from './immersive';
+import {
+  ScreenWakeLock,
+  isImmersive,
+  isPortrait,
+  setImmersive,
+  syncLandscape,
+  tryLockLandscape,
+  unlockOrientation,
+} from './immersive';
 
 export class SlidePreviewView extends ItemView {
   private iframe: HTMLIFrameElement | null = null;
@@ -88,6 +96,9 @@ export class SlidePreviewView extends ItemView {
     });
     this.syncActions();
 
+    // 转屏、软键盘、分屏都会触发 resize —— 沉浸式下据此决定还要不要 CSS 旋转
+    this.registerDomEvent(window, 'resize', () => this.syncOrientation());
+
     this.refresh();
   }
 
@@ -109,6 +120,19 @@ export class SlidePreviewView extends ItemView {
     // 讲课时屏幕别自己暗下去。拿不到锁（平台不支持/被拒）不影响预览，见 ScreenWakeLock
     if (on) void this.wakeLock.acquire(navigator);
     else void this.wakeLock.release();
+
+    if (on) {
+      // 先让系统真的转；转不动（iOS 一律转不动）再用 CSS 把画面横过来
+      void tryLockLandscape(screen.orientation).then(() => this.syncOrientation());
+    } else {
+      unlockOrientation(screen.orientation);
+      syncLandscape(document.body, false, false);
+    }
+  }
+
+  /** 视口尺寸变了就重算一次：用户真把手机转过来时要撤掉 CSS 旋转 */
+  private syncOrientation(): void {
+    syncLandscape(document.body, isImmersive(document.body), isPortrait(window));
   }
 
   /** 面板的「⋯」菜单：导出与辅助线，省得去命令面板翻 */
