@@ -4,10 +4,15 @@ import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
 import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
+import { ScreenWakeLock, isImmersive, setImmersive } from './immersive';
 
 export class SlidePreviewView extends ItemView {
   private iframe: HTMLIFrameElement | null = null;
   private guidesAction: HTMLElement | null = null;
+  private immersiveAction: HTMLElement | null = null;
+  /** 沉浸式下唯一的出口：标题栏此时也藏起来了 */
+  private exitImmersiveButton: HTMLElement | null = null;
+  private wakeLock = new ScreenWakeLock();
   /** 内联模式（无服务器）下的 blob URL 释放函数 */
   private revokeInlineUrl: (() => void) | null = null;
   /** 内联页面是否已就绪（收到 rfo-ready 后才能推 deck） */
@@ -51,7 +56,21 @@ export class SlidePreviewView extends ItemView {
       },
     });
 
-    // 标题栏按钮，从左到右：刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX
+    // 沉浸式的出口按钮：浮在幻灯片上，跟着容器一起铺满屏幕。
+    // 平时 display: none，只有 body.rfo-immersive 时才现身（样式见 main.scss）。
+    this.exitImmersiveButton = container.createEl('button', {
+      cls: 'rfo-exit-immersive',
+      attr: { 'aria-label': 'Exit immersive preview' },
+    });
+    this.exitImmersiveButton.setText('✕');
+    this.exitImmersiveButton.addEventListener('click', () => {
+      this.setImmersiveMode(false);
+    });
+
+    // 标题栏按钮，从左到右：沉浸式 / 刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX
+    this.immersiveAction = this.addAction('expand', 'Immersive preview', () => {
+      this.toggleImmersiveMode();
+    });
     this.addAction('refresh-cw', 'Reload slide preview', () => {
       void this.plugin.reloadPreview();
     });
@@ -75,11 +94,35 @@ export class SlidePreviewView extends ItemView {
   /** 工具栏按钮的高亮状态跟随设置（辅助线开着时按钮点亮） */
   syncActions(): void {
     this.guidesAction?.classList.toggle('is-active', this.plugin.settings.showGridGuides);
+    this.immersiveAction?.classList.toggle('is-active', isImmersive(document.body));
+  }
+
+  /** 沉浸式开关（标题栏按钮、命令、浮动出口按钮都走这里） */
+  toggleImmersiveMode(): void {
+    this.setImmersiveMode(!isImmersive(document.body));
+  }
+
+  setImmersiveMode(on: boolean): void {
+    setImmersive(document.body, on);
+    this.syncActions();
+
+    // 讲课时屏幕别自己暗下去。拿不到锁（平台不支持/被拒）不影响预览，见 ScreenWakeLock
+    if (on) void this.wakeLock.acquire(navigator);
+    else void this.wakeLock.release();
   }
 
   /** 面板的「⋯」菜单：导出与辅助线，省得去命令面板翻 */
   onPaneMenu(menu: Menu, source: 'more-options' | 'tab-header' | string): void {
     super.onPaneMenu(menu, source);
+
+    menu.addItem((item) =>
+      item
+        .setTitle(isImmersive(document.body) ? 'Exit immersive preview' : 'Immersive preview')
+        .setIcon('expand')
+        .onClick(() => {
+          this.toggleImmersiveMode();
+        }),
+    );
 
     menu.addItem((item) =>
       item
@@ -197,8 +240,12 @@ export class SlidePreviewView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    // 面板关了还留着 body 上的类，整个界面会一直缺标题栏和底栏 —— 必须复位
+    this.setImmersiveMode(false);
     this.releaseInlineUrl();
     this.iframe = null;
     this.guidesAction = null;
+    this.immersiveAction = null;
+    this.exitImmersiveButton = null;
   }
 }

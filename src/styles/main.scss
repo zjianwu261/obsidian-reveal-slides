@@ -18,3 +18,55 @@
     background: #fff;
   }
 }
+
+/* 沉浸式的出口按钮：平时不存在，只在沉浸式里浮在幻灯片右上角 */
+.rfo-exit-immersive {
+  display: none;
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  right: calc(8px + env(safe-area-inset-right));
+  z-index: 1;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: none;
+  cursor: pointer;
+  /* 半透明按钮压在浅色幻灯片上也要看得见 */
+  backdrop-filter: blur(6px);
+}
+
+/*
+ * 沉浸式预览（命令 Toggle Immersive Preview / 工具栏的 expand 按钮）。
+ *
+ * 手机竖屏下，Obsidian 的标题栏 + 底部悬浮工具条 + 状态栏能吃掉近半屏高度，
+ * 16:9 画布再让出上下黑边，幻灯片只剩中间一条。这里把预览容器钉成整屏、
+ * 藏掉这些外壳 —— 不改 DOM 结构，iframe 不会重建（重建等于重跑几 MB 的 bundle）。
+ */
+body.rfo-immersive {
+  .reveal-slide-preview-container {
+    position: fixed;
+    inset: 0;
+    /* 高于状态栏与移动端底栏，低于 Notice/菜单，出了事还能看到提示 */
+    z-index: var(--layer-modal, 50);
+    /* iframe 铺满之前的垫底色，避免白闪 */
+    background: #000;
+    /* iOS 上别让整页跟着橡皮筋一起晃 */
+    overscroll-behavior: none;
+  }
+
+  .rfo-exit-immersive {
+    display: block;
+  }
+
+  /* 移动端底栏是浮层，z-index 未必低于容器，显式藏掉最稳妥 */
+  .mobile-navbar,
+  .status-bar {
+    display: none;
+  }
+}

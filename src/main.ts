@@ -553,6 +553,25 @@ export default class RevealPlugin extends Plugin {
     );
   }
 
+  /**
+   * 切换沉浸式预览（命令面板 / 工具栏按钮 / 面板「⋯」菜单）。
+   * 预览面板还没开时先开一个 —— 命令面板里点「沉浸式」却什么都没发生最让人摸不着头脑。
+   */
+  toggleImmersive(): void {
+    const views: SlidePreviewView[] = [];
+    this.forEachPreview((view) => views.push(view));
+
+    if (views.length === 0) {
+      void this.activateView().then(() => {
+        this.forEachPreview((view) => view.setImmersiveMode(true));
+      });
+      return;
+    }
+    views[0].toggleImmersiveMode();
+    // 多开的面板共用 body 上那个类，状态得一起对齐
+    this.syncPreviewActions();
+  }
+
   /** 同步各预览面板工具栏按钮的状态（不重载 iframe） */
   private syncPreviewActions(): void {
     this.forEachPreview((view) => view.syncActions());

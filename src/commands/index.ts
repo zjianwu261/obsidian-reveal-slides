@@ -37,6 +37,14 @@ export function registerCommands(plugin: RevealPlugin): void {
   });
 
   plugin.addCommand({
+    id: 'toggle-immersive-preview',
+    name: 'Toggle Immersive Preview',
+    callback: () => {
+      plugin.toggleImmersive();
+    },
+  });
+
+  plugin.addCommand({
     id: 'toggle-grid-guides',
     name: 'Toggle Grid Guides',
     callback: () => {

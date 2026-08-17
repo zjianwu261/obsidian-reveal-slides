@@ -66,6 +66,20 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
 - 内联页面把整个 reveal 运行时（含 Mermaid、Chart.js，约 5 MB）打进一个 blob，
   首次打开预览会有一两秒加载；之后编辑刷新不受影响。
 
+### 沉浸式预览（手机上尤其值得开）
+
+竖屏手机上，Obsidian 的标题栏、底部悬浮工具条、状态栏加起来能吃掉近半屏高度，
+16:9 画布再让出上下黑边，幻灯片只剩中间窄窄一条。点标题栏的 **⤢**（或命令面板执行
+**Toggle Immersive Preview**、面板「⋯」菜单选 **Immersive preview**）进入沉浸式：
+
+- 预览铺满整块屏幕，外壳全部隐去，右上角留一个 **✕** 退出（沉浸式下标题栏也没了，
+  这是唯一的出口）。
+- 顺手申请一次 **Screen Wake Lock**，讲课时屏幕不会自己暗下去；平台不支持或被系统
+  拒绝就静默跳过，不影响预览。
+- 进出只在 `<body>` 上加减一个 class，**不重建 iframe** —— 否则那 5 MB 的运行时要重跑一遍。
+
+横屏效果更好：转成横屏后 16:9 画布几乎能铺满整个屏幕。翻页照旧左右滑动。
+
 桌面端若端口全被占用导致服务器起不来，预览会自动退到同一套内联渲染，不至于开天窗。
 
 
@@ -754,6 +768,7 @@ sbit LED = P0^0;
 | Reload Slide Preview | `Ctrl/Cmd + Shift + R` | 强制重跑管线并刷新，标题栏也有按钮 |
 | Start Slide Preview Server | — | 手动启动本地预览服务器 |
 | Stop Slide Preview Server | — | 停止服务器 |
+| Toggle Immersive Preview | — | 预览铺满整屏、隐去 Obsidian 外壳，标题栏与「⋯」菜单也有（见[沉浸式预览](#沉浸式预览手机上尤其值得开)） |
 | Toggle Grid Guides | — | 开关版面辅助线（grid 边框 + 10% 标尺），标题栏也有按钮 |
 | Open Slide Stylesheet | — | 分栏打开当前笔记生效的样式文件，「⋯」菜单也有 |
 | Fold / Unfold SVG Code Blocks | — | 折起/展开笔记里所有 ```svg 块（默认打开笔记时已自动折） |
