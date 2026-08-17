@@ -1,10 +1,10 @@
 {
 	"id": "reveal-slide-for-obsidian",
-	"name": "reveal-slide-for-obsidian",
+	"name": "obsidian-reveal-slides",
 	"version": "0.1.1",
 	"minAppVersion": "0.15.0",
 	"description": "Turn Markdown notes into reveal.js 6.x presentations. No built-in themes — layout with <grid> positioning and inline CSS.",
-	"author": "maverick",
+	"author": "zjianwu261",
 	"authorUrl": "",
 	"isDesktopOnly": false
 }
