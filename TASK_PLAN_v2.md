@@ -126,7 +126,15 @@ reveal-for-obsidian/
 │   │
 │   ├── export/
 │   │   ├── pdfExporter.ts        # 打印视图生成
-│   │   └── htmlExporter.ts       # 独立 HTML 打包导出
+│   │   ├── htmlExporter.ts       # 独立 HTML 打包导出
+│   │   ├── assetLocalizer.ts     # vault 资源引用收集与相对路径改写（纯函数）
+│   │   ├── exportPaths.ts        # 导出目录/文件名的公共处理
+│   │   ├── pptxExporter.ts       # PPTX 导出编排（读媒体、栅格化 SVG、落盘）
+│   │   ├── slideOutline.ts       # 页面 HTML → 区域 + 块大纲（纯函数）
+│   │   ├── pptxLayout.ts         # 大纲 → 带坐标的形状（纯计算）
+│   │   ├── pptxBuilder.ts        # 形状 → OOXML 各部件（纯字符串）
+│   │   ├── imageMeta.ts          # 图片原始尺寸探测（纯字节解析）
+│   │   └── zipWriter.ts          # 最小 ZIP 写入器（.pptx 即 OPC zip 包）
 │   │
 │   ├── template/
 │   │   ├── reveal.html           # 渲染用 reveal.js 模板
@@ -646,7 +654,7 @@ export interface SplitElement {
 
 ### Phase 5: 导出与发布
 
-**目标**: PDF / HTML 导出，文档，社区发布。
+**目标**: PDF / HTML / PPTX 导出，文档，社区发布。
 
 #### Task 5.1: PDF 导出
 - **输出**: `src/export/pdfExporter.ts`
@@ -657,6 +665,17 @@ export interface SplitElement {
 - **输出**: `src/export/htmlExporter.ts`
 - **实现**: 收集本地图片复制到输出目录；打包 reveal 资源 + 渲染后 HTML；路径改相对路径
 - **验收**: 导出文件夹脱离 Obsidian 可正常播放
+
+#### Task 5.2b: PPTX 导出（可编辑）
+- **输出**: `src/export/{pptxExporter,slideOutline,pptxLayout,pptxBuilder,imageMeta,zipWriter}.ts`
+- **实现**: 页面 HTML → 区域(grid/split/安全区) + 块(段落/图片/表格) → 带 EMU 坐标的形状 →
+  手写 OOXML（PresentationML）→ 自写 ZIP 打包。文字/图片/表格是 PowerPoint 原生对象，可直接编辑；
+  `<grid>` 百分比按**整块画布**换算，与预览版面一致；SVG 用 Chromium 栅格化成 PNG 嵌入；
+  `note:` 备注进 notesSlide。
+- **不支持**（浏览器专属，留灰色占位框提示）: mermaid / Chart.js / 视频 / CSS 动画 / 远程图片
+- **验收**: 生成的 .pptx 用 Office / WPS 打开无「文件已损坏」提示，版面与预览比例一致
+- **验证手段**: 单测覆盖纯函数各层；打包后用 .NET `ZipFile` + `[xml]` 校验
+  「XML 均良构 / 关系无悬空 / rId 均有定义 / 部件均有 content type」
 
 #### Task 5.3: 文档与示例
 - **输出**: `README.md`, `docs/tutorial.md`, `examples/demo.md`
@@ -831,7 +850,7 @@ const config: RevealConfig = {
 | M3 布局系统 | 2 | `<grid>`/`<split>` 精确定位 + shape |
 | M4 生态兼容 | 3 | 图片/视频/Callout/代码块/脚注等 |
 | M5 完整功能 | 4 | 图表/公式/备注/嵌入/CSS 变量 |
-| M6 可发布 | 5 | PDF/HTML 导出 + 文档 + 社区上架 |
+| M6 可发布 | 5 | PDF/HTML/PPTX 导出 + 文档 + 社区上架 |
 | M7（可选）VSCode | 6 | VSCode 预览 |
 
 ---

@@ -12,11 +12,7 @@ import type { StandaloneAssets } from '../engine/templateEngine';
 import { collectVaultAssetRefs, localizeAssetPaths } from './assetLocalizer';
 import { INLINE_ASSETS } from '../assets';
 import { urlPathToNative } from '../utils/vaultPath';
-
-/** 导出文件名中的非法字符替换为 '-' */
-function sanitizeFileName(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'slides';
-}
+import { exportRelativeDir, sanitizeFileName } from './exportPaths';
 
 /**
  * 收集 deck 各页 html 中的 /vault 资源引用，复制到 filesDir，
@@ -57,15 +53,14 @@ function collectAndCopyAssets(
 export async function exportHtml(plugin: RevealPlugin): Promise<void> {
   const adapter = plugin.app.vault.adapter;
   if (!(adapter instanceof FileSystemAdapter)) {
-    new Notice('reveal-for-obsidian: HTML export requires a filesystem vault');
+    new Notice('reveal-slide-for-obsidian: HTML export requires a filesystem vault');
     return;
   }
   const basePath = adapter.getBasePath();
   // 资源在构建期已内联进 main.js，无需再从插件目录读
   const assets: StandaloneAssets = INLINE_ASSETS;
 
-  // exportDirectory 为 vault 相对路径（默认 /export），统一去掉开头斜杠
-  const exportRelative = plugin.settings.exportDirectory.replace(/^[/\\]+/, '') || 'export';
+  const exportRelative = exportRelativeDir(plugin.settings.exportDirectory);
   const exportDir = path.join(basePath, exportRelative);
   const filesDir = path.join(exportDir, 'files');
   fs.mkdirSync(filesDir, { recursive: true });
@@ -88,5 +83,5 @@ export async function exportHtml(plugin: RevealPlugin): Promise<void> {
   fs.writeFileSync(outputPath, renderStandalonePage(localizedDeck, assets), 'utf8');
 
   const vaultRelativeOutput = exportRelative ? `${exportRelative}/${fileName}` : fileName;
-  new Notice(`reveal-for-obsidian: exported to ${vaultRelativeOutput}`);
+  new Notice(`reveal-slide-for-obsidian: exported to ${vaultRelativeOutput}`);
 }

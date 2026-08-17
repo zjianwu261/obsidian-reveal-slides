@@ -83,6 +83,32 @@ export function pageIndexToPosition(deck: SlideDeck, pageIndex: number): { h: nu
 }
 
 /**
+ * reveal 的 [水平, 垂直] 坐标 → 扁平页序号（pageIndexToPosition 的逆运算）。
+ * 该坐标不存在（h 越界）返回 -1；只有 v 越界时退回该横向组的首页。
+ */
+export function positionToPageIndex(deck: SlideDeck, h: number, v = 0): number {
+  let groupStart = -1;
+  let curH = -1;
+  let curV = 0;
+
+  for (let i = 0; i < deck.pages.length; i++) {
+    if (deck.pages[i].type === 'vertical' && curH >= 0) {
+      curV++;
+    } else {
+      curH++;
+      curV = 0;
+    }
+
+    if (curH > h) break;
+    if (curH < h) continue;
+    if (groupStart < 0) groupStart = i;
+    if (curV === v) return i;
+  }
+
+  return groupStart;
+}
+
+/**
  * 源码行号 → 页序号：取起始行不超过该行的最后一页。
  * 页按 sourceLine 递增排列，光标落在页与页之间的空白处时归属上一页。
  */

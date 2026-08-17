@@ -38,6 +38,11 @@ export interface PluginSettings {
 
   // 导出
   exportDirectory: string;
+  /**
+   * PPTX 导出时，为无法转成 PowerPoint 原生对象的块（mermaid / Chart.js / 视频）
+   * 留一个灰色说明框。关掉则这些块在 pptx 里直接消失。
+   */
+  pptxPlaceholders: boolean;
 
   // 预览
   /**
@@ -50,10 +55,14 @@ export interface PluginSettings {
   scrollActivationWidth: number | null; // reveal.js 自动滚动视图阈值，null=禁用
   autoReload: boolean;
   autoComplete: boolean;
+  /** 打开笔记时自动折叠 ```svg 块（SVG 动画几十行，摊开会把正文挤没） */
+  autoFoldSvg: boolean;
   /** 预览里画出每个 <grid> 的边框与画布 10% 标尺，方便调版面 */
   showGridGuides: boolean;
   /** 编辑器光标移动时，预览自动跳到光标所在页 */
   syncCursor: boolean;
+  /** 反向：预览翻页时，编辑器光标自动移到该页在源码里的起始行 */
+  syncSlide: boolean;
   /**
    * 切换笔记时预览是否跟着换。
    * 默认关：预览钉在你让它预览的那一篇上，翻别的笔记查资料不会把它带跑；
@@ -87,11 +96,14 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   autoStartServer: true,
   port: 3000,
   exportDirectory: '/export',
+  pptxPlaceholders: true,
   previewMode: 'tab',
   scrollActivationWidth: null,
   autoReload: true,
   autoComplete: true,
+  autoFoldSvg: true,
   showGridGuides: false,
   syncCursor: true,
+  syncSlide: true,
   followActiveNote: false,
 };

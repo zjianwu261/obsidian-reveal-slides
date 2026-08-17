@@ -314,6 +314,19 @@ export class RevealSettingTab extends PluginSettingTab {
         }),
       );
 
+    new Setting(containerEl)
+      .setName('PPTX placeholders')
+      .setDesc(
+        'Mark blocks PowerPoint cannot hold (mermaid, Chart.js, video) with a grey note box ' +
+          'so you know where to drop a screenshot — off drops them silently',
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(settings.pptxPlaceholders).onChange(async (value) => {
+          settings.pptxPlaceholders = value;
+          await save();
+        }),
+      );
+
     // ── 预览 ──────────────────────────────────────────────
     containerEl.createEl('h2', { text: 'Preview' });
 
@@ -379,6 +392,16 @@ export class RevealSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('Follow slide')
+      .setDesc('Move the editor cursor to the slide you navigate to in the preview')
+      .addToggle((toggle) =>
+        toggle.setValue(settings.syncSlide).onChange(async (value) => {
+          settings.syncSlide = value;
+          await save();
+        }),
+      );
+
+    new Setting(containerEl)
       .setName('Show grid guides')
       .setDesc('Outline every <grid> and draw a 10% ruler over the canvas (command: Toggle Grid Guides)')
       .addToggle((toggle) =>
@@ -393,6 +416,19 @@ export class RevealSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle.setValue(settings.autoComplete).onChange(async (value) => {
           settings.autoComplete = value;
+          await save();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName('Fold SVG blocks')
+      .setDesc(
+        'Collapse ```svg blocks when a note opens — click the fence line to expand ' +
+          '(command: Fold / Unfold SVG Code Blocks)',
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(settings.autoFoldSvg).onChange(async (value) => {
+          settings.autoFoldSvg = value;
           await save();
         }),
       );

@@ -1,4 +1,5 @@
 import type RevealPlugin from '../main';
+import { toggleSvgFold } from '../editor/svgFold';
 
 export function registerCommands(plugin: RevealPlugin): void {
   plugin.addCommand({
@@ -52,6 +53,14 @@ export function registerCommands(plugin: RevealPlugin): void {
   });
 
   plugin.addCommand({
+    id: 'toggle-svg-fold',
+    name: 'Fold / Unfold SVG Code Blocks',
+    editorCallback: (editor) => {
+      toggleSvgFold(editor);
+    },
+  });
+
+  plugin.addCommand({
     id: 'export-pdf',
     name: 'Export Slides as PDF',
     callback: () => {
@@ -64,6 +73,14 @@ export function registerCommands(plugin: RevealPlugin): void {
     name: 'Export Slides as HTML',
     callback: () => {
       void plugin.exportHtml();
+    },
+  });
+
+  plugin.addCommand({
+    id: 'export-pptx',
+    name: 'Export Slides as PPTX (PowerPoint)',
+    callback: () => {
+      void plugin.exportPptx();
     },
   });
 }

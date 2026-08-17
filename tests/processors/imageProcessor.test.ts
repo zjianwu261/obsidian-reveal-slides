@@ -104,6 +104,48 @@ describe('processImages', () => {
     expect(out).toContain('width="420"');
   });
 
+  /*
+   * 回归：只写 width 属性时，主题里任意一条 `.fig img { width: 100% }`
+   * 都能盖掉 `|200`（属性优先级低于所有 CSS 规则），表现为图片尺寸改不动。
+   */
+  it('writes the size as an inline style so theme CSS cannot swallow it', () => {
+    const out = processImages(
+      '<span class="internal-embed image-embed" width="200"><img src="app://id/v/pic.png?1" alt="pic.png"></span>',
+      { serverBase: BASE },
+    );
+    expect(out).toMatch(/<img[^>]*style="[^"]*width: 200px/);
+  });
+
+  // 只给宽时高必须显式 auto：否则主题的 height: 100% 照样把长宽比拉坏
+  it('pins height to auto when only a width was given', () => {
+    const out = processImages('<img src="app://id/v/pic.png?1" alt="pic.png|800">', {
+      serverBase: BASE,
+    });
+    expect(out).toMatch(/style="[^"]*width: 800px; height: auto/);
+  });
+
+  it('writes both lengths for |800x600', () => {
+    const out = processImages('<img src="app://id/v/pic.png?1" alt="pic|800x600">', {
+      serverBase: BASE,
+    });
+    expect(out).toMatch(/style="[^"]*width: 800px; height: 600px/);
+  });
+
+  it('keeps a style the renderer already put on the image', () => {
+    const out = processImages(
+      '<img src="app://id/v/pic.png?1" alt="pic.png|800" style="border-radius: 8px">',
+      { serverBase: BASE },
+    );
+    expect(out).toMatch(/style="border-radius: 8px; width: 800px; height: auto;"/);
+  });
+
+  it('sizes a wrapped video with an inline style too', () => {
+    const out = processImages('<img src="app://id/v/clip.mp4?1" alt="clip|640">', {
+      serverBase: BASE,
+    });
+    expect(out).toMatch(/<video[^>]*style="[^"]*width: 640px/);
+  });
+
   it('applies the size to a wrapped video too', () => {
     const out = processImages('<img src="app://id/v/clip.mp4?1" alt="clip|640">', {
       serverBase: BASE,
@@ -115,5 +157,6 @@ describe('processImages', () => {
   it('leaves images without a size suffix alone', () => {
     const out = processImages('<img src="app://id/v/pic.png?1" alt="pic.png">', { serverBase: BASE });
     expect(out).not.toContain('width=');
+    expect(out).not.toContain('style=');
   });
 });

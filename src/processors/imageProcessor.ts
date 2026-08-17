@@ -70,11 +70,43 @@ function extractSize(el: Element): { width?: string; height?: string; alt?: stri
   };
 }
 
-/** 把尺寸写到元素本身；alt 去掉 |800 后缀 */
+/** 纯数字按 px 解释（Obsidian 的 |800 就是 800px），带单位的原样保留 */
+function toCssLength(value: string): string {
+  const trimmed = value.trim();
+  return /^\d+(?:\.\d+)?$/.test(trimmed) ? `${trimmed}px` : trimmed;
+}
+
+/** 追加内联声明，保留元素上已有的 style（同名属性以后写的为准） */
+function appendStyle(el: Element, declarations: string): void {
+  const existing = el.getAttribute('style')?.trim().replace(/;$/, '');
+  el.setAttribute('style', existing ? `${existing}; ${declarations}` : declarations);
+}
+
+/**
+ * 把尺寸写到元素本身；alt 去掉 |800 后缀。
+ *
+ * 尺寸同时落到 width/height 属性和内联 style 上：属性的优先级低于任何 CSS 规则，
+ * 主题里一句 `.reveal .grid img { width: auto }` 或 `.fig img { width: 100% }`
+ * 就能把 `|200` 悄悄吃掉——现象是「图片大小怎么改都没反应」。
+ * `|200` 是作者在 Markdown 里写死的意图，得压得住主题的通用规则，
+ * 内联 style 是唯一（不动用 !important）能做到这点的地方。
+ * 只写了宽时把高显式设为 auto，否则主题的 height: 100% 之类仍会把长宽比拉坏。
+ * 没写尺寸的图片一概不碰，样式全权交给主题。
+ * width 属性照旧写上：它是主题的选择钩子（`img:not([width])` = 作者没定尺寸，
+ * 主题可以随便铺满/缩放；`img[width]` 则该让路）。
+ */
 function applySize(el: Element, size: { width?: string; height?: string; alt?: string }): void {
+  if (size.alt !== undefined) el.setAttribute('alt', size.alt);
+  if (!size.width && !size.height) return;
+
   if (size.width && !el.getAttribute('width')) el.setAttribute('width', size.width);
   if (size.height && !el.getAttribute('height')) el.setAttribute('height', size.height);
-  if (size.alt !== undefined) el.setAttribute('alt', size.alt);
+
+  const declarations = [
+    size.width ? `width: ${toCssLength(size.width)}` : 'width: auto',
+    size.height ? `height: ${toCssLength(size.height)}` : 'height: auto',
+  ].join('; ');
+  appendStyle(el, `${declarations};`);
 }
 
 /** 处理渲染后 HTML：改写 app:// 资源、视频包装、Excalidraw 同名 png 替换 */

@@ -9,14 +9,14 @@ export function exportPdf(plugin: RevealPlugin): void {
   if (Platform.isMobile) {
     // 打印视图依赖本地服务器 + 浏览器打印对话框，移动端两者都没有。
     // 也别再指路 HTML 导出：那条路同样只有桌面端能走（依赖 fs）。
-    new Notice('reveal-for-obsidian: PDF export needs the desktop app');
+    new Notice('reveal-slide-for-obsidian: PDF export needs the desktop app');
     return;
   }
   if (!plugin.server?.running) {
-    new Notice('reveal-for-obsidian: preview server is not running, cannot export PDF');
+    new Notice('reveal-slide-for-obsidian: preview server is not running, cannot export PDF');
     return;
   }
   const url = `${plugin.server.base}/reveal.html?print-pdf`;
   window.open(url);
-  new Notice('reveal-for-obsidian: print view opened — use Print → Save as PDF in the browser');
+  new Notice('reveal-slide-for-obsidian: print view opened — use Print → Save as PDF in the browser');
 }

@@ -76,7 +76,7 @@ export class PreviewServer {
   private get vaultBasePath(): string {
     const adapter = this.plugin.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) {
-      throw new Error('reveal-for-obsidian requires a filesystem vault');
+      throw new Error('reveal-slide-for-obsidian requires a filesystem vault');
     }
     return adapter.getBasePath();
   }
@@ -92,7 +92,7 @@ export class PreviewServer {
 
     if (this.port !== port) {
       new Notice(
-        `reveal-for-obsidian: port ${port} is in use, preview server started on ${this.port}`,
+        `reveal-slide-for-obsidian: port ${port} is in use, preview server started on ${this.port}`,
       );
     }
   }
@@ -108,9 +108,9 @@ export class PreviewServer {
           return;
         }
         if (err.code === 'EADDRINUSE') {
-          new Notice(`reveal-for-obsidian: ports ${port - MAX_PORT_ATTEMPTS + 1}-${port} are all in use`);
+          new Notice(`reveal-slide-for-obsidian: ports ${port - MAX_PORT_ATTEMPTS + 1}-${port} are all in use`);
         } else {
-          new Notice(`reveal-for-obsidian: server error: ${err.message}`);
+          new Notice(`reveal-slide-for-obsidian: server error: ${err.message}`);
         }
         reject(err);
       });

@@ -51,7 +51,7 @@ export class SlidePreviewView extends ItemView {
       },
     });
 
-    // 标题栏按钮，从左到右：刷新 / 辅助线 / 导出 PDF / 导出 HTML
+    // 标题栏按钮，从左到右：刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX
     this.addAction('refresh-cw', 'Reload slide preview', () => {
       void this.plugin.reloadPreview();
     });
@@ -63,6 +63,9 @@ export class SlidePreviewView extends ItemView {
     });
     this.addAction('download', 'Export slides as HTML', () => {
       void this.plugin.exportHtml();
+    });
+    this.addAction('monitor-play', 'Export slides as PPTX (PowerPoint)', () => {
+      void this.plugin.exportPptx();
     });
     this.syncActions();
 
@@ -107,6 +110,15 @@ export class SlidePreviewView extends ItemView {
 
     menu.addItem((item) =>
       item
+        .setTitle('Export slides as PPTX (PowerPoint)')
+        .setIcon('monitor-play')
+        .onClick(() => {
+          void this.plugin.exportPptx();
+        }),
+    );
+
+    menu.addItem((item) =>
+      item
         .setTitle(this.plugin.settings.showGridGuides ? 'Hide grid guides' : 'Show grid guides')
         .setIcon('grid')
         .onClick(() => {
@@ -143,8 +155,8 @@ export class SlidePreviewView extends ItemView {
       this.revokeInlineUrl = revoke;
       if (this.iframe) this.iframe.src = url;
     } catch (err) {
-      console.error('[reveal-for-obsidian] inline preview failed', err);
-      new Notice(`reveal-for-obsidian: could not build the preview - ${String(err)}`);
+      console.error('[reveal-slide-for-obsidian] inline preview failed', err);
+      new Notice(`reveal-slide-for-obsidian: could not build the preview - ${String(err)}`);
     }
   }
 

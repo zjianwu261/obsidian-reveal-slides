@@ -19,6 +19,7 @@ import {
   buildRevealConfig,
   buildExtraCssHtml,
   pageIndexToPosition,
+  positionToPageIndex,
 } from './templateEngine';
 import { computeCanvasSize, computeRootFontSize } from './canvasCalculator';
 import { applyScrollViewGuard } from './scrollViewHandler';
@@ -72,7 +73,7 @@ function showError(message: string): void {
       'background:#c0392b;color:#fff;font:14px/1.5 monospace;white-space:pre-wrap;';
     document.body.appendChild(overlay);
   }
-  overlay.textContent = `[reveal-for-obsidian] ${explain(message)}`;
+  overlay.textContent = `[reveal-slide-for-obsidian] ${explain(message)}`;
 }
 
 window.addEventListener('error', (event) => showError(event.message));
@@ -163,7 +164,7 @@ function hydrateCharts(): void {
     try {
       charts.push(new Chart(canvas, JSON.parse(raw)));
     } catch (err) {
-      console.error('[reveal-for-obsidian] chart render failed', err);
+      console.error('[reveal-slide-for-obsidian] chart render failed', err);
     }
   });
 }
@@ -176,7 +177,28 @@ async function hydrateMermaid(): Promise<void> {
     await mermaid.run({ nodes });
   } catch (err) {
     // 单个图语法错误不应拖垮整个渲染
-    console.error('[reveal-for-obsidian] mermaid render failed', err);
+    console.error('[reveal-slide-for-obsidian] mermaid render failed', err);
+  }
+}
+
+/**
+ * 大于 0 时不把翻页回推给宿主：这一跳是我们自己发起的
+ * （宿主的 goto、重渲染后恢复位置），回推会把编辑器光标拽到页首。
+ */
+let muted = 0;
+
+/** 跳页且不回推宿主 */
+function slideMuted(h: number, v: number): void {
+  if (!deck) return;
+  muted++;
+  try {
+    deck.slide(h, v);
+  } finally {
+    // slidechanged 是同步派发的，走到这里时回调已经跑完；
+    // 延一拍再归零只是给 reveal 可能的异步路径兜底
+    window.setTimeout(() => {
+      muted--;
+    }, 0);
   }
 }
 
@@ -186,7 +208,21 @@ function gotoPage(pageIndex: number): void {
   const target = pageIndexToPosition(current, pageIndex);
   const now = deck.getIndices();
   if (now.h === target.h && (now.v ?? 0) === target.v) return;
-  deck.slide(target.h, target.v);
+  slideMuted(target.h, target.v);
+}
+
+/**
+ * 翻页 → 通知宿主，让编辑器光标移到这一页的源码起始行（光标跟随的反向）。
+ * 独立导出的单文件 HTML、以及 ?print-pdf 打印视图都是顶层窗口，没有宿主可通知。
+ */
+function notifyHostPage(): void {
+  if (muted > 0 || !deck || !current) return;
+  if (window.__DECK__ || window.parent === window) return;
+
+  const now = deck.getIndices();
+  const page = positionToPageIndex(current, now.h, now.v ?? 0);
+  if (page < 0) return;
+  window.parent.postMessage({ type: 'rfo-slide', page }, '*');
 }
 
 async function render(): Promise<void> {
@@ -223,11 +259,16 @@ async function render(): Promise<void> {
     // display:none，宽高全是 0，而 0 <= 0 会被判成「装得下」直接跳过 —— 于是这些页
     // 的长代码永远不缩（横向页只是 opacity:0，仍有布局，首次就能量准）。
     // 换页时补测刚显示出来的这页。监听挂在 Reveal 实例上，重渲染只换 DOM，无需重复注册。
-    instance.on('slidechanged', () => fitCodeBlocks(instance.getCurrentSlide()));
+    instance.on('slidechanged', () => {
+      fitCodeBlocks(instance.getCurrentSlide());
+      notifyHostPage();
+    });
   } else {
     deck.configure(config);
     deck.sync();
-    deck.slide(indices.h, indices.v ?? 0);
+    // 恢复位置属于「我们自己跳的」：编辑时每次防抖重渲染都会走到这里，
+    // 页数变化导致 reveal 夹取坐标时会触发 slidechanged，不能让它去动光标
+    slideMuted(indices.h, indices.v ?? 0);
   }
 
   // reveal.js 初始化/同步会改 DOM，长代码自适应须在其后执行
@@ -245,7 +286,7 @@ function scheduleRender(): void {
   renderTimer = window.setTimeout(() => {
     renderTimer = null;
     void render().catch((err) => {
-      console.error('[reveal-for-obsidian] render failed', err);
+      console.error('[reveal-slide-for-obsidian] render failed', err);
       showError(`render failed: ${String(err)}`);
     });
   }, 50);
@@ -280,7 +321,7 @@ if (window.__RFO_INLINE__) {
   // 之后宿主推什么都收不到 —— 连「刷新预览」都救不回来，只能关掉面板重开。
   if (!window.__DECK__) connectEvents();
   void render().catch((err) => {
-    console.error('[reveal-for-obsidian] init failed', err);
+    console.error('[reveal-slide-for-obsidian] init failed', err);
     showError(`init failed: ${String(err)}`);
   });
 }

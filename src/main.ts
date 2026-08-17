@@ -9,6 +9,7 @@ import { registerCommands } from './commands';
 import { SlidePreviewView } from './views/SlidePreviewView';
 import { GridAttributeSuggest } from './editor';
 import { createCursorSyncExtension } from './editor/cursorSync';
+import { createSvgFoldExtension } from './editor/svgFold';
 import { PipelineOrchestrator } from './processors';
 import { cssFromFile } from './processors/cssProcessor';
 import { RevealEngine } from './engine/revealEngine';
@@ -61,11 +62,18 @@ export default class RevealPlugin extends Plugin {
   /** 当前 deck 用到的外部 CSS 路径：这些文件改了同样要重渲染 */
   private loadedCssPaths = new Set<string>();
 
+  /**
+   * 编辑器光标与预览最近一次对齐到的页序号。
+   * 两个方向共用：反向同步（预览翻页 → 光标）靠它判断「光标已经在这一页里了」，
+   * 从而不会在页内打字时把光标拽回页首。
+   */
+  private syncedPage = -1;
+
   async onload(): Promise<void> {
     // 装了新文件却没重载插件时，Obsidian 会一直跑旧代码而毫无迹象。
     // 把版本与构建时间打出来，排查时一眼可辨。
     console.info(
-      `[reveal-for-obsidian] v${this.manifest.version} (build ${__BUILD_STAMP__})`,
+      `[reveal-slide-for-obsidian] v${this.manifest.version} (build ${__BUILD_STAMP__})`,
     );
 
     await this.loadSettings();
@@ -78,6 +86,9 @@ export default class RevealPlugin extends Plugin {
         enabled: () => this.settings.syncCursor,
         onLineChange: (line) => this.syncPreviewToLine(line),
       }),
+    );
+    this.registerEditorExtension(
+      createSvgFoldExtension({ enabled: () => this.settings.autoFoldSvg }),
     );
     registerCommands(this);
 
@@ -117,13 +128,24 @@ export default class RevealPlugin extends Plugin {
       }),
     );
 
-    // 内联预览页面加载完会报到，收到后把当前 deck 推过去
+    // 预览 iframe 发回的消息：内联页面报到、以及翻页回传（反向光标跟随）。
+    // 只认自家 iframe 发来的（ownsWindow），别的窗口发同名消息一概不理。
     this.registerDomEvent(window, 'message', (event: MessageEvent) => {
-      const data = event.data as { type?: string } | null;
-      if (data?.type !== 'rfo-ready') return;
-      this.forEachPreview((view) => {
-        if (view.ownsWindow(event.source)) view.handleInlineReady();
-      });
+      const data = event.data as { type?: string; page?: number } | null;
+
+      if (data?.type === 'rfo-ready') {
+        this.forEachPreview((view) => {
+          if (view.ownsWindow(event.source)) view.handleInlineReady();
+        });
+        return;
+      }
+
+      if (data?.type === 'rfo-slide' && typeof data.page === 'number') {
+        const page = data.page;
+        this.forEachPreview((view) => {
+          if (view.ownsWindow(event.source)) this.syncCursorToPage(page);
+        });
+      }
     });
 
     // 首次渲染
@@ -225,11 +247,57 @@ export default class RevealPlugin extends Plugin {
     if (!view?.file || view.file.path !== this.lastMarkdownFile?.path) return;
 
     const page = lineToPageIndex(this.deck, line);
+    this.syncedPage = page;
     if (this.server?.running) {
       this.server.gotoPage(page);
       return;
     }
     this.forEachPreview((preview) => preview.pushGoto(page));
+  }
+
+  /**
+   * 反向光标跟随：预览翻到哪一页，编辑器光标就移到那一页的源码起始行。
+   *
+   * 不抢焦点 —— 用户正在预览里用方向键翻页，焦点一旦被拉到编辑器，
+   * 下一次按键就变成在正文里移动光标了。
+   */
+  private syncCursorToPage(pageIndex: number): void {
+    if (!this.settings.syncSlide) return;
+    // 光标已经在这一页里：可能是它自己推着预览跳过来的，
+    // 再动一次只会把光标从正在编辑的位置拽到页首
+    if (pageIndex === this.syncedPage) return;
+
+    const page = this.deck.pages[pageIndex];
+    if (!page) return;
+
+    const view = this.findNoteView();
+    if (!view) return;
+
+    const editor = view.editor;
+    const line = Math.min(Math.max(page.sourceLine, 0), editor.lastLine());
+    const pos = { line, ch: 0 };
+    this.syncedPage = pageIndex;
+    editor.setCursor(pos);
+    editor.scrollIntoView({ from: pos, to: pos }, true);
+  }
+
+  /**
+   * 找到正在显示预览对象笔记的编辑器面板。
+   * 不能用 getActiveViewOfType：反向同步发生时焦点通常在预览面板上，那样一律取不到。
+   * 同一篇笔记开了多个面板时优先取源码模式的那个（阅读模式下移动光标看不出效果）。
+   */
+  private findNoteView(): MarkdownView | null {
+    const path = this.lastMarkdownFile?.path;
+    if (!path) return null;
+
+    let fallback: MarkdownView | null = null;
+    for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+      const view = leaf.view;
+      if (!(view instanceof MarkdownView) || view.file?.path !== path) continue;
+      if (view.getMode() === 'source') return view;
+      if (!fallback) fallback = view;
+    }
+    return fallback;
   }
 
   /**
@@ -288,8 +356,8 @@ export default class RevealPlugin extends Plugin {
       this.updateDeck(deck);
     } catch (err) {
       // 管线任何一步失败都不能静默——否则预览永远停留在旧内容
-      console.error('[reveal-for-obsidian] pipeline failed', err);
-      new Notice(`reveal-for-obsidian: render failed - ${String(err)}`);
+      console.error('[reveal-slide-for-obsidian] pipeline failed', err);
+      new Notice(`reveal-slide-for-obsidian: render failed - ${String(err)}`);
     }
   }
 
@@ -306,7 +374,7 @@ export default class RevealPlugin extends Plugin {
     for (const ref of deck.customCSS) {
       const file = this.resolveCssRef(ref, note);
       if (!file) {
-        console.warn(`[reveal-for-obsidian] css file not found: ${ref}`);
+        console.warn(`[reveal-slide-for-obsidian] css file not found: ${ref}`);
         continue;
       }
       parts.push(await this.readCssFile(file));
@@ -410,7 +478,7 @@ export default class RevealPlugin extends Plugin {
     const active = workspace.getActiveFile();
     const retarget = active?.extension === 'md' && active.path !== this.lastMarkdownFile?.path;
     if (active?.extension === 'md') this.lastMarkdownFile = active;
-    if (retarget) new Notice(`reveal-for-obsidian: 预览已切换到「${active!.basename}」`);
+    if (retarget) new Notice(`reveal-slide-for-obsidian: 预览已切换到「${active!.basename}」`);
 
     let leaf: WorkspaceLeaf | null = null;
     const leaves = workspace.getLeavesOfType(VIEW_TYPE_SLIDE_PREVIEW);
@@ -464,7 +532,7 @@ export default class RevealPlugin extends Plugin {
 
     if (!target) {
       new Notice(
-        'reveal-for-obsidian: 这篇笔记没有外部样式文件，' +
+        'reveal-slide-for-obsidian: 这篇笔记没有外部样式文件，' +
           '可在 frontmatter 写 css: <主题笔记名> 指定一份',
       );
       return;
@@ -480,8 +548,8 @@ export default class RevealPlugin extends Plugin {
     await this.setGridGuides(!this.settings.showGridGuides);
     new Notice(
       this.settings.showGridGuides
-        ? 'reveal-for-obsidian: grid guides on'
-        : 'reveal-for-obsidian: grid guides off',
+        ? 'reveal-slide-for-obsidian: grid guides on'
+        : 'reveal-slide-for-obsidian: grid guides off',
     );
   }
 
@@ -524,7 +592,7 @@ export default class RevealPlugin extends Plugin {
     // htmlExporter 顶层 import 了 fs / path，移动端一求值就抛。
     // 先挡在动态 import 之前 —— 否则这里 reject 出去没人接，用户什么也看不到。
     if (Platform.isMobile) {
-      new Notice('reveal-for-obsidian: HTML export needs the desktop app');
+      new Notice('reveal-slide-for-obsidian: HTML export needs the desktop app');
       return;
     }
     await this.renderActiveFile();
@@ -532,8 +600,27 @@ export default class RevealPlugin extends Plugin {
       const { exportHtml: runHtmlExport } = await import('./export/htmlExporter');
       await runHtmlExport(this);
     } catch (err) {
-      console.error('[reveal-for-obsidian] html export failed', err);
-      new Notice(`reveal-for-obsidian: HTML export failed - ${String(err)}`);
+      console.error('[reveal-slide-for-obsidian] html export failed', err);
+      new Notice(`reveal-slide-for-obsidian: HTML export failed - ${String(err)}`);
+    }
+  }
+
+  /**
+   * 导出 PPTX：先重跑管线确保 deck 最新，再把各页转成 PowerPoint 原生对象。
+   * 与 HTML 导出同样只支持桌面端（要读写文件、还要用 Chromium 栅格化 SVG）。
+   */
+  async exportPptx(): Promise<void> {
+    if (Platform.isMobile) {
+      new Notice('reveal-slide-for-obsidian: PPTX export needs the desktop app');
+      return;
+    }
+    await this.renderActiveFile();
+    try {
+      const { exportPptx: runPptxExport } = await import('./export/pptxExporter');
+      await runPptxExport(this);
+    } catch (err) {
+      console.error('[reveal-slide-for-obsidian] pptx export failed', err);
+      new Notice(`reveal-slide-for-obsidian: PPTX export failed - ${String(err)}`);
     }
   }
 

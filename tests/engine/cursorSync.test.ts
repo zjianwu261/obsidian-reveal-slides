@@ -4,7 +4,11 @@
  */
 import { describe, it, expect } from 'vitest';
 import { PipelineOrchestrator } from '../../src/processors';
-import { lineToPageIndex, pageIndexToPosition } from '../../src/engine/templateEngine';
+import {
+  lineToPageIndex,
+  pageIndexToPosition,
+  positionToPageIndex,
+} from '../../src/engine/templateEngine';
 import { DEFAULT_SETTINGS } from '../../src/types/config';
 
 const render = async (md: string): Promise<string> => md;
@@ -78,5 +82,28 @@ describe('pageIndexToPosition', () => {
   it('matches the grouping used to build the sections', async () => {
     const deck = await run('# A\n---\n# B\nxxx\n# B2');
     expect(pageIndexToPosition(deck, 2)).toEqual({ h: 1, v: 1 });
+  });
+});
+
+describe('positionToPageIndex', () => {
+  it('is the inverse of pageIndexToPosition', async () => {
+    const deck = await run('# A\nxxx\n# A2\nxxx\n# A3\n---\n# B\nxxx\n# B2');
+    const roundTrip = deck.pages.map((_, i) => {
+      const { h, v } = pageIndexToPosition(deck, i);
+      return positionToPageIndex(deck, h, v);
+    });
+    expect(roundTrip).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it('treats a missing vertical index as the top of the stack', async () => {
+    const deck = await run('# A\n---\n# B\nxxx\n# B2');
+    expect(positionToPageIndex(deck, 1)).toBe(1);
+    // v 越界（预览与 deck 短暂不同步）退回该横向组首页，而不是丢掉这次翻页
+    expect(positionToPageIndex(deck, 1, 9)).toBe(1);
+  });
+
+  it('returns -1 when the horizontal index is out of range', async () => {
+    const deck = await run('# A\n---\n# B');
+    expect(positionToPageIndex(deck, 5, 0)).toBe(-1);
   });
 });
