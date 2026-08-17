@@ -27,6 +27,24 @@ describe('findCodeRanges', () => {
     const text = '```\n`a` `b`\n```';
     expect(findCodeRanges(text)).toHaveLength(1);
   });
+
+  /*
+   * 回归：围栏块之后的行内代码必须照旧成对。
+   * 收尾的 ``` 曾拉出一个伪匹配吃掉围栏后第一个反引号，此后每对反引号都配错位，
+   * 「行内代码」落到真行内代码之间的空隙上 —— 空隙里的 note: / xxx / --- 被当成
+   * 代码跳过，于是备注混进正文、几页内容叠在一张画布上。
+   */
+  it('keeps inline pairing intact after a fenced block', () => {
+    const text = '```c\nsfr P0 = 0x80;\n```\n\n- `sfr` 声明字节，`sbit` 声明位\n\nnote:\n\n讲稿';
+    const ranges = findCodeRanges(text);
+
+    expect(isInsideCode(text.indexOf('sfr P0'), ranges)).toBe(true);
+    expect(isInsideCode(text.indexOf('`sfr`') + 1, ranges)).toBe(true);
+    expect(isInsideCode(text.indexOf('`sbit`') + 1, ranges)).toBe(true);
+    // 两段行内代码之间的空隙，以及后面的 note:，都不是代码
+    expect(isInsideCode(text.indexOf(' 声明字节，'), ranges)).toBe(false);
+    expect(isInsideCode(text.indexOf('note:'), ranges)).toBe(false);
+  });
 });
 
 describe('replaceOutsideCode', () => {

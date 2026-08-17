@@ -142,6 +142,22 @@ describe('end to end: a slide that teaches the syntax', () => {
     expect(deck.pages[0].html).toContain('body { color: red }');
   });
 
+  /*
+   * 回归：「代码块 + 行内代码 + note: + xxx」是课件里最常见的一页。
+   * 行内代码一旦配对错位，note: 与 xxx 双双被当成代码：讲稿整段留在正文、该分的页不分，
+   * 几页内容叠在同一张画布上。
+   */
+  it('keeps notes and page breaks working when inline code follows a fence', async () => {
+    const deck = await run(
+      '```c\nsfr P0 = 0x80;\n```\n\n- `sfr` 声明字节\n- `sbit` 声明位\n- 例：`sbit LED = P0^0;`\n\n' +
+        'note:\n\n各位同学大家好，`sfr` 是关键字\n\nxxx\n\n# 下一页',
+    );
+    expect(deck.pages).toHaveLength(2);
+    expect(deck.pages[0].notes[0].content).toContain('各位同学大家好');
+    expect(deck.pages[0].html).not.toContain('各位同学大家好');
+    expect(deck.pages[1].html).toContain('下一页');
+  });
+
   it('keeps a YAML sample whole instead of moving half of it into notes', async () => {
     const deck = await run('# YAML\n\n```yaml\ntitle: x\nnote: 记得改\nother: y\n```');
     expect(deck.pages[0].notes).toHaveLength(0);

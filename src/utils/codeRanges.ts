@@ -25,16 +25,37 @@ export function findCodeRanges(text: string): Range[] {
     ranges.push([match.index, match.index + match[0].length]);
   }
 
-  // 行内代码（可跨行，排除已在围栏代码块内的部分）
+  /*
+   * 行内代码要在「挖掉围栏块」的副本上扫，不能直接扫原文。
+   * 直接扫的话，收尾那行 ``` 的第三个反引号会拉出一个伪匹配（起点在围栏内，
+   * 一路吃到围栏后面第一个反引号）：它因起点在代码里被丢弃，但反引号已被消耗，
+   * 此后每一对反引号都配错位 —— 「行内代码」落在真的行内代码之间的空隙上。
+   * 空隙里要是有 note: / xxx / --- / <grid>，就会被当成代码整段跳过：备注混进正文、
+   * 该分的页不分、几页内容叠在一张画布上。
+   * 等长空白替换保住了下标，匹配结果可直接映射回原文。
+   */
   const inlineRe = /`[^`]+`/g;
-  for (const match of text.matchAll(inlineRe)) {
-    const start = match.index;
-    if (!isInsideCode(start, ranges)) {
-      ranges.push([start, start + match[0].length]);
-    }
+  for (const match of maskRanges(text, ranges).matchAll(inlineRe)) {
+    ranges.push([match.index, match.index + match[0].length]);
   }
 
   return ranges;
+}
+
+/**
+ * 把给定区间替换成等长空格（换行保留，下标与行号都不变）。
+ * ranges 需按起点升序且互不重叠 —— matchAll 的结果天然如此。
+ */
+function maskRanges(text: string, ranges: Range[]): string {
+  if (ranges.length === 0) return text;
+
+  let result = '';
+  let last = 0;
+  for (const [start, end] of ranges) {
+    result += text.slice(last, start) + text.slice(start, end).replace(/[^\n]/g, ' ');
+    last = end;
+  }
+  return result + text.slice(last);
 }
 
 /** 下标是否落在任一代码范围内 */
