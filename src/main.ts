@@ -140,6 +140,14 @@ export default class RevealPlugin extends Plugin {
         return;
       }
 
+      // 轻点屏幕中间：呼出/收起该面板的菜单栏（沉浸式下这是唯一的操作入口）
+      if (data?.type === 'rfo-menu') {
+        this.forEachPreview((view) => {
+          if (view.ownsWindow(event.source)) view.toggleMenuBar();
+        });
+        return;
+      }
+
       if (data?.type === 'rfo-slide' && typeof data.page === 'number') {
         const page = data.page;
         this.forEachPreview((view) => {

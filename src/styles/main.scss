@@ -19,6 +19,45 @@
   }
 }
 
+/*
+ * 轻点屏幕中间呼出的菜单栏（沉浸式下标题栏是藏着的，手机上又没有命令面板快捷键）。
+ * 浮在 iframe 之上、贴着容器底边居中 —— 容器横过来时它跟着一起转，位置照旧在「下面」。
+ */
+.rfo-menu-bar {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 2;
+  transform: translateX(-50%);
+  gap: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+
+  &.is-visible {
+    display: flex;
+  }
+
+  button {
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    box-shadow: none;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.2;
+    cursor: pointer;
+
+    &.is-active {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  }
+}
+
 /* 沉浸式的出口按钮：平时不存在，只在沉浸式里浮在幻灯片右上角 */
 .rfo-exit-immersive {
   display: none;

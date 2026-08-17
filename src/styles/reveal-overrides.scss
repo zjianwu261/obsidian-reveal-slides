@@ -1,3 +1,13 @@
+/*
+ * 触摸手势全部自己处理（滑动翻页归 reveal，轻点与双指缩放见 tapNavigation / pinchZoom）。
+ * 不关掉浏览器的默认手势，双指捏合会变成 webview 自己的页面缩放：整页连同外壳一起放大，
+ * 我们的缩放一次也收不到。
+ */
+.reveal-viewport,
+.reveal {
+  touch-action: none;
+}
+
 /* 覆盖 reveal.js 默认样式，对齐 Obsidian 渲染习惯（iframe 内生效） */
 .reveal {
   /* Obsidian callout 已由 MarkdownRenderer 渲染为 .callout（div），

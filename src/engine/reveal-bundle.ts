@@ -25,6 +25,7 @@ import { computeCanvasSize, computeRootFontSize } from './canvasCalculator';
 import { applyScrollViewGuard } from './scrollViewHandler';
 import { applyHistoryGuard } from './historyGuard';
 import { installTapNavigation } from './tapNavigation';
+import { PinchZoom } from './pinchZoom';
 import { fitCodeBlocks } from '../processors/codeBlockProcessor';
 
 declare global {
@@ -40,6 +41,8 @@ declare global {
 let pushedDeck: SlideDeck | null = null;
 
 let deck: RevealApi | null = null;
+/** 双指缩放的状态机（只在首次初始化时创建，重渲染不重建） */
+let pinch: PinchZoom | null = null;
 let renderTimer: number | null = null;
 /** 最近一次渲染用的 deck 数据（goto 时换算页坐标要用） */
 let current: SlideDeck | null = null;
@@ -119,6 +122,18 @@ function connectHost(): void {
   });
   // 告诉宿主「我准备好了」，宿主收到后把当前 deck 推过来
   window.parent?.postMessage({ type: 'rfo-ready' }, '*');
+}
+
+/**
+ * 宿主的「重置缩放」按钮。
+ * 单独挂一条，不跟 connectHost 合并：服务器模式（桌面端）走的是 SSE，不调 connectHost，
+ * 但菜单栏的这个按钮两种模式下都该管用。
+ */
+function listenForZoomReset(): void {
+  window.addEventListener('message', (event: MessageEvent) => {
+    const data = event.data as { type?: string } | null;
+    if (data?.type === 'zoom-reset') pinch?.reset();
+  });
 }
 
 function injectExtraCss(data: SlideDeck): void {
@@ -267,11 +282,28 @@ async function render(): Promise<void> {
       fitCodeBlocks(instance.getCurrentSlide());
       notifyHostPage();
     });
-    // 手机上轻点翻页（只认触摸，鼠标点击照旧选字/点链接）
+    // 双指缩放挂在 .reveal 外层（.reveal .slides 的 transform 是 reveal 自己的画布缩放）
+    pinch = new PinchZoom(
+      document.querySelector('.reveal') as HTMLElement,
+      () => ({ width: window.innerWidth, height: window.innerHeight }),
+      // 手势中/放大后关掉 reveal 的 touch：两指捏合会被它当成「进总览」，
+      // 单指拖动会被当成翻页滑动，而这时那正是平移
+      (locked) => instance.configure({ touch: !locked }),
+    );
+    pinch.install(document);
+
+    // 手机上轻点：左三分之一回上页、右三分之一下一页、中间呼出宿主的菜单栏
     installTapNavigation(
       document,
-      { next: () => instance.next(), prev: () => instance.prev() },
-      () => window.innerWidth,
+      {
+        next: () => instance.next(),
+        prev: () => instance.prev(),
+        menu: () => window.parent?.postMessage({ type: 'rfo-menu' }, '*'),
+      },
+      {
+        viewportWidth: () => window.innerWidth,
+        navigationSuspended: () => pinch?.zoomed === true,
+      },
     );
   } else {
     deck.configure(config);
@@ -321,6 +353,8 @@ function connectEvents(): void {
     // SSE 断线自动重连由浏览器处理
   };
 }
+
+listenForZoomReset();
 
 if (window.__RFO_INLINE__) {
   // 内联模式：先挂上监听，deck 到了再渲染（此时还没有内容可画）

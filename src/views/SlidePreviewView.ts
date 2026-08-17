@@ -21,6 +21,9 @@ export class SlidePreviewView extends ItemView {
   private immersiveAction: HTMLElement | null = null;
   /** 沉浸式下唯一的出口：标题栏此时也藏起来了 */
   private exitImmersiveButton: HTMLElement | null = null;
+  /** 轻点屏幕中间呼出的菜单栏 */
+  private menuBar: HTMLElement | null = null;
+  private menuGuidesButton: HTMLElement | null = null;
   private wakeLock = new ScreenWakeLock();
   /** 内联模式（无服务器）下的 blob URL 释放函数 */
   private revokeInlineUrl: (() => void) | null = null;
@@ -76,6 +79,8 @@ export class SlidePreviewView extends ItemView {
       this.setImmersiveMode(false);
     });
 
+    this.buildMenuBar(container);
+
     // 标题栏按钮，从左到右：沉浸式 / 刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX
     this.immersiveAction = this.addAction('expand', 'Immersive preview', () => {
       this.toggleImmersiveMode();
@@ -103,10 +108,53 @@ export class SlidePreviewView extends ItemView {
     this.refresh();
   }
 
+  /**
+   * 轻点屏幕中间呼出的菜单栏。
+   * 沉浸式下标题栏是藏起来的，手机上又没有命令面板快捷键，
+   * 讲课当中想开一下辅助线、刷新一次、把放大退回去，只能靠它。
+   * 浮在 iframe 之上、跟着容器走 —— 横过来的时候它自然也跟着转。
+   */
+  private buildMenuBar(container: HTMLElement): void {
+    const bar = container.createDiv({ cls: 'rfo-menu-bar' });
+
+    const add = (label: string, onClick: () => void): HTMLElement => {
+      const button = bar.createEl('button', { text: label });
+      button.addEventListener('click', onClick);
+      return button;
+    };
+
+    this.menuGuidesButton = add('网格', () => {
+      void this.plugin.toggleGridGuides();
+    });
+    add('刷新', () => {
+      void this.plugin.reloadPreview();
+    });
+    add('重置缩放', () => {
+      this.iframe?.contentWindow?.postMessage({ type: 'zoom-reset' }, '*');
+    });
+    add('退出沉浸', () => {
+      this.setImmersiveMode(false);
+      this.setMenuBar(false);
+    });
+
+    this.menuBar = bar;
+  }
+
+  /** 中间那一竖条被点了（消息由 iframe 发回宿主，见 tapNavigation） */
+  toggleMenuBar(): void {
+    this.setMenuBar(!this.menuBar?.hasClass('is-visible'));
+  }
+
+  setMenuBar(visible: boolean): void {
+    this.menuBar?.toggleClass('is-visible', visible);
+    this.syncActions();
+  }
+
   /** 工具栏按钮的高亮状态跟随设置（辅助线开着时按钮点亮） */
   syncActions(): void {
     this.guidesAction?.classList.toggle('is-active', this.plugin.settings.showGridGuides);
     this.immersiveAction?.classList.toggle('is-active', isImmersive(document.body));
+    this.menuGuidesButton?.classList.toggle('is-active', this.plugin.settings.showGridGuides);
   }
 
   /** 沉浸式开关（标题栏按钮、命令、浮动出口按钮都走这里） */
@@ -280,5 +328,7 @@ export class SlidePreviewView extends ItemView {
     this.guidesAction = null;
     this.immersiveAction = null;
     this.exitImmersiveButton = null;
+    this.menuBar = null;
+    this.menuGuidesButton = null;
   }
 }
