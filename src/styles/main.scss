@@ -65,21 +65,27 @@ body.rfo-immersive {
   }
 
   /*
-   * 竖屏手机上把整个预览转 90°（系统转屏拿不下来时的兜底，见 immersive.ts）。
-   * 元素宽高对调后铺满屏幕：rotate 把局部 +x 转到屏幕 +y、+y 转到屏幕 -x，
-   * 于是整块跑到屏幕左外侧，再沿局部 -y（即屏幕 +x）推回一个自身高度。
-   * 触摸坐标由浏览器一并映射，用户把手机向左转之后，滑动和轻点的方向都还是对的。
+   * 预览面板自己的标题栏：容器是 position: fixed，本该盖住它，但 Obsidian 移动端的
+   * 抽屉容器带 transform，transform 祖先会把 fixed 变成相对祖先定位 —— 容器于是只
+   * 铺满标题栏以下的工作区。显式藏掉，别指望盖。
    */
-  &.rfo-landscape .reveal-slide-preview-container {
-    width: 100vh;
-    height: 100vw;
-    transform: rotate(90deg) translateY(-100%);
-    transform-origin: top left;
+  .workspace-leaf-content[data-type='reveal-slide-preview'] .view-header {
+    display: none;
   }
 
-  /* 移动端底栏是浮层，z-index 未必低于容器，显式藏掉最稳妥 */
+  /* 移动端底栏是浮层，z-index 未必低于容器，同样显式藏掉最稳妥 */
   .mobile-navbar,
   .status-bar {
     display: none;
+  }
+
+  /*
+   * 竖屏手机上把整个预览转 90°（系统转屏拿不下来时的兜底，见 immersive.ts）。
+   * 宽高对调的具体像素由 JS 现量现填（applyLandscapeGeometry）：写死 100vh / 100vw
+   * 会在上面那个 transform 祖先的情况下算错，画面偏出屏幕、右下角的页码首当其冲。
+   * 触摸坐标由浏览器一并映射，用户把手机向左转之后，滑动和轻点的方向都还是对的。
+   */
+  &.rfo-landscape .reveal-slide-preview-container {
+    transform-origin: top left;
   }
 }

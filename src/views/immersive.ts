@@ -53,6 +53,67 @@ export function syncLandscape(body: HTMLElement, wanted: boolean, portrait: bool
   return rotate;
 }
 
+export interface Viewport {
+  width: number;
+  height: number;
+}
+
+export interface ImmersiveStyle {
+  left: string;
+  top: string;
+  width: string;
+  height: string;
+  transform: string;
+}
+
+/**
+ * 沉浸式容器的几何。
+ *
+ * 不能只写 `position: fixed; inset: 0` 就当铺满了 —— Obsidian 移动端的抽屉容器带
+ * transform，而 transform 祖先会把 fixed 变成相对该祖先定位：容器实际落在工作区里
+ * （标题栏之下、安全区之内），于是画面偏下、不居中，底部还被推出屏幕，
+ * reveal 放在右下角的页码正好第一个消失。
+ *
+ * 所以先量出容器被祖先推开了多少（rect.left / rect.top），再用负偏移顶回屏幕原点，
+ * 尺寸直接取视口。旋转时宽高对调：rotate 把局部 +x 转到屏幕 +y、+y 转到屏幕 -x，
+ * 整块跑到屏幕左外侧，再沿局部 -y（即屏幕 +x）推回一个自身高度，正好落回原位。
+ */
+export function immersiveStyle(
+  rect: { left: number; top: number },
+  viewport: Viewport,
+  rotate: boolean,
+): ImmersiveStyle {
+  return {
+    left: `${-rect.left}px`,
+    top: `${-rect.top}px`,
+    width: `${rotate ? viewport.height : viewport.width}px`,
+    height: `${rotate ? viewport.width : viewport.height}px`,
+    transform: rotate ? 'rotate(90deg) translateY(-100%)' : '',
+  };
+}
+
+/** 套用几何；mode 为 null（退出沉浸式）时把内联样式清干净 */
+export function applyImmersiveGeometry(
+  el: HTMLElement,
+  viewport: Viewport,
+  mode: { rotate: boolean } | null,
+): void {
+  // 先清空再量：带着上一次的偏移和旋转，量出来的是已经挪过的盒子
+  el.style.left = '';
+  el.style.top = '';
+  el.style.width = '';
+  el.style.height = '';
+  el.style.transform = '';
+  if (!mode) return;
+
+  const style = immersiveStyle(el.getBoundingClientRect(), viewport, mode.rotate);
+  el.style.left = style.left;
+  el.style.top = style.top;
+  el.style.width = style.width;
+  el.style.height = style.height;
+  el.style.transform = style.transform;
+}
+
 /** screen.orientation 的最小接口 */
 interface OrientationLike {
   lock?(orientation: 'landscape'): Promise<void>;

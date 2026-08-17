@@ -3,6 +3,8 @@ import {
   IMMERSIVE_CLASS,
   LANDSCAPE_CLASS,
   ScreenWakeLock,
+  applyImmersiveGeometry,
+  immersiveStyle,
   isImmersive,
   isPortrait,
   setImmersive,
@@ -86,6 +88,57 @@ describe('landscape', () => {
   it('unlocking is safe on platforms without the API', () => {
     expect(() => unlockOrientation(undefined)).not.toThrow();
     expect(() => unlockOrientation({ unlock: () => { throw new Error('nope'); } })).not.toThrow();
+  });
+});
+
+describe('immersive geometry', () => {
+  const viewport = { width: 390, height: 844 };
+
+  it('fills the viewport when nothing pushed the container around', () => {
+    expect(immersiveStyle({ left: 0, top: 0 }, viewport, false)).toEqual({
+      left: '0px',
+      top: '0px',
+      width: '390px',
+      height: '844px',
+      transform: '',
+    });
+  });
+
+  /*
+   * 回归：Obsidian 移动端的抽屉容器带 transform，transform 祖先会把 position: fixed
+   * 变成相对该祖先定位 —— 容器落在标题栏之下，inset: 0 铺不满屏。画面于是偏下、不居中，
+   * 底部被推出屏幕，reveal 放在右下角的页码第一个看不见。用负偏移把它顶回屏幕原点。
+   */
+  it('cancels the offset an ancestor imposed', () => {
+    expect(immersiveStyle({ left: 0, top: 48 }, viewport, false)).toMatchObject({
+      top: '-48px',
+      height: '844px',
+    });
+  });
+
+  it('swaps width and height when rotated', () => {
+    expect(immersiveStyle({ left: 0, top: 48 }, viewport, true)).toEqual({
+      left: '0px',
+      top: '-48px',
+      width: '844px',
+      height: '390px',
+      transform: 'rotate(90deg) translateY(-100%)',
+    });
+  });
+
+  it('measures first, then applies - and clears everything on the way out', () => {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => ({ left: 0, top: 48 }) as DOMRect;
+
+    applyImmersiveGeometry(el, viewport, { rotate: true });
+    expect(el.style.top).toBe('-48px');
+    expect(el.style.width).toBe('844px');
+    expect(el.style.transform).toContain('rotate(90deg)');
+
+    applyImmersiveGeometry(el, viewport, null);
+    expect(el.style.top).toBe('');
+    expect(el.style.width).toBe('');
+    expect(el.style.transform).toBe('');
   });
 });
 

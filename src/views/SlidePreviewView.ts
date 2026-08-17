@@ -6,6 +6,7 @@ import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
 import {
   ScreenWakeLock,
+  applyImmersiveGeometry,
   isImmersive,
   isPortrait,
   setImmersive,
@@ -122,17 +123,25 @@ export class SlidePreviewView extends ItemView {
     else void this.wakeLock.release();
 
     if (on) {
-      // 先让系统真的转；转不动（iOS 一律转不动）再用 CSS 把画面横过来
+      this.syncOrientation();
+      // 先让系统真的转；转不动（iOS 一律转不动）就维持上面那次 CSS 旋转
       void tryLockLandscape(screen.orientation).then(() => this.syncOrientation());
     } else {
       unlockOrientation(screen.orientation);
-      syncLandscape(document.body, false, false);
+      this.syncOrientation();
     }
   }
 
   /** 视口尺寸变了就重算一次：用户真把手机转过来时要撤掉 CSS 旋转 */
   private syncOrientation(): void {
-    syncLandscape(document.body, isImmersive(document.body), isPortrait(window));
+    const immersive = isImmersive(document.body);
+    const rotated = syncLandscape(document.body, immersive, isPortrait(window));
+    // 几何要在类切换之后量：此时容器已按沉浸式定位，量到的偏移才是要补回来的那份
+    applyImmersiveGeometry(
+      this.contentEl,
+      { width: window.innerWidth, height: window.innerHeight },
+      immersive ? { rotate: rotated } : null,
+    );
   }
 
   /** 面板的「⋯」菜单：导出与辅助线，省得去命令面板翻 */
