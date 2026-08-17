@@ -11,6 +11,7 @@ import { processImages } from './imageProcessor';
 import { processSvgBlocks } from './svgProcessor';
 import { processChartBlocks } from './chartProcessor';
 import { processMermaidBlocks } from './mermaidProcessor';
+import { processCodeBlocks } from './codeHighlight';
 import { processSlideEmbeds } from './embedProcessor';
 import { processInlineMarkup } from './footnoteProcessor';
 import { applyElementComments, extractElementComments } from './elementComment';
@@ -252,6 +253,8 @@ export class PipelineOrchestrator {
     result = processSvgBlocks(result);
     result = processChartBlocks(result);
     result = processMermaidBlocks(result);
+    // 余下的 <pre><code> 才是真代码块：mermaid / chart / svg 到这里已被换成各自的元素
+    result = processCodeBlocks(result);
     result = processInlineMarkup(result);
     const elementResult = applyElementComments(result, options.directives);
     return { html: elementResult.html, slideAttributes: elementResult.slideAttributes };

@@ -44,7 +44,7 @@ exports[`fixture: full-deck > renders stable section html 1`] = `
 <section>
 <section>
 <h2>代码与分隔符</h2>
-<pre><code class="language-js">// 代码块里的 --- 和 xxx 都不能触发分页
+<pre><code class="language-js" data-noescape="">// 代码块里的 --- 和 xxx 都不能触发分页
 const sep = '---';
 xxx</code></pre>
 <p>行内代码 \`a --- b\` 同理。</p>
