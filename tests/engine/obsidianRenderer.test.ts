@@ -40,7 +40,7 @@ const run = (md: string) =>
 describe('placeholders survive the Obsidian renderer', () => {
   it('renders a page whose entire body is grids', async () => {
     const deck = await run(
-      '<grid dimension="40 30" position="10 15">A</grid>\n\n<grid dimension="40 30" position="60 15">B</grid>',
+      '<grid dim="40 30" pos="10 15">A</grid>\n\n<grid dim="40 30" pos="60 15">B</grid>',
     );
     const html = deck.pages[0].html;
     expect((html.match(/class="grid"/g) ?? []).length).toBe(2);
@@ -51,7 +51,7 @@ describe('placeholders survive the Obsidian renderer', () => {
 
   it('handles grids written on consecutive lines (one paragraph, <br> separated)', async () => {
     const deck = await run(
-      '<grid dimension="100 11" position="0 85" style="background:#eee"></grid>\n<grid dimension="100 11" position="0 85">页脚</grid>',
+      '<grid dim="100 11" pos="0 85" style="background:#eee"></grid>\n<grid dim="100 11" pos="0 85">页脚</grid>',
     );
     const html = deck.pages[0].html;
     expect((html.match(/class="grid"/g) ?? []).length).toBe(2);
@@ -61,7 +61,7 @@ describe('placeholders survive the Obsidian renderer', () => {
   });
 
   it('keeps surrounding text when a paragraph mixes prose and a grid', async () => {
-    const deck = await run('前面 <grid dimension="10 10" position="center">G</grid> 后面');
+    const deck = await run('前面 <grid dim="10 10" pos="center">G</grid> 后面');
     const html = deck.pages[0].html;
     expect(html).toContain('前面');
     expect(html).toContain('后面');
@@ -70,14 +70,14 @@ describe('placeholders survive the Obsidian renderer', () => {
 
   it('still resolves nested grids', async () => {
     const deck = await run(
-      '<grid dimension="80 80" position="center">\n<grid dimension="50 50" position="topleft">inner</grid>\n</grid>',
+      '<grid dim="80 80" pos="center">\n<grid dim="50 50" pos="topleft">inner</grid>\n</grid>',
     );
     expect((deck.pages[0].html.match(/class="grid"/g) ?? []).length).toBe(2);
     expect(deck.pages[0].html).not.toContain('⟦RFO');
   });
 
   it('does not leave an empty page body', async () => {
-    const deck = await run('<grid dimension="22 12" position="6 7">logo</grid>\n\nnote:\n讲稿');
+    const deck = await run('<grid dim="22 12" pos="6 7">logo</grid>\n\nnote:\n讲稿');
     expect(deck.pages[0].html.length).toBeGreaterThan(0);
     expect(deck.pages[0].notes).toHaveLength(1);
   });

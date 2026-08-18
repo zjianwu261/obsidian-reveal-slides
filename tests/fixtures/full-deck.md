@@ -17,15 +17,15 @@ note:
 
 ---
 
-<grid dimension="40 30" position="10 15" style="background: var(--brand); color: #fff;">
+<grid dim="40 30" pos="10 15" style="background: var(--brand); color: #fff;">
 左上角的块
 </grid>
 
-<grid dimension="30 30" position="bottomright" shape="hexagon" frag="1" animate="fadeIn">
+<grid dim="30 30" pos="bottomright" shape="hexagon" frag="1" animate="fadeIn">
 六边形
 </grid>
 
-<grid dimension="80 20" position="center" class="wide">
+<grid dim="80 20" pos="center" class="wide">
 <split even gap="2">左栏
 
 右栏</split>

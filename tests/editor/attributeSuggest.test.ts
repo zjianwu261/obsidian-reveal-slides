@@ -10,7 +10,7 @@ describe('getSuggestContext', () => {
   });
 
   it('returns null once the tag is closed', () => {
-    expect(getSuggestContext('<grid dimension="60 30">content ')).toBeNull();
+    expect(getSuggestContext('<grid dim="60 30">content ')).toBeNull();
   });
 
   it('suggests grid attribute names', () => {
@@ -49,9 +49,11 @@ describe('getSuggestContext', () => {
     expect(labels('<grid pos="top')).toEqual(['top', 'topleft', 'topright']);
   });
 
-  it('offers the same values for the long and advanced-slides spellings', () => {
-    expect(labels('<grid position="top')).toEqual(['top', 'topleft', 'topright']);
-    expect(labels('<grid drop="top')).toEqual(['top', 'topleft', 'topright']);
+  /* 别名已作废：写 position / drop 不再有取值候选，免得补全把废写法教回去 */
+  it('offers nothing for the retired spellings', () => {
+    expect(labels('<grid pos="top')).toEqual(['top', 'topleft', 'topright']);
+    expect(labels('<grid position="top')).toBeNull();
+    expect(labels('<grid drop="top')).toBeNull();
   });
 
   it('suggests every built-in shape', () => {

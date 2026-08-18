@@ -57,7 +57,7 @@ describe('resolvePosition anchors', () => {
 describe('parseGridTags', () => {
   it('parses a grid into placeholder + element', () => {
     const { html, grids } = parseGridTags(
-      'before\n<grid dimension="60 30" position="20 25" style="background: red;">**bold**</grid>\nafter',
+      'before\n<grid dim="60 30" pos="20 25" style="background: red;">**bold**</grid>\nafter',
     );
     expect(html).toContain(gridPlaceholder(0));
     expect(grids).toHaveLength(1);
@@ -69,7 +69,7 @@ describe('parseGridTags', () => {
 
   it('parses multiple grids with increasing indexes', () => {
     const { html, grids } = parseGridTags(
-      '<grid dimension="10 10" position="top">a</grid>\n<grid dimension="20 20" position="bottom">b</grid>',
+      '<grid dim="10 10" pos="top">a</grid>\n<grid dim="20 20" pos="bottom">b</grid>',
     );
     expect(html).toContain(gridPlaceholder(0));
     expect(html).toContain(gridPlaceholder(1));
@@ -78,7 +78,7 @@ describe('parseGridTags', () => {
 
   it('parses class / shape / frag / animate attributes', () => {
     const { grids } = parseGridTags(
-      '<grid dimension="100 50" position="10 10" class="box hl" shape="hexagon" frag="2" animate="fade-in">x</grid>',
+      '<grid dim="100 50" pos="10 10" class="box hl" shape="hexagon" frag="2" animate="fade-in">x</grid>',
     );
     const grid = grids[0];
     expect(grid.position).toEqual(['10%', '10%']);
@@ -100,38 +100,29 @@ describe('parseGridTags', () => {
     expect(grids[0].position).toEqual(['6%', '7%']);
   });
 
-  it('accepts advanced-slides drag / drop as aliases', () => {
-    const { grids } = parseGridTags('<grid drag="22 12" drop="6 7">x</grid>');
-    expect(grids[0].dimension).toEqual([22, 12]);
-    expect(grids[0].position).toEqual(['6%', '7%']);
-  });
-
-  it('treats all three spellings identically', () => {
+  /*
+   * dimension / position（完整写法）与 drag / drop（advanced-slides 写法）都已作废：
+   * 一件事四种拼法，补全面板刷屏、文档处处并列、示例互相打架。
+   * 写这些名字的 grid 按「没写尺寸位置」处理 —— 拿默认值，而不是把它们当 dim/pos。
+   */
+  it('no longer honours the old spellings', () => {
     const { grids } = parseGridTags(
-      '<grid dim="40 30" pos="10 15">a</grid>' +
-        '<grid dimension="40 30" position="10 15">b</grid>' +
-        '<grid drag="40 30" drop="10 15">c</grid>',
+      '<grid dimension="40 30" position="10 15">a</grid>' +
+        '<grid drag="40 30" drop="10 15">b</grid>',
     );
-    const shapes = grids.map((g) => [g.dimension, g.position, g.anchor]);
-    expect(shapes[1]).toEqual(shapes[0]);
-    expect(shapes[2]).toEqual(shapes[0]);
+    for (const grid of grids) {
+      expect(grid.dimension).toEqual([100, 100]);
+      expect(grid.position).toEqual(['50%', '50%']);
+    }
   });
 
-  it('supports keyword and negative drop values', () => {
+  it('supports keyword and negative pos values', () => {
     const { grids } = parseGridTags(
-      '<grid drag="100 12" drop="top">a</grid><grid drag="40 7" drop="-6 -8">b</grid>',
+      '<grid dim="100 12" pos="top">a</grid><grid dim="40 7" pos="-6 -8">b</grid>',
     );
     expect(grids[0].position).toEqual(['50%', '0%']);
     expect(grids[0].anchor).toEqual(['-50%', '0']);
     expect(grids[1].position).toEqual(['calc(100% - 6%)', 'calc(100% - 8%)']);
-  });
-
-  it('prefers the short form when several spellings are present', () => {
-    const { grids } = parseGridTags(
-      '<grid drag="10 10" dimension="80 80" dim="60 30" drop="top" position="center" pos="20 25">x</grid>',
-    );
-    expect(grids[0].dimension).toEqual([60, 30]);
-    expect(grids[0].position).toEqual(['20%', '25%']);
   });
 
   it('parses an empty grid used as a background bar', () => {

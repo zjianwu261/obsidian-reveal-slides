@@ -66,7 +66,7 @@ describe('PipelineOrchestrator (MVP)', () => {
 
   it('renders grid tags into absolutely positioned divs', async () => {
     const deck = await run(
-      '<grid dimension="60 30" position="20 25" style="background: red;">hi</grid>',
+      '<grid dim="60 30" pos="20 25" style="background: red;">hi</grid>',
     );
     const html = deck.pages[0].html;
     expect(html).toContain('class="grid"');
@@ -123,14 +123,14 @@ describe('PipelineOrchestrator (MVP)', () => {
   });
 
   it('keeps grid placeholders intact through the new post-processors', async () => {
-    const deck = await run('<grid dimension="60 30" position="20 25">hi</grid>');
+    const deck = await run('<grid dim="60 30" pos="20 25">hi</grid>');
     expect(deck.pages[0].html).toContain('class="grid"');
     expect(deck.pages[0].html).not.toContain('GRID_0');
   });
 
   it('post-processes content inside a grid', async () => {
     const deck = await pipeline.run(
-      '<grid dimension="60 30" position="center">\n<img src="app://id/Users/me/pic.png?1">\n\nShip it :rocket:\n</grid>',
+      '<grid dim="60 30" pos="center">\n<img src="app://id/Users/me/pic.png?1">\n\nShip it :rocket:\n</grid>',
       {
         settings: { ...DEFAULT_SETTINGS },
         sourcePath: 'test.md',
@@ -156,7 +156,7 @@ describe('PipelineOrchestrator (MVP)', () => {
 
   it('resolves a grid nested inside a split column', async () => {
     const deck = await run(
-      '<split even>\n\n<grid dimension="10 10" position="center">boxed</grid>\n\nright\n\n</split>',
+      '<split even>\n\n<grid dim="10 10" pos="center">boxed</grid>\n\nright\n\n</split>',
     );
     const html = deck.pages[0].html;
     expect(html).toContain('class="split"');
@@ -167,7 +167,7 @@ describe('PipelineOrchestrator (MVP)', () => {
 
   it('resolves a split nested inside a grid', async () => {
     const deck = await run(
-      '<grid dimension="80 40" position="center">\n<split even gap="1">left col\n\nright col</split>\n</grid>',
+      '<grid dim="80 40" pos="center">\n<split even gap="1">left col\n\nright col</split>\n</grid>',
     );
     const html = deck.pages[0].html;
     expect(html).toContain('class="grid"');
@@ -179,14 +179,14 @@ describe('PipelineOrchestrator (MVP)', () => {
 
   it('collects .slide comments written inside a grid', async () => {
     const deck = await run(
-      '<grid dimension="50 50" position="center">\n\nContent\n\n<!-- .slide: background-color="#abcdef" -->\n\n</grid>',
+      '<grid dim="50 50" pos="center">\n\nContent\n\n<!-- .slide: background-color="#abcdef" -->\n\n</grid>',
     );
     expect(deck.pages[0].attributes['data-background-color']).toBe('#abcdef');
   });
 
   it('resolves nested grids from the inside out', async () => {
     const deck = await run(
-      '<grid dimension="80 80" position="center" style="background: #eee;">\n<grid dimension="50 50" position="topleft" style="background: red;">inner</grid>\n</grid>',
+      '<grid dim="80 80" pos="center" style="background: #eee;">\n<grid dim="50 50" pos="topleft" style="background: red;">inner</grid>\n</grid>',
     );
     const html = deck.pages[0].html;
     expect(html).toContain('width: 80%');
@@ -206,7 +206,7 @@ describe('PipelineOrchestrator (MVP)', () => {
   });
 
   it('leaves an unmatched grid tag alone instead of looping', async () => {
-    const deck = await run('<grid dimension="10 10">no closing tag');
+    const deck = await run('<grid dim="10 10">no closing tag');
     expect(deck.pages[0].html).toContain('no closing tag');
   });
 

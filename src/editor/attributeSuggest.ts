@@ -27,8 +27,6 @@ interface AttributeDef {
   name: string;
   detail: string;
   boolean?: boolean;
-  /** 同义写法：不进名称候选，但取值补全对它们同样生效 */
-  aliases?: string[];
   /** 该属性的取值候选 */
   values?: { value: string; detail: string }[];
 }
@@ -48,13 +46,10 @@ const POSITION_VALUES = [
 ];
 
 const GRID_ATTRIBUTES: AttributeDef[] = [
-  // 短写优先；dimension/position 与 advanced-slides 的 drag/drop 同样可用，
-  // 只是不进候选列表，免得四种拼法把面板刷满
-  { name: 'dim', detail: '宽 高（画布百分比）', aliases: ['dimension', 'drag'] },
+  { name: 'dim', detail: '宽 高（画布百分比）' },
   {
     name: 'pos',
     detail: '位置：关键字或数值对',
-    aliases: ['position', 'drop'],
     values: POSITION_VALUES,
   },
   { name: 'style', detail: '内联 CSS，可用 var(--x)' },
@@ -114,9 +109,7 @@ export function getSuggestContext(lineUpToCursor: string): SuggestContext | null
   const valueMatch = /([\w-]+)\s*=\s*"([^"]*)$/.exec(lineUpToCursor);
   if (valueMatch) {
     const name = valueMatch[1];
-    const def = attributes.find(
-      (attr) => attr.name === name || attr.aliases?.includes(name),
-    );
+    const def = attributes.find((attr) => attr.name === name);
     if (!def?.values) return null;
     const query = valueMatch[2];
     const items = def.values

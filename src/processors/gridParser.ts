@@ -152,12 +152,11 @@ function parseInnermostGrids(input: string, grids: GridElement[]): string {
   return replaceOutsideCode(input, INNERMOST_GRID_RE, (_whole, attrText, childText) => {
     const children = childText ?? '';
     const attrs = parseAttributes(attrText ?? '');
-    // 尺寸/位置支持三种写法，语义完全相同：
-    //   dim / pos           —— 推荐的短写
-    //   dimension / position —— 完整写法
-    //   drag / drop          —— obsidian-advanced-slides 的写法，老笔记无需改写
-    const dimensionAttr = attrs.dim ?? attrs.dimension ?? attrs.drag;
-    const positionAttr = attrs.pos ?? attrs.position ?? attrs.drop;
+    // 尺寸与位置只认 dim / pos 两个名字。
+    // 曾经还接受 dimension / position（完整写法）与 drag / drop（advanced-slides 写法），
+    // 一件事四种拼法，补全面板刷屏、文档要处处并列、示例互相打架 —— 一律作废。
+    const dimensionAttr = attrs.dim;
+    const positionAttr = attrs.pos;
     const position = typeof positionAttr === 'string' ? positionAttr : 'center';
     const resolved = resolvePosition(position);
 
