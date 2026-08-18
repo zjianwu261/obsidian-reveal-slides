@@ -502,7 +502,12 @@ export default class RevealPlugin extends Plugin {
 
     if (leaf) {
       await workspace.revealLeaf(leaf);
+      // 面板可能停在没就绪的状态：内联页面加载失败、报错浮层挂着、或者早先那份
+      // deck 推过去时它还没报到。再按一次快捷键就该把它救回来 ——
+      // 逼用户先关掉面板再重开，等于把「刷新」这件事藏进了关窗动作里。
+      this.forEachPreview((view) => view.reloadIfNotReady());
       await this.renderActiveFile();
+      if (this.server?.running) this.server.broadcast();
     }
   }
 
