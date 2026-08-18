@@ -96,3 +96,25 @@
     background: transparent;
   }
 }
+
+/*
+ * 页码挪到右上角，并且做大。
+ * reveal 默认把它压在右下角、12px 的深灰小字 —— 投影到教室后排根本认不出来，
+ * 而右下角又常常正好是页脚条、备注这些东西的地盘。右上角是画面里最空的角落。
+ *
+ * 尺寸只能用 px：页码在 .slides 之外，不吃 reveal 的画布缩放，
+ * 这里的 rem 参照的是没缩放过的根字号（16:9 下是 40px），写 rem 会大得离谱。
+ */
+.reveal .slide-number {
+  top: 12px;
+  right: 12px;
+  bottom: auto;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  font-family: inherit;
+  /* 跟着窗口走：投影仪上 26px，手机横屏里 14px，两头都不至于失衡 */
+  font-size: clamp(14px, 1.6vw, 26px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

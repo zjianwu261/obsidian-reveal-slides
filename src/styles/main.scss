@@ -58,12 +58,16 @@
   }
 }
 
-/* 沉浸式的出口按钮：平时不存在，只在沉浸式里浮在幻灯片右上角 */
+/*
+ * 沉浸式的出口按钮：平时不存在，只在沉浸式里浮在幻灯片左上角。
+ * 靠左是为了给页码让位 —— 页码现在钉在右上角（见 reveal-overrides.scss），
+ * 两个都挤在右上会叠在一起。
+ */
 .rfo-exit-immersive {
   display: none;
   position: absolute;
   top: calc(8px + env(safe-area-inset-top));
-  right: calc(8px + env(safe-area-inset-right));
+  left: calc(8px + env(safe-area-inset-left));
   z-index: 1;
   width: 40px;
   height: 40px;

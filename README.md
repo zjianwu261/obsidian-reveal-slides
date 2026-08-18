@@ -825,7 +825,7 @@ transition: slide          # none/fade/slide/convex/concave/zoom
 transitionSpeed: default   # default/fast/slow
 controls: true             # 右下角导航箭头
 progress: true             # 底部进度条
-slideNumber: true          # 页码（true/false/'c/t'）
+slideNumber: true          # 页码（true/false/'c/t'），显示在右上角
 center: true               # 内容垂直居中
 bg: '#1e1e2e'              # 全局背景（颜色或图片 URL）
 css: [styles/custom.css]   # 追加 vault 内 CSS 文件
