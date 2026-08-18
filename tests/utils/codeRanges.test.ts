@@ -45,6 +45,46 @@ describe('findCodeRanges', () => {
     expect(isInsideCode(text.indexOf(' 声明字节，'), ranges)).toBe(false);
     expect(isInsideCode(text.indexOf('note:'), ranges)).toBe(false);
   });
+
+  /*
+   * 回归：正文里打漏一个反引号（真实案例：`"51单片机"泛指针`兼容8051指令系统的所有芯片）。
+   * 放任它跨段配对的话，它会跟老远之后的另一个反引号凑成一对，把中间整片文字
+   * 连同 note: / xxx / --- 一起标成「代码」，于是半篇课件叠成一张。
+   */
+  it('confines a stray backtick to its own paragraph', () => {
+    const text = [
+      '## 认识51单片机',
+      '',
+      '"51单片机"泛指针`兼容8051指令系统的所有芯片。',
+      '',
+      'note:',
+      '',
+      '讲稿里也会写 `sfr` 这样的行内代码。',
+      '',
+      'xxx',
+      '',
+      '# 下一页',
+    ].join('\n');
+    const ranges = findCodeRanges(text);
+
+    expect(isInsideCode(text.indexOf('note:'), ranges)).toBe(false);
+    expect(isInsideCode(text.indexOf('xxx'), ranges)).toBe(false);
+    // 落单的那一个不成对，自己也不算代码
+    expect(isInsideCode(text.indexOf('兼容8051'), ranges)).toBe(false);
+    // 后面正常成对的行内代码照常识别
+    expect(isInsideCode(text.indexOf('`sfr`') + 1, ranges)).toBe(true);
+  });
+
+  it('does not let inline code span a blank line', () => {
+    const text = 'a `code\nstill code` b\n\nc `x` d';
+    const ranges = findCodeRanges(text);
+
+    // 段内换行仍算一段行内代码
+    expect(isInsideCode(text.indexOf('still'), ranges)).toBe(true);
+    // 空行之后重新开始配对
+    expect(isInsideCode(text.indexOf('c `x`'), ranges)).toBe(false);
+    expect(isInsideCode(text.indexOf('`x`') + 1, ranges)).toBe(true);
+  });
 });
 
 describe('replaceOutsideCode', () => {

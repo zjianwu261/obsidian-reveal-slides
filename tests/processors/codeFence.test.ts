@@ -158,6 +158,21 @@ describe('end to end: a slide that teaches the syntax', () => {
     expect(deck.pages[1].html).toContain('下一页');
   });
 
+  /*
+   * 回归：正文里打漏一个反引号（真实案例：写 `"51单片机"泛指针` 时少打了收尾那个）。
+   * 它曾跟后面老远的另一个反引号配成一对，把中间的 xxx、note: 全吞进「代码」，
+   * 整篇课件叠成一张。
+   */
+  it('survives a stray backtick in the prose', async () => {
+    const deck = await run(
+      '## 认识51单片机\n\n"51单片机"泛指针`兼容8051指令系统的所有芯片。\n\n' +
+        'note:\n\n讲稿里也有 `sfr` 这种行内代码\n\nxxx\n\n# 下一页',
+    );
+    expect(deck.pages).toHaveLength(2);
+    expect(deck.pages[0].notes[0].content).toContain('讲稿里也有');
+    expect(deck.pages[0].html).not.toContain('讲稿里也有');
+  });
+
   it('keeps a YAML sample whole instead of moving half of it into notes', async () => {
     const deck = await run('# YAML\n\n```yaml\ntitle: x\nnote: 记得改\nother: y\n```');
     expect(deck.pages[0].notes).toHaveLength(0);

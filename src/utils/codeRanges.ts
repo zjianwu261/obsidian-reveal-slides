@@ -33,11 +33,44 @@ export function findCodeRanges(text: string): Range[] {
    * 空隙里要是有 note: / xxx / --- / <grid>，就会被当成代码整段跳过：备注混进正文、
    * 该分的页不分、几页内容叠在一张画布上。
    * 等长空白替换保住了下标，匹配结果可直接映射回原文。
+   *
+   * 扫的时候还要按段落切开，理由见 paragraphRanges。
    */
+  const masked = maskRanges(text, ranges);
   const inlineRe = /`[^`]+`/g;
-  for (const match of maskRanges(text, ranges).matchAll(inlineRe)) {
-    ranges.push([match.index, match.index + match[0].length]);
+  for (const [start, end] of paragraphRanges(masked)) {
+    for (const match of masked.slice(start, end).matchAll(inlineRe)) {
+      ranges.push([start + match.index, start + match.index + match[0].length]);
+    }
   }
+
+  return ranges;
+}
+
+/**
+ * 按空行切段（空行本身不属于任何段）。
+ *
+ * 行内代码必须逐段扫：CommonMark 里 code span 是行内元素，跨不过空行 ——
+ * 而落单的反引号（打字漏了一个、中文引号旁边多按了一下）如果放任它跨段配对，
+ * 就会跟老远之后的另一个反引号凑成一对，把中间整片文字标成「代码」。
+ * 那片文字里的 note: / xxx / --- / <grid> 会被一并跳过：讲稿漏进正文、该分的页不分，
+ * 半篇课件叠成一张。逐段扫之后，一个落单的反引号最多祸害它自己那一段。
+ */
+function paragraphRanges(text: string): Range[] {
+  const ranges: Range[] = [];
+  let start: number | null = null;
+  let offset = 0;
+
+  for (const line of text.split('\n')) {
+    if (line.trim() === '') {
+      if (start !== null) ranges.push([start, offset]);
+      start = null;
+    } else if (start === null) {
+      start = offset;
+    }
+    offset += line.length + 1; // +1 为被 split 吃掉的 \n
+  }
+  if (start !== null) ranges.push([start, text.length]);
 
   return ranges;
 }
