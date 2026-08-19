@@ -136,10 +136,13 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
    - 要点 A
    - 要点 B
 
-   <grid dim="30 20" pos="bottomright" style="background: #e74c3c; color: white;">
-   右下角红块
+   <grid dim="30 20" pos="bottomright">
+   放在右下角的一块
    </grid>
    ````
+
+   > 这一步只摆位置，页面是白底黑字很正常。底色、圆角、字号统一交给 CSS，
+   > 见[完整教程第 6 步](#第-6-步把外观交给-css)。
 
 2. 按 `Alt + E`（或命令面板执行 **Show Slide Preview**）。
 3. 笔记右侧出现 **Slide Preview** 面板，显示渲染后的幻灯片，方向键翻页。
@@ -185,10 +188,10 @@ margin: 0.01
 
 ### 第 2 步：用 `<grid>` 摆版面
 
-本插件**不内置主题**，版面全靠 `<grid>` 定位 + `style` 写 CSS。一个 grid 就是画布上的一个矩形框：
+本插件**不内置主题**，版面全靠 `<grid>` 定位。一个 grid 就是画布上的一个矩形框：
 
 ````markdown
-<grid dim="76 24" pos="12 30" style="background: #B81C22; color: #fff; border-radius: 16px;">
+<grid dim="76 24" pos="12 30" class="cover">
 
 # 第 1 章 如何学习单片机
 
@@ -199,16 +202,21 @@ margin: 0.01
 
 - `dim="76 24"`：宽 76%、高 24%（相对画布）。
 - `pos="12 30"`：左边距 12%、上边距 30%。**数值定位对齐的是左上角**。
+- `class="cover"`：给这块起个名字，**长什么样在第 6 步统一定义**。
 - 里面照常写 Markdown，标题、列表、图片都会正常渲染。
+
+> **这一步先别管好看。** 现在预览里是白底黑字、方方正正，正常——先把位置摆对，
+> 底色圆角字号留到第 6 步一次性交给 CSS。想在 grid 上直接写
+> `style="background: …"` 也不是不行，但那条路走不远，[写作规范](#一核心规范grid-只管位置外观全在-css-里)里说明了原因。
 
 关键字定位更省事，而且对齐的是对应的边或角：
 
 ````markdown
-<grid dim="100 12" pos="top" style="background: #B81C22; color: #fff;">
+<grid dim="100 12" pos="top" class="bar">
 ## 课程概述
 </grid>
 
-<grid dim="40 7" pos="-6 -8" style="text-align: right; color: #B81C22;">
+<grid dim="40 7" pos="-6 -8" class="motto">
 厚德、博学、善思、致用
 </grid>
 ````
@@ -226,14 +234,14 @@ margin: 0.01
 两个 grid 各占一半，位置完全可控：
 
 ````markdown
-<grid dim="43 66" pos="6 16">
+<grid dim="43 66" pos="6 16" class="body">
 ### 今天的核心问题
 
 - Q1 单片机是什么？
 - Q2 为什么要学它？
 </grid>
 
-<grid dim="43 66" pos="51 16">
+<grid dim="43 66" pos="51 16" class="body">
 ### 本课大纲
 
 - 答疑解惑
@@ -317,29 +325,77 @@ $$I_C = \beta \times I_b$$
 > **三样都别和右侧的文字列表重复。** 图讲图的、字讲字的——同一件事说两遍，
 > 观众不知道该看哪边，这是课件"割裂感"最常见的来源。
 
-### 第 6 步：抽出配色，别在每个 grid 里重复写
+### 第 6 步：把外观交给 CSS
 
-在笔记任意位置放一个 `<style>` 块，它会被提取成文档级 CSS（不会出现在正文里）：
+前面几步只摆了位置，页面还是白底黑字。现在一次性把「长什么样」定义出来——
+之后所有页面共用，改一处全课跟着变。
+
+先在笔记任意位置放一个 `<style>` 块（它会被提取成文档级 CSS，不出现在正文里）：
 
 ````markdown
 <style>
+/* 1. 设计变量：颜色只在这里定义一次 */
 :root {
-  --brand: #B81C22;
+  --brand: #064FA1;
   --muted: #6B6B6B;
 }
-/* 统一所有 grid 的正文字号 */
-.reveal .grid { font-size: 0.62em; line-height: 1.55; }
-/* 图片不撑破所在网格（只封顶，别写 width: auto —— 见「图片、视频与 Excalidraw」） */
-.reveal .grid img { max-width: 100%; max-height: 100%; object-fit: contain; }
-</style>
 
-<grid dim="60 20" pos="center" style="background: var(--brand); color: #fff;">
-用变量的块
+/* 2. 全局基调 */
+.reveal .grid { line-height: 1.55; }
+.reveal .grid img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* 3. 版式 class：一个 class 就是一类页面的完整外观 */
+.cover {
+  background: var(--brand); color: #fff;
+  border-radius: 16px; padding: 0 48px; text-align: center;
+}
+.cover h1 { font-size: 2.5rem; margin: 0; }
+.cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
+
+.bar {
+  background: var(--brand); color: #fff;
+  border-radius: 15px; padding: 0 3%;
+  align-items: flex-start; text-align: left;
+}
+.bar h2 { font-size: 1.3rem; margin: 0; }
+
+.body { justify-content: flex-start; align-items: stretch; text-align: left; font-size: .62rem; }
+.body h3 { font-size: .8rem; margin: 0 0 .8em; }
+
+.fig  { padding: 0; text-align: center; }
+.foot { background: var(--brand); color: #fff; border-radius: 15px; font-size: .8rem; text-align: center; }
+</style>
+````
+
+笔记正文这才配齐——**每个 grid 仍然只有 `dim`、`pos`、`class` 三个属性**：
+
+````markdown
+<grid dim="100 10" pos="top" class="bar">
+## 课程概述
+</grid>
+
+<grid dim="76 24" pos="12 30" class="cover">
+# 第 1 章 如何学习单片机
+</grid>
+
+<grid dim="100 10" pos="bottom" class="foot">
+2026 年秋《单片机原理与应用》
 </grid>
 ````
 
-要跨笔记复用，就把 CSS 存成 vault 里的 `.css` 文件，在设置的 **Local CSS files** 里填路径
-（或 frontmatter 写 `css: [themes/course.css]`）。
+一个 class 名字换掉一整串样式，这就是**改一处、全局跟着变**的来源。
+
+**下一步是把这段 CSS 搬出笔记。** 一门课十几章，封面、标题条、页脚每章都要用，
+留在单篇笔记里等于每章复制一遍。存成 vault 里的一个文件，frontmatter 指过去：
+
+```yaml
+---
+css: 00课件CSS主题        # 主题笔记的名字，写名字就行
+---
+```
+
+三级放法（课程主题 / 笔记专属 / 单页例外）、路径写法、以及为什么样式文件本身可以是
+一篇 `.md` 笔记，见[写作规范 · 二、文件骨架](#二文件骨架)。
 
 ### 第 7 步：对不齐的时候打开辅助线
 
@@ -389,25 +445,49 @@ $$I_C = \beta \times I_b$$
 上面的教程带你跑通一遍；成篇成套地做课件时，按这套规矩写，才能**改一处、全局跟着变**，
 而不是每页都在调数字。
 
-### 一、核心规范：三层职责，各管各的
+### 一、核心规范：`<grid>` 只管位置，外观全在 CSS 里
 
-这是本规范里最重要的一条。样式写在哪里，取决于它管的是什么：
+这是本规范里最重要的一条。**grid 标签上只写三个属性：`dim`、`pos`、`class`。**
 
 | 层 | 写在哪 | 管什么 | 例子 |
 |----|--------|--------|------|
-| **位置层** | `<grid>` 的 `dim` / `pos` | 这块内容在画布的哪、多大 | `dim="76 24" pos="12 30"` |
-| **外观层** | `<grid>` 的 `style` | 这一块的容器外观 | `background`、`border-radius`、`padding` |
-| **排版层** | `<style>` 里的 class | 字号、行距、对齐、间距 | `.cover h1 { font-size: 2.5rem }` |
+| **位置** | grid 的 `dim` / `pos` | 这块内容在画布的哪、多大 | `dim="76 24" pos="12 30"` |
+| **版式** | 课程 CSS 里的 class | 这类页面长什么样——底色、圆角、内边距、字号、行距、对齐，**全部** | `.cover { … }` |
+| **例外** | grid 的 `style` | 只此一次的临时调整，能不用就不用 | 这一页的图要加个边框 |
 
-**判断规则**，问两个问题：
+判断规则只剩一条：**这个外观会不会在别的页面再出现？** 会 → 进 class。
+一门课十几章，封面、标题条、正文栏、页脚反复出现，答案几乎永远是「会」。
 
-1. **这条样式作用于「这一块」还是「块里的某个元素」？**
-   块 → 写在 grid 的 `style`；元素 → 写进 class（用 `.cover h1` 这类后代选择器）。
-2. **别的页面还会用到吗？**
-   会 → class；只此一处 → grid 的 `style`。
+于是一页课件长这样，干干净净：
 
-`dim` / `pos` 永远在 grid（没有别的地方能写），排版永远在 class，
-grid 的 `style` 只留「这一页独有的容器外观」。
+```markdown
+<grid dim="100 10" pos="top" class="bar">
+## 认识 LED 小灯
+</grid>
+
+<grid dim="55 70" pos="4 14" class="fig">
+![[原理图.png]]
+</grid>
+
+<grid dim="38 70" pos="60 14" class="abstract">
+- 单向导电性
+- 典型压降 1.8~3.3 V
+</grid>
+```
+
+看不到一个颜色值、一个像素数。想让全课的标题条换个色？改 CSS 里 `.bar` 那一处。
+
+#### 为什么不把外观写在 grid 上
+
+`style="background: var(--brand); color: #fff; border-radius: 15px; padding: 0 3%"`
+这一串，第一次写很爽——所见即所得，不用跳文件。代价在后面：
+
+- 一门课十几章、几百页，同样的串复制几百遍
+- 改设计要全文替换，漏一处就有一页跟别人不一样
+- 笔记正文被样式淹没，翻页找内容得跳过一堆 CSS
+- 同一个版式在不同章节慢慢长歪，谁也说不清哪个才是标准
+
+**第一次做的时候写在 grid 上没关系**，等第二章开始复制粘贴，就该搬进 class 了。
 
 #### 拿一页封面练手
 
@@ -423,27 +503,20 @@ grid 的 `style` 只留「这一页独有的容器外观」。
 </grid>
 ```
 
-逐条归位：
+逐条归位——**除了 `dim` / `pos`，其余全部进 class**：
 
 | 声明 | 该去哪 | 理由 |
 |------|--------|------|
 | `dim` / `pos` | **grid** ✅ | 位置和尺寸，只有 grid 能表达 |
-| `background` / `border-radius` / `padding` | **grid** ✅ | 这块红底圆角是容器的外观 |
-| `color: #fff` | class 更合适 | 白字是「封面块」这个版式的固有属性，不是这一页独有 |
-| `text-align: center` | **class** ❌ | 排版；而且每个封面页都要重写一遍 |
+| `background` / `border-radius` / `padding` | **class** ❌ | 「封面块」这个版式的固有外观，每页都一样 |
+| `color: #fff` / `text-align: center` | **class** ❌ | 同上，而且每个封面页都要重写一遍 |
 | h1 的 `font-size` / `margin` / `font-weight` / `line-height` | **class** ❌ | 纯排版 |
 | p 的 `font-size` / `margin` / `opacity` | **class** ❌ | 纯排版 |
 
-**两条 `.element:` 里全是排版属性，一条都不该留。** 整理后：
+整理后，笔记里只剩位置和名字：
 
 ```markdown
-<style>
-.cover { color: #fff; text-align: center; }
-.cover h1 { font-size: 2.5rem; margin: 0; font-weight: 600; line-height: 1.25; }
-.cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
-</style>
-
-<grid dim="76 24" pos="12 30" class="cover" style="background: var(--brand); border-radius: 16px; padding: 0 48px;">
+<grid dim="76 24" pos="12 30" class="cover">
 
 # 第1章 如何学习单片机
 
@@ -452,7 +525,21 @@ grid 的 `style` 只留「这一页独有的容器外观」。
 </grid>
 ```
 
-正文回到纯 Markdown。后面十几页封面只写 `class="cover"`，想调字号就改 `<style>` 里那一处。
+外观搬进课程 CSS，一次定义，十几章通用：
+
+```css
+.cover {
+  background: var(--brand);
+  color: #fff;
+  border-radius: 16px;
+  padding: 0 48px;
+  text-align: center;
+}
+.cover h1 { font-size: 2.5rem; margin: 0; font-weight: 600; line-height: 1.25; }
+.cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
+```
+
+正文回到纯 Markdown。后面十几页封面只写 `class="cover"`，想调字号就改 CSS 里那一处。
 
 #### `.element:` 用来加行为，不用来写样式
 
@@ -516,6 +603,7 @@ margin: 0.01
 ````
 
 `<style>` 块会被提取成文档级 CSS，不会出现在正文里，放哪一页都行——**统一放开头**。
+正文里的每个 grid 仍然只写 `dim`、`pos`、`class` 三个属性。
 
 #### CSS 放在哪一级
 
@@ -665,16 +753,17 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 ### 五、版式模板
 
-直接复制改用。配套的 class 见上面的 `<style>` 骨架。
+直接复制改用。**每个 grid 只有 `dim`、`pos`、`class`**，class 的定义见上面的 `<style>` 骨架
+（真正做课件时它在课程 CSS 文件里）。
 
 #### 封面页
 
 ```markdown
-<grid dim="22 12" pos="6 7">
+<grid dim="22 12" pos="6 7" class="fig">
 ![[校徽.png]]
 </grid>
 
-<grid dim="76 24" pos="12 30" class="cover" style="background: var(--brand); color: #fff; border-radius: 16px; padding: 0 48px;">
+<grid dim="76 24" pos="12 30" class="cover">
 
 # 第1章 如何学习单片机
 
@@ -682,48 +771,77 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 </grid>
 
-<grid dim="80 10" pos="10 60" class="cover" style="color: var(--muted);">
+<grid dim="80 6" pos="10 60" class="byline">
 合肥大学人工智能与大数据学院 · 张建武
 </grid>
+```
+
+配套 class：
+
+```css
+.cover { background: var(--brand); color: #fff; border-radius: 16px; padding: 0 48px; text-align: center; }
+.cover h1 { font-size: 2.5rem; margin: 0; }
+.cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
+.byline { font-size: .7rem; color: var(--muted); text-align: center; }
+.fig { padding: 0; text-align: center; }
 ```
 
 #### 标准内容页（标题条 + 双栏 + 页脚）
 
 ```markdown
-<grid dim="100 12" pos="top" class="bar" style="background: var(--brand); color: #fff; border-radius: 15px; align-items: flex-start; text-align: left; padding: 0 3%;">
-### 课程概述
+<grid dim="100 10" pos="top" class="bar">
+## 课程概述
 </grid>
 
-<grid dim="43 66" pos="6 16">
-#### 今天的核心问题
+<grid dim="43 66" pos="6 16" class="body">
+### 今天的核心问题
 
 - 单片机是什么？
 - 为什么要学它？
 </grid>
 
-<grid dim="43 66" pos="51 16">
-#### 本课大纲
+<grid dim="43 66" pos="51 16" class="body">
+### 本课大纲
 
 - 答疑解惑
 - 实战演示
 </grid>
 
-<grid dim="100 11" pos="0 85" class="foot" style="background: var(--brand-soft); border-radius: 15px;">
+<grid dim="100 10" pos="bottom" class="foot">
 2026年秋《单片机原理与应用》
 </grid>
+```
+
+配套 class：
+
+```css
+.bar { background: var(--brand); color: #fff; border-radius: 15px; padding: 0 3%; align-items: flex-start; text-align: left; }
+.bar h2 { font-size: 1.3rem; margin: 0; }
+.bar h3 { font-size: 1.05rem; margin: 0; }   /* 小节标题条，比 h2 降一档 */
+
+.body { justify-content: flex-start; align-items: stretch; text-align: left; font-size: .62rem; }
+.body h3 { font-size: .8rem; margin: 0 0 .8em; }
+
+.foot { background: var(--brand); color: #fff; border-radius: 15px; font-size: .8rem; text-align: center; }
 ```
 
 #### 图文页
 
 ```markdown
-<grid dim="45 60" pos="5 25">
+<grid dim="55 70" pos="4 14" class="fig">
 ![[原理图.png]]
 </grid>
 
-<grid dim="45 60" pos="52 25">
+<grid dim="38 70" pos="60 14" class="abstract">
 - 要点一
 - 要点二
 </grid>
+```
+
+配套 class（`.abstract` 字大、居中，专给「只留结论」的那一栏用）：
+
+```css
+.abstract { justify-content: center; align-items: center; text-align: left; font-size: 1.1rem; line-height: 1.7; }
 ```
 
 #### 代码页（代码 + 讲解）
@@ -757,8 +875,8 @@ sbit LED = P0^0;
 - **长行不折行**，超宽同样触发自动缩小，而且缩的是整块——一行 120 列的代码会把
   另外五行也一起拖小。该断行就断行，或者拆成两块 grid。
 - **代码框按代码宽度收缩**，最宽不超过所在 grid。短代码不会拉出一条通栏的深色长条；
-  它和 `ul`、`h2` 一样服从 grid 的 `align-items`（默认居中，想靠左写
-  `<grid ... style="align-items: flex-start">`）。
+  它和 `ul`、`h2` 一样服从 grid 的 `align-items`（默认居中，想靠左就在 class 里写
+  `align-items: flex-start`）。
 
 ##### 标出讲到的是哪几行
 
@@ -799,8 +917,8 @@ void main(void) { }
 
 | 别这么写 | 为什么 | 改成 |
 |---------|--------|------|
-| `style="align-items: center"` | `.grid` 默认就是居中，纯属重复 | 删掉；要左对齐才写 `align-items: flex-start; text-align: left` |
-| 每页都写一遍相同的 `style` | 改设计要改几十处 | 抽成 class |
+| grid 上写 `style="background: …; border-radius: …"` | 一门课几百页复制同一串，改设计要全文替换 | 抽成 class，grid 上只留 `dim`/`pos`/`class` |
+| `style="align-items: center"` | `.grid` 默认就是居中，纯属重复 | 删掉；要左对齐才在 class 里写 `align-items: flex-start; text-align: left` |
 | 正文里堆 `<!-- .element: -->` | 正文变脏、不可复用 | 用 class |
 | `font-size` 用 `em` | 嵌套连乘 | 用 `rem` |
 | 页面里散落 `#B81C22` | 改配色要全文替换 | `var(--brand)` |
@@ -810,6 +928,7 @@ void main(void) { }
 
 ### 七、交付前检查清单
 
+0. **扫一眼 grid 标签**：除了 `dim`、`pos`、`class`，还剩别的属性吗？剩了就说明有外观没归位。
 1. **开辅助线**（面板标题栏的网格按钮）：看每块的边框和 `宽×高 @ left top`，确认没有越界、没有意外重叠。
 2. **把预览面板拖窄**：一切等比缩放，小面板里看着费劲的字，投到大屏上同样费劲。
 3. **确认画布比例**与投影设备一致（`size: 16:9` / `4:3`）；不一致不会裁切，但会留黑边。
@@ -905,6 +1024,10 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 
 `<grid>` 是本插件的版面基础：一个**绝对定位**的容器，把内容精确放到画布上。
 
+> 本章的示例为了自包含，把颜色写在 `style` 里，一看就知道渲染成什么样。
+> **真正做课件时别这么写**——外观进 class，grid 上只留 `dim` / `pos` / `class`，
+> 理由见[写作规范](#一核心规范grid-只管位置外观全在-css-里)。
+
 ```markdown
 <grid dim="60 30" pos="20 25" style="background: #e74c3c;">
 这里的 Markdown 会正常渲染：**加粗**、列表、图片都可以
@@ -917,7 +1040,7 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 |------|------|------|
 | `dim` | 尺寸「宽 高」，画布百分比 | `dim="60 30"` |
 | `pos` | 位置「左 上」，写法见下表 | `pos="20 25"` |
-| `style` | 内联 CSS，原样透传（可用 CSS 变量） | `style="background: var(--brand);"` |
+| `style` | 内联 CSS，原样透传。**一次性的例外才用**，日常外观请写进 class | `style="border: 1px dashed red"` |
 | `class` | 追加 HTML class | `class="card shadow"` |
 | `shape` | 图形裁切（12 种内置） | `shape="hexagon"` |
 | `frag` | reveal.js fragment（数字=顺序，或动画名） | `frag="1"` / `frag="fade-up"` |
@@ -1235,7 +1358,7 @@ Obsidian 用的是 MathJax 的 CHTML 输出，字形靠一张动态增补的样�
 .big { font-size: 2em; }
 </style>
 
-<grid dim="40 20" pos="center" class="big" style="color: var(--brand);">
+<grid dim="40 20" pos="center" class="big">
 品牌色大字
 </grid>
 ```
