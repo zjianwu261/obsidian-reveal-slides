@@ -13,6 +13,8 @@ import { chatKeyAction, clampPanelRatio, ratioFromHeight } from './panelLayout';
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
 import { matchCommands } from './chatCommands';
+import { SLIDE_LAYOUTS, composeRequest } from './slideLayouts';
+import type { SlideLayout } from './slideLayouts';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
 interface WaitingRound {
@@ -36,6 +38,8 @@ export interface ChatPanelHandlers {
 export class ChatPanel {
   private root: HTMLElement;
   private contextBar: HTMLElement;
+  /** 选中的版式；null = 不指定，位置交给模型 */
+  private layout: SlideLayout | null = null;
   private log: HTMLElement;
   /** 斜杠菜单：DOM、每条对应的文本、当前选中第几条 */
   private menu: { el: HTMLElement; items: HTMLElement[]; texts: string[]; index: number } | null =
@@ -55,6 +59,8 @@ export class ChatPanel {
     // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
     this.root.style.height = `${(clampPanelRatio(ratio) * 100).toFixed(1)}%`;
     this.buildResizer();
+
+    this.buildLayoutBar();
 
     // 状态栏：这句话会改哪一页。笔记切来切去之后，这一条比什么都重要
     this.contextBar = this.root.createDiv({ cls: 'rfo-chat-context' });
@@ -122,6 +128,40 @@ export class ChatPanel {
       handle.addEventListener('pointermove', move);
       handle.addEventListener('pointerup', done);
     });
+  }
+
+  /**
+   * 版式条：幻灯片和对话之间的一排缩略图。
+   *
+   * 「排得好看点」这种话模型每次给的 dim/pos 都不一样。先点一个结构，
+   * 位置就由插件给死，模型只管往格子里填内容 —— 改起来才有准头。
+   * 缩略图按 grid 的真实百分比画，看到的分布就是模型收到的数字。
+   */
+  private buildLayoutBar(): void {
+    const bar = this.root.createDiv({ cls: 'rfo-chat-layouts' });
+    bar.createSpan({ cls: 'rfo-chat-layouts-label', text: '版式' });
+
+    for (const layout of SLIDE_LAYOUTS) {
+      const cell = bar.createDiv({ cls: 'rfo-chat-layout', attr: { title: layout.hint } });
+      const thumb = cell.createDiv({ cls: 'rfo-chat-layout-thumb' });
+      for (const box of layout.boxes) {
+        const el = thumb.createDiv({ cls: `rfo-chat-layout-box is-${box.kind}` });
+        el.style.left = `${box.x}%`;
+        el.style.top = `${box.y}%`;
+        el.style.width = `${box.w}%`;
+        el.style.height = `${box.h}%`;
+      }
+      cell.createSpan({ cls: 'rfo-chat-layout-name', text: layout.name });
+
+      // 再点一次取消：选错了不用去找「不指定」那一格
+      cell.addEventListener('click', () => {
+        this.layout = this.layout?.id === layout.id ? null : layout;
+        bar.findAll('.rfo-chat-layout').forEach((other, i) => {
+          other.toggleClass('is-active', SLIDE_LAYOUTS[i].id === this.layout?.id);
+        });
+        this.input.focus();
+      });
+    }
   }
 
   /** Alt/Shift + Enter：在光标处插一个换行（textarea 默认不会为这两个组合换行） */
@@ -213,8 +253,15 @@ export class ChatPanel {
     return line;
   }
 
+  /** 对话里回显这一句：版式那段话是给模型看的，界面上写个名字就够了 */
+  private echo(): string {
+    const typed = this.input.value.trim();
+    if (!this.layout) return typed;
+    return typed ? `${typed}（版式：${this.layout.name}）` : `按「${this.layout.name}」重排这一页`;
+  }
+
   private async send(): Promise<void> {
-    const request = this.input.value.trim();
+    const request = composeRequest(this.input.value, this.layout);
     if (!request || this.sendButton.disabled) return;
 
     if (!this.handlers.canEdit()) {
@@ -223,7 +270,7 @@ export class ChatPanel {
     }
 
     this.closeMenu();
-    this.say('user', request);
+    this.say('user', this.echo());
     this.input.value = '';
     this.sendButton.disabled = true;
 

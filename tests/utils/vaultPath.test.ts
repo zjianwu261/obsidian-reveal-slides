@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   cssRefCandidates,
+  promptRefCandidates,
   isInsideDir,
   sidecarCssCandidates,
   sidecarCssPath,
@@ -148,5 +149,29 @@ describe('cssRefCandidates', () => {
 
   it('ignores an empty reference', () => {
     expect(cssRefCandidates('   ', note)).toEqual([]);
+  });
+});
+
+describe('promptRefCandidates', () => {
+  const note = '理论课/第4章.md';
+
+  it('tries the note folder before the vault root', () => {
+    expect(promptRefCandidates('Extra/RevealSlides/提示词', note)).toEqual([
+      '理论课/Extra/RevealSlides/提示词.md',
+      'Extra/RevealSlides/提示词.md',
+    ]);
+  });
+
+  /* 提示词一定是 .md，别去试 .css */
+  it('only ever looks for markdown', () => {
+    expect(promptRefCandidates('本章提示词', note).every((p) => p.endsWith('.md'))).toBe(true);
+  });
+
+  it('accepts a wikilink', () => {
+    expect(promptRefCandidates('[[本章提示词]]', note)).toContain('理论课/本章提示词.md');
+  });
+
+  it('ignores an empty reference', () => {
+    expect(promptRefCandidates('  ', note)).toEqual([]);
   });
 });

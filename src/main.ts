@@ -19,6 +19,7 @@ import { debounce } from './utils/debounce';
 import { lineToPageIndex, pageIndexToPosition } from './engine/templateEngine';
 import {
   cssRefCandidates,
+  promptRefCandidates,
   sidecarCssCandidates,
   toVaultRelative,
   urlPathToNative,
@@ -689,16 +690,49 @@ export default class RevealPlugin extends Plugin {
   }
 
   /**
-   * 系统提示词：库里有那份 md 就用它，没有就用内置的。
+   * 系统提示词，按这个顺序找第一份有内容的：
+   *   1. 本篇 frontmatter 的 `prompt:` —— 这一章的规矩由这一章自己说了算
+   *   2. 设置里的提示词文件 —— 全库通用的那份
+   *   3. 插件内置的那份
+   *
    * 每次发问都现读 —— 你在旁边改完提示词，下一句话就按新规矩来，不用重载插件。
    */
   private async loadSystemPrompt(): Promise<string> {
-    const file = this.app.vault.getAbstractFileByPath(this.settings.aiPromptPath);
-    if (!(file instanceof TFile)) return SYSTEM_PROMPT;
+    for (const file of [await this.notePromptFile(), this.promptFileFromSettings()]) {
+      if (!file) continue;
+      const body = extractFrontmatter(await this.app.vault.cachedRead(file)).body.trim();
+      if (body) return body;
+    }
+    return SYSTEM_PROMPT;
+  }
 
-    const text = await this.app.vault.cachedRead(file);
-    const body = extractFrontmatter(text).body.trim();
-    return body || SYSTEM_PROMPT;
+  /**
+   * 本篇 frontmatter 里 `prompt:` 指的文件。写法与 `css:` 一致
+   * （可省扩展名、可 wikilink、相对本篇优先），只是提示词一定是 .md。
+   *
+   * 路径写错了要吭一声：静默退回全库那份，你会对着没生效的提示词干瞪眼。
+   */
+  private async notePromptFile(): Promise<TFile | null> {
+    const note = this.lastMarkdownFile;
+    if (!note) return null;
+
+    const ref = extractFrontmatter(await this.app.vault.cachedRead(note)).frontmatter.prompt;
+    if (typeof ref !== 'string' || !ref.trim()) return null;
+
+    const file = this.findFirstFile(promptRefCandidates(ref, note.path));
+    if (file) return file;
+
+    const linked = this.app.metadataCache.getFirstLinkpathDest(
+      ref.trim().replace(/^\[\[/, '').replace(/\]\]$/, ''),
+      note.path,
+    );
+    if (!linked) new Notice(`reveal-slide-for-obsidian: 找不到 prompt: ${ref}，用的是全库那份`);
+    return linked;
+  }
+
+  private promptFileFromSettings(): TFile | null {
+    const file = this.app.vault.getAbstractFileByPath(this.settings.aiPromptPath);
+    return file instanceof TFile ? file : null;
   }
 
   /**

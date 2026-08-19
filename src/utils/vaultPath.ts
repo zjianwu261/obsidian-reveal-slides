@@ -150,13 +150,32 @@ export function sidecarCssCandidates(notePath: string, attachmentDir?: string): 
  *   课程/主题.css      库内绝对路径
  */
 export function cssRefCandidates(ref: string, notePath: string): string[] {
+  return refCandidates(ref, notePath, /\.(css|md)$/i, ['.md', '.css']);
+}
+
+/**
+ * frontmatter 里 `prompt:` 条目 → 候选路径。写法同 `css:`，只是提示词一定是 .md：
+ *   prompt: Extra/RevealSlides/提示词
+ *   prompt: "[[本章提示词]]"
+ */
+export function promptRefCandidates(ref: string, notePath: string): string[] {
+  return refCandidates(ref, notePath, /\.md$/i, ['.md']);
+}
+
+/** 上面两个的共同部分：补扩展名，再按「相对本篇 → 库内绝对」排出候选 */
+function refCandidates(
+  ref: string,
+  notePath: string,
+  hasExtension: RegExp,
+  extensions: string[],
+): string[] {
   const cleaned = ref.trim().replace(/^\[\[/, '').replace(/\]\]$/, '').replace(/^[/\\]+/, '');
   if (!cleaned) return [];
 
   const { dir } = splitNotePath(notePath);
-  const withExtensions = /\.(css|md)$/i.test(cleaned)
+  const withExtensions = hasExtension.test(cleaned)
     ? [cleaned]
-    : [`${cleaned}.md`, `${cleaned}.css`];
+    : extensions.map((ext) => `${cleaned}${ext}`);
 
   const candidates: string[] = [];
   for (const name of withExtensions) {
