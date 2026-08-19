@@ -63,6 +63,13 @@ export interface PluginSettings {
   syncCursor: boolean;
   /** 反向：预览翻页时，编辑器光标自动移到该页在源码里的起始行 */
   syncSlide: boolean;
+
+  // AI 助手（预览面板下方的对话框，只改当前这一页）
+  aiEnabled: boolean;
+  /** OpenAI 兼容接口地址，默认 DeepSeek */
+  aiApiBase: string;
+  aiApiKey: string;
+  aiModel: string;
   /**
    * 切换笔记时预览是否跟着换。
    * 默认关：预览钉在你让它预览的那一篇上，翻别的笔记查资料不会把它带跑；
@@ -106,4 +113,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   syncCursor: true,
   syncSlide: true,
   followActiveNote: false,
+
+  aiEnabled: true,
+  aiApiBase: 'https://api.deepseek.com/v1',
+  aiApiKey: '',
+  aiModel: 'deepseek-chat',
 };

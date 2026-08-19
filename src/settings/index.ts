@@ -381,6 +381,57 @@ export class RevealSettingTab extends PluginSettingTab {
         }),
       );
 
+    containerEl.createEl('h3', { text: 'AI 助手（预览面板下方的对话框）' });
+
+    new Setting(containerEl)
+      .setName('启用')
+      .setDesc('在预览面板下方显示对话框：说一句话改当前这一页，改动要你确认才写回笔记')
+      .addToggle((toggle) =>
+        toggle.setValue(settings.aiEnabled).onChange(async (value) => {
+          settings.aiEnabled = value;
+          await save();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName('接口地址')
+      .setDesc('任何 OpenAI 兼容的 /chat/completions 都行，默认 DeepSeek')
+      .addText((text) =>
+        text
+          .setPlaceholder('https://api.deepseek.com/v1')
+          .setValue(settings.aiApiBase)
+          .onChange(async (value) => {
+            settings.aiApiBase = value.trim();
+            await save();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName('API key')
+      .setDesc('存在本库的插件设置里，不会发往接口以外的任何地方')
+      .addText((text) => {
+        text.inputEl.type = 'password';
+        text
+          .setPlaceholder('sk-…')
+          .setValue(settings.aiApiKey)
+          .onChange(async (value) => {
+            settings.aiApiKey = value.trim();
+            await save();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('模型')
+      .addText((text) =>
+        text
+          .setPlaceholder('deepseek-chat')
+          .setValue(settings.aiModel)
+          .onChange(async (value) => {
+            settings.aiModel = value.trim();
+            await save();
+          }),
+      );
+
     new Setting(containerEl)
       .setName('Follow cursor')
       .setDesc('Jump the preview to the slide the cursor is on while you edit')

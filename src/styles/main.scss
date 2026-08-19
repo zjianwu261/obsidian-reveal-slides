@@ -131,3 +131,75 @@ body.rfo-immersive {
     transform-origin: top left;
   }
 }
+
+/*
+ * 预览面板下方的 AI 对话框。
+ * 16:9 画布在竖长面板里必然剩下一截，这块空白拿来放它 —— iframe 用 flex: 1 顶住上方，
+ * 对话框只占它自己需要的高度，画布不会因此变小。
+ */
+.rfo-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 45%;
+  padding: 8px 10px;
+  border-top: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+
+  &.is-hidden {
+    display: none;
+  }
+}
+
+.rfo-chat-log {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--font-ui-small);
+}
+
+.rfo-chat-msg {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--background-secondary);
+  white-space: pre-wrap;
+
+  &.is-user {
+    align-self: flex-end;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+  }
+}
+
+/* 模型给的新页面：先看后写，按了「应用」才落到笔记 */
+.rfo-chat-proposal {
+  align-self: stretch;
+}
+
+.rfo-chat-diff {
+  max-height: 220px;
+  margin: 0 0 6px;
+  overflow: auto;
+  font-family: var(--font-monospace);
+  font-size: var(--font-smallest);
+  white-space: pre;
+}
+
+.rfo-chat-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.rfo-chat-bar {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.rfo-chat-input {
+  flex: 1;
+  resize: vertical;
+  font-size: var(--font-ui-small);
+}

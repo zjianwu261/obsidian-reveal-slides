@@ -3,6 +3,7 @@ import type { Menu } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
 import { createInlinePreviewUrl } from '../preview/inlinePreview';
+import { ChatPanel } from './ChatPanel';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
 import {
   ScreenWakeLock,
@@ -23,6 +24,8 @@ export class SlidePreviewView extends ItemView {
   private exitImmersiveButton: HTMLElement | null = null;
   /** 轻点屏幕中间呼出的菜单栏 */
   private menuBar: HTMLElement | null = null;
+  /** 面板下方的 AI 对话框（画布是 16:9，竖长面板里本来就剩半屏） */
+  private chat: ChatPanel | null = null;
   private menuGuidesButton: HTMLElement | null = null;
   private wakeLock = new ScreenWakeLock();
   /** 内联模式（无服务器）下的 blob URL 释放函数 */
@@ -80,6 +83,14 @@ export class SlidePreviewView extends ItemView {
     });
 
     this.buildMenuBar(container);
+
+    if (this.plugin.settings.aiEnabled) {
+      this.chat = new ChatPanel(container, {
+        canEdit: () => this.plugin.canEditCurrentPage(),
+        ask: (request) => this.plugin.askAboutCurrentPage(request),
+        apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
+      });
+    }
 
     // 标题栏按钮，从左到右：沉浸式 / 刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX
     this.immersiveAction = this.addAction('expand', 'Immersive preview', () => {
@@ -164,6 +175,7 @@ export class SlidePreviewView extends ItemView {
 
   setImmersiveMode(on: boolean): void {
     setImmersive(document.body, on);
+    this.chat?.setVisible(!on);
     this.syncActions();
 
     // 讲课时屏幕别自己暗下去。拿不到锁（平台不支持/被拒）不影响预览，见 ScreenWakeLock
@@ -330,5 +342,7 @@ export class SlidePreviewView extends ItemView {
     this.exitImmersiveButton = null;
     this.menuBar = null;
     this.menuGuidesButton = null;
+    this.chat?.destroy();
+    this.chat = null;
   }
 }

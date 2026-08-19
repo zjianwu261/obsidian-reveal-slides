@@ -24,6 +24,10 @@ import {
   urlPathToNative,
 } from './utils/vaultPath';
 import { VIEW_TYPE_SLIDE_PREVIEW } from './constants';
+import { chat } from './ai/client';
+import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from './ai/prompt';
+import { pageRange, replacePage } from './ai/pageSource';
+import type { PageRange } from './ai/pageSource';
 
 function createEmptyDeck(message = 'Empty'): SlideDeck {
   return {
@@ -68,6 +72,9 @@ export default class RevealPlugin extends Plugin {
    * 从而不会在页内打字时把光标拽回页首。
    */
   private syncedPage = -1;
+
+  /** 预览当前停在第几页 —— AI 对话框只改这一页 */
+  private currentPage = 0;
 
   async onload(): Promise<void> {
     // 装了新文件却没重载插件时，Obsidian 会一直跑旧代码而毫无迹象。
@@ -151,7 +158,9 @@ export default class RevealPlugin extends Plugin {
       if (data?.type === 'rfo-slide' && typeof data.page === 'number') {
         const page = data.page;
         this.forEachPreview((view) => {
-          if (view.ownsWindow(event.source)) this.syncCursorToPage(page);
+          if (!view.ownsWindow(event.source)) return;
+          this.currentPage = page;
+          this.syncCursorToPage(page);
         });
       }
     });
@@ -256,6 +265,7 @@ export default class RevealPlugin extends Plugin {
 
     const page = lineToPageIndex(this.deck, line);
     this.syncedPage = page;
+    this.currentPage = page;
     if (this.server?.running) {
       this.server.gotoPage(page);
       return;
@@ -583,6 +593,70 @@ export default class RevealPlugin extends Plugin {
     views[0].toggleImmersiveMode();
     // 多开的面板共用 body 上那个类，状态得一起对齐
     this.syncPreviewActions();
+  }
+
+  /** 有没有可改的页面（对话框据此决定要不要发问） */
+  canEditCurrentPage(): boolean {
+    return this.lastMarkdownFile !== null && this.deck.pages.length > 0;
+  }
+
+  /** 预览正停在的那一页：源码 + 它在笔记里的行范围 */
+  private async readCurrentPage(): Promise<{ source: string; range: PageRange } | null> {
+    const file = this.lastMarkdownFile;
+    if (!file) return null;
+    const source = await this.app.vault.read(file);
+    const range = pageRange(source, this.deck, this.currentPage);
+    return range ? { source, range } : null;
+  }
+
+  /**
+   * 拿当前这一页问模型。只给它这一页的源码和课程 CSS 里的 class 名 ——
+   * 整篇几千行既贵又容易让它改错地方。
+   */
+  async askAboutCurrentPage(request: string): Promise<string> {
+    const current = await this.readCurrentPage();
+    if (!current) throw new Error('还没有可改的页面');
+
+    const reply = await chat(
+      {
+        apiBase: this.settings.aiApiBase,
+        apiKey: this.settings.aiApiKey,
+        model: this.settings.aiModel,
+      },
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: buildUserMessage({
+            pageSource: current.range.text,
+            classNames: collectClassNames(await this.loadedCssText()),
+            request,
+          }),
+        },
+      ],
+    );
+    return stripFence(reply);
+  }
+
+  /** 把这一页替换成新内容（只动这一页，分页符与别页原样保留） */
+  async applyToCurrentPage(markdown: string): Promise<void> {
+    const file = this.lastMarkdownFile;
+    if (!file) throw new Error('没有正在预览的笔记');
+
+    const current = await this.readCurrentPage();
+    if (!current) throw new Error('找不到这一页在源码里的位置');
+
+    await this.app.vault.modify(file, replacePage(current.source, current.range, markdown));
+  }
+
+  /** 本篇生效的全部课程 CSS（用于告诉模型有哪些 class 可用） */
+  private async loadedCssText(): Promise<string> {
+    const parts = [this.deck.cssVariables ?? ''];
+    for (const path of this.loadedCssPaths) {
+      const file = this.app.vault.getAbstractFileByPath(path);
+      if (file instanceof TFile) parts.push(cssFromFile(path, await this.app.vault.cachedRead(file)));
+    }
+    return parts.join('\n');
   }
 
   /** 同步各预览面板工具栏按钮的状态（不重载 iframe） */
