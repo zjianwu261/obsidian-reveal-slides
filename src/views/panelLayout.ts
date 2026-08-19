@@ -6,6 +6,22 @@
 const MIN_HEIGHT = 90;
 const MAX_RATIO = 0.7;
 
+/** 没拖过时对话框占面板的比例，以及它的上下限（px） */
+const DEFAULT_RATIO = 0.28;
+const DEFAULT_MIN = 150;
+const DEFAULT_MAX = 300;
+
+/**
+ * 初次打开时的高度：按面板高度取三成左右，再夹在上下限之间。
+ * 写死像素在不同尺寸的面板上都不对 —— 侧边栏里嫌它占地方，
+ * 独立窗口里又只剩一条缝。
+ */
+export function defaultPanelHeight(containerHeight: number): number {
+  return Math.round(
+    Math.min(DEFAULT_MAX, Math.max(DEFAULT_MIN, containerHeight * DEFAULT_RATIO)),
+  );
+}
+
 /** 拖动后的高度落在合理区间内 */
 export function clampPanelHeight(height: number, containerHeight: number): number {
   const max = Math.max(MIN_HEIGHT, containerHeight * MAX_RATIO);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chatKeyAction, clampPanelHeight } from '../../src/views/panelLayout';
+import { chatKeyAction, clampPanelHeight, defaultPanelHeight } from '../../src/views/panelLayout';
 import type { ChatKeyEvent } from '../../src/views/panelLayout';
 
 /*
@@ -66,5 +66,20 @@ describe('chatKeyAction', () => {
   it('ignores every other key', () => {
     expect(chatKeyAction(press({ key: 'a' }))).toBe('pass');
     expect(chatKeyAction(press({ key: 'Escape' }))).toBe('pass');
+  });
+});
+
+/* 初次打开的高度：按面板比例算，写死像素在不同尺寸下都不对 */
+describe('defaultPanelHeight', () => {
+  it('takes about three tenths of the pane', () => {
+    expect(defaultPanelHeight(800)).toBe(224);
+  });
+
+  it('does not shrink below a usable box in a short pane', () => {
+    expect(defaultPanelHeight(300)).toBe(150);
+  });
+
+  it('does not run away in a tall pane', () => {
+    expect(defaultPanelHeight(2000)).toBe(300);
   });
 });

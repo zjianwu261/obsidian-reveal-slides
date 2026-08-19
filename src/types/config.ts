@@ -70,7 +70,7 @@ export interface PluginSettings {
   aiApiBase: string;
   aiApiKey: string;
   aiModel: string;
-  /** 对话框高度（px），拖分割线调整后记住 */
+  /** 对话框高度（px）；0 = 按面板高度自动算，拖过分割线之后才记具体值 */
   aiPanelHeight: number;
   /**
    * 切换笔记时预览是否跟着换。
@@ -120,5 +120,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
   aiModel: 'deepseek-v4-flash',
-  aiPanelHeight: 220,
+  aiPanelHeight: 0,
 };

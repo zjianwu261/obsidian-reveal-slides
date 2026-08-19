@@ -4,6 +4,7 @@ import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
 import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { ChatPanel } from './ChatPanel';
+import { defaultPanelHeight } from './panelLayout';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
 import {
   ScreenWakeLock,
@@ -96,7 +97,7 @@ export class SlidePreviewView extends ItemView {
             void this.plugin.saveSettings();
           },
         },
-        this.plugin.settings.aiPanelHeight,
+        this.plugin.settings.aiPanelHeight || defaultPanelHeight(container.clientHeight),
       );
     }
 
