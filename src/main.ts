@@ -162,9 +162,8 @@ export default class RevealPlugin extends Plugin {
         const page = data.page;
         this.forEachPreview((view) => {
           if (!view.ownsWindow(event.source)) return;
-          this.currentPage = page;
+          this.setCurrentPage(page);
           this.syncCursorToPage(page);
-          void this.readCurrentPage().then(() => view.refreshChatContext());
         });
       }
     });
@@ -269,7 +268,7 @@ export default class RevealPlugin extends Plugin {
 
     const page = lineToPageIndex(this.deck, line);
     this.syncedPage = page;
-    this.currentPage = page;
+    this.setCurrentPage(page);
     if (this.server?.running) {
       this.server.gotoPage(page);
       return;
@@ -337,6 +336,8 @@ export default class RevealPlugin extends Plugin {
   /** 更新当前 deck 并推送到所有预览客户端 */
   updateDeck(deck: SlideDeck): void {
     this.deck = deck;
+    // 重渲染后页边界可能变了（加了一页、删了一段），状态栏跟着重算
+    this.forEachPreview((view) => view.refreshChatContext());
     if (this.server?.running) {
       this.server.setDeck(deck);
       return;
@@ -618,6 +619,19 @@ export default class RevealPlugin extends Plugin {
 
   /** 最近一次读到的当前页源码（状态栏取标题用，避免每次都读盘） */
   private pageSourceCache = '';
+
+  /**
+   * 换页的唯一入口。
+   * 页码有三种改法：在预览里翻页、编辑器光标移到别页、重渲染后页数变了 ——
+   * 三条路都要把对话框顶上那条状态栏带上，否则它会一直显示你上一次看的页，
+   * 而你正对着另一页说「改这一页」。
+   */
+  private setCurrentPage(page: number): void {
+    this.currentPage = page;
+    void this.readCurrentPage().then(() => {
+      this.forEachPreview((view) => view.refreshChatContext());
+    });
+  }
 
   /** 有没有可改的页面（对话框据此决定要不要发问） */
   canEditCurrentPage(): boolean {
