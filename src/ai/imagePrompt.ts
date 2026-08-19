@@ -7,6 +7,19 @@
  */
 
 /**
+ * 标题条里的那行标题（`<grid class="bar">` 下的 ## 标题）。
+ * 它划定这张图的范围 —— 讲稿常常从上一页的话头讲起，
+ * 只看讲稿容易画到隔壁那件事上去。
+ */
+export function extractTitle(pageSource: string): string {
+  for (const line of pageSource.split('\n')) {
+    const heading = /^\s{0,3}#{1,6}\s+(.+?)\s*$/.exec(line);
+    if (heading) return heading[1];
+  }
+  return '';
+}
+
+/**
  * 讲稿在页面源码里的位置：notesSeparator（默认 note:）之后到页尾。
  * 单独抽出来是因为它才是这张图的题目 —— 幻灯片上那几行字是压缩过的结论，
  * 照着它画只能画出几个名词。
@@ -20,8 +33,12 @@ export function extractNotes(pageSource: string, separator = 'note:'): string {
 }
 
 export const IMAGE_PROMPT_SYSTEM = `你在为一页大学课件配一张教学插图。
-读用户给的这一页 —— **以 note: 讲稿为准**，幻灯片正文只是压缩过的结论。
+读用户给的这一页：**题目划定范围，note: 讲稿决定内容**，
+幻灯片正文只是压缩过的结论，别照着它画。
 你要输出的是一句英文的图像生成提示词。
+
+讲稿常常从上一页的话头讲起、末尾又拐到下一页去 —— 题目是那把尺子：
+讲稿里跟题目无关的那几句，一句都不要画。
 
 先在心里回答三个问题，再动笔：
 
@@ -58,15 +75,22 @@ export function buildImagePromptRequest(options: {
   /** 页面里 note: 的写法，跟着设置走 */
   notesSeparator?: string;
 }): string {
+  // 两样单拎出来放在最前面：题目划范围，讲稿给内容。
+  // 混在整页源码里，模型多半只扫一眼就动笔，画出来的跟这一页没关系
+  const title = extractTitle(options.pageSource);
   const notes = extractNotes(options.pageSource, options.notesSeparator);
-  // 讲稿单拎出来放在最前面：混在整页源码里，模型多半只扫一眼标题就动笔了
-  const lead = notes
-    ? `这一页的讲稿（图要讲的就是这段话里的事）：\n\n${notes}\n\n---\n\n`
-    : '这一页没有讲稿，只能按正文来。\n\n';
+
+  const parts = [
+    title ? `这一页的题目（图不能画到这个范围之外）：\n\n${title}` : '',
+    notes
+      ? `这一页的讲稿（图要讲的就是这段话里的事）：\n\n${notes}`
+      : '这一页没有讲稿，只能按题目和正文来。',
+    `这一页的完整源码：\n\n${options.pageSource}`,
+    `老师的要求：${options.request}`,
+  ].filter(Boolean);
 
   return (
-    `${lead}这一页的完整源码：\n\n${options.pageSource}\n\n---\n\n` +
-    `老师的要求：${options.request}\n\n` +
+    `${parts.join('\n\n---\n\n')}\n\n` +
     '按上面的规矩写这一句英文提示词。它必须写出画面里具体有什么、' +
     '谁在做什么动作 —— 光说主题是不行的。'
   );

@@ -4,6 +4,7 @@ import {
   buildImagePromptRequest,
   cleanImagePrompt,
   extractNotes,
+  extractTitle,
   shapeForBox,
 } from '../../src/ai/imagePrompt';
 
@@ -13,9 +14,10 @@ describe('IMAGE_PROMPT_SYSTEM', () => {
     expect(IMAGE_PROMPT_SYSTEM).toContain('no text');
   });
 
-  /* 讲稿才是这张图的题目，幻灯片正文是压缩过的结论 */
-  it('tells the model to work from the speaker notes', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('note: 讲稿为准');
+  /* 题目划范围、讲稿给内容 —— 讲稿常常从上一页的话头讲起 */
+  it('tells the model what each part is for', () => {
+    expect(IMAGE_PROMPT_SYSTEM).toContain('题目划定范围');
+    expect(IMAGE_PROMPT_SYSTEM).toContain('note: 讲稿决定内容');
   });
 
   /* 抽象名词只会换来一堆发光的电路和齿轮 */
@@ -38,13 +40,25 @@ describe('extractNotes', () => {
   });
 });
 
+describe('extractTitle', () => {
+  it('takes the heading out of the title bar', () => {
+    const page = '<grid dim="100 10" pos="top" class="bar">\n## 4.1 自增和自减\n</grid>';
+    expect(extractTitle(page)).toBe('4.1 自增和自减');
+  });
+
+  it('comes back empty when the page has no heading', () => {
+    expect(extractTitle('- 只有要点')).toBe('');
+  });
+});
+
 describe('buildImagePromptRequest', () => {
-  /* 讲稿混在整页源码里的话，模型多半只扫一眼标题就动笔了 */
-  it('puts the speaker notes first, before the page source', () => {
+  /* 题目划范围、讲稿给内容：两样都得摆在整页源码前面，不然模型只扫一眼就动笔 */
+  it('leads with the title and the speaker notes', () => {
     const text = buildImagePromptRequest({
-      pageSource: '## 自增\n\n- 要点\n\nnote: 先取旧值，回头才加一',
+      pageSource: '## 4.1 自增和自减\n\n- 要点\n\nnote: 先取旧值，回头才加一',
       request: '配张图',
     });
+    expect(text.indexOf('4.1 自增和自减')).toBeLessThan(text.indexOf('先取旧值'));
     expect(text.indexOf('先取旧值，回头才加一')).toBeLessThan(text.indexOf('完整源码'));
     expect(text).toContain('配张图');
   });
