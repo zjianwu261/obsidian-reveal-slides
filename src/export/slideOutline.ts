@@ -4,7 +4,6 @@
  * PPTX 里没有「HTML + CSS」这回事：一页幻灯片是一堆各自带绝对坐标的形状。
  * 所以导出 pptx 必须把渲染后的 HTML 重新理解成「区域 + 区域内的块」：
  *   - <grid> 是天然的区域，它的 width/height/left/top 本来就是画布百分比，直接换算成坐标；
- *   - <split> 按 flex 权重切成并排的子区域；
  *   - 其余内容落进一个默认区域（画布减去 margin 的安全区）。
  * 区域内的块（段落 / 图片 / 表格）再由 layoutRegion 竖向排布成带坐标的形状。
  *
@@ -303,10 +302,6 @@ function isGrid(el: Element): boolean {
   return el.classList.contains('grid') && styleOf(el).position === 'absolute';
 }
 
-function isSplit(el: Element): boolean {
-  return el.classList.contains('split');
-}
-
 /** 父区域 + <grid> 的定位 CSS → 绝对坐标 */
 export function gridBox(parent: Box, style: Record<string, string>): Box {
   const w = parent.w * (cssFraction(style.width) ?? 1);
@@ -318,22 +313,6 @@ export function gridBox(parent: Box, style: Record<string, string>): Box {
     w,
     h,
   };
-}
-
-/** <split> 的各栏 → 并排的子区域（按 flex 权重分宽，栏距取 2% 宽） */
-function splitBoxes(parent: Box, columns: Element[]): Box[] {
-  const weights = columns.map((col) => Number(styleOf(col).flex) || 1);
-  const total = weights.reduce((sum, n) => sum + n, 0) || 1;
-  const gap = columns.length > 1 ? parent.w * 0.02 : 0;
-  const usable = parent.w - gap * (columns.length - 1);
-
-  let x = parent.x;
-  return weights.map((weight) => {
-    const w = (usable * weight) / total;
-    const box = { x, y: parent.y, w, h: parent.h };
-    x += w + gap;
-    return box;
-  });
 }
 
 /** 行内样式上下文，沿 DOM 向下继承 */
@@ -610,7 +589,7 @@ function collectBlocks(
   container: Element,
   ctx: Ctx,
   collector: BlockCollector,
-  onRegion: (el: Element, kind: 'grid' | 'split', ctx: Ctx) => void,
+  onRegion: (el: Element, ctx: Ctx) => void,
 ): void {
   for (const node of Array.from(container.childNodes)) {
     if (node.nodeType === 3) {
@@ -634,12 +613,7 @@ function collectBlocks(
 
     if (isGrid(el)) {
       flush(collector);
-      onRegion(el, 'grid', ctx);
-      continue;
-    }
-    if (isSplit(el)) {
-      flush(collector);
-      onRegion(el, 'split', ctx);
+      onRegion(el, ctx);
       continue;
     }
 
@@ -784,7 +758,6 @@ function geometryOf(style: Record<string, string>): string | undefined {
 /**
  * 单页 HTML → 区域列表。
  * 每个 <grid> 一个区域（嵌套 grid 的坐标按父区域逐层复合），
- * <split> 按 flex 权重切成并排区域，其余内容落进安全区。
  */
 export function parseSlideHtml(html: string, options: ParseOptions): OutlineRegion[] {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -843,21 +816,12 @@ function collectRegions(body: Element, options: ParseOptions): OutlineRegion[] {
     };
     regions.push(region);
 
-    collectBlocks(container, ctx, collector, (el, kind, childCtx) => {
+    collectBlocks(container, ctx, collector, (el, childCtx) => {
       const childStyle = styleOf(el);
       const nextCtx = applyInlineStyle(childCtx, childStyle);
-      if (kind === 'grid') {
-        // grid 自身是 position: absolute，于是它同时成为子 grid 的定位基准
-        const box = gridBox(frame, childStyle);
-        visit(el, box, box, nextCtx, true, depth + 1);
-        return;
-      }
-      const columns = Array.from(el.children).filter((col) =>
-        col.classList.contains('split-column'),
-      );
-      const boxes = splitBoxes(content, columns);
-      // 分栏容器没有定位，栏里的 grid 仍按外层基准算
-      columns.forEach((col, i) => visit(col, frame, boxes[i], nextCtx, center, depth + 1));
+      // grid 自身是 position: absolute，于是它同时成为子 grid 的定位基准
+      const box = gridBox(frame, childStyle);
+      visit(el, box, box, nextCtx, true, depth + 1);
     });
 
     // region.blocks 与 collector.blocks 是同一个数组，flush 的结果直接落在区域上

@@ -1,5 +1,5 @@
 /**
- * <grid> / <split> 属性自动补全（设置项 autoComplete 控制开关）。
+ * <grid> 属性自动补全（设置项 autoComplete 控制开关）。
  * 触发逻辑与候选计算在 attributeSuggest.ts（纯函数，有单测），
  * 这里只做 Obsidian EditorSuggest 的外壳。
  */

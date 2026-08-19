@@ -4,7 +4,7 @@ import { getSuggestContext } from '../../src/editor/attributeSuggest';
 const labels = (line: string) => getSuggestContext(line)?.items.map((i) => i.label) ?? null;
 
 describe('getSuggestContext', () => {
-  it('returns null outside a grid/split tag', () => {
+  it('returns null outside a grid tag', () => {
     expect(getSuggestContext('just some text')).toBeNull();
     expect(getSuggestContext('# heading dim')).toBeNull();
   });
@@ -29,9 +29,6 @@ describe('getSuggestContext', () => {
     expect(labels('<grid di')).toEqual(['dim']);
   });
 
-  it('suggests split attribute names', () => {
-    expect(labels('<split ')).toEqual(['even', 'gap', 'left', 'right', 'wrap', 'no-margin']);
-  });
 
   it('replaces only the typed prefix', () => {
     const context = getSuggestContext('<grid di');
@@ -41,7 +38,6 @@ describe('getSuggestContext', () => {
 
   it('inserts an opening quote for value attributes, nothing for boolean ones', () => {
     expect(getSuggestContext('<grid ')?.items.find((i) => i.label === 'dim')?.insert).toBe('dim="');
-    expect(getSuggestContext('<split ')?.items.find((i) => i.label === 'even')?.insert).toBe('even');
   });
 
   it('suggests position keywords inside an open quote', () => {

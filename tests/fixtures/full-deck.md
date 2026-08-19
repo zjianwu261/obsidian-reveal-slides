@@ -26,9 +26,9 @@ note:
 </grid>
 
 <grid dim="80 20" pos="center" class="wide">
-<split even gap="2">左栏
+<grid dim="44 60" pos="4 20">左栏</grid>
 
-右栏</split>
+<grid dim="44 60" pos="52 20">右栏</grid>
 </grid>
 
 ---

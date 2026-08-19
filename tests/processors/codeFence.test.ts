@@ -1,14 +1,13 @@
 /**
  * 回归：代码块里的插件语法必须原样展示，不能被当成标记解析。
  *
- * 分页器一开始就跳过代码范围，但 grid / split / .element / <style> / note:
- * 五个抽取器都没有 —— 于是「教语法」的那一页会看到：示例消失、真的 grid
+ * 分页器一开始就跳过代码范围，但 grid / .element / <style> / note:
+ * 四个抽取器都没有 —— 于是「教语法」的那一页会看到：示例消失、真的 grid
  * 浮在页面上、示例 CSS 套到整个 deck、YAML 示例从中间被截断搬进备注。
  */
 import { describe, it, expect } from 'vitest';
 import { PipelineOrchestrator } from '../../src/processors';
 import { parseGridTags } from '../../src/processors/gridParser';
-import { parseSplitTags } from '../../src/processors/splitParser';
 import { extractElementComments } from '../../src/processors/elementComment';
 import { extractStyleBlocks } from '../../src/processors/cssProcessor';
 import { extractNotes } from '../../src/processors/noteProcessor';
@@ -44,7 +43,7 @@ const run = (md: string) =>
     renderMarkdown: render,
   });
 
-describe('grid / split tags inside code', () => {
+describe('grid tags inside code', () => {
   it('leaves a <grid> in a fence alone', () => {
     const source = '```md\n<grid dim="50 50" pos="center">hi</grid>\n```';
     const result = parseGridTags(source);
@@ -64,17 +63,6 @@ describe('grid / split tags inside code', () => {
     expect(result.grids).toHaveLength(1);
     expect(result.grids[0].children).toBe('真的');
     expect(result.html).toContain('<grid dim="50 50" pos="center">示例</grid>');
-  });
-
-  it('leaves a <split> in a fence alone', () => {
-    const result = parseSplitTags('```md\n<split even>\na\n\nb\n</split>\n```');
-    expect(result.splits).toHaveLength(0);
-  });
-
-  it('still parses a real split next to a fenced example', () => {
-    const result = parseSplitTags('```md\n<split even>x</split>\n```\n\n<split even>\na\n\nb\n</split>');
-    expect(result.splits).toHaveLength(1);
-    expect(result.splits[0].columns).toEqual(['a', 'b']);
   });
 });
 

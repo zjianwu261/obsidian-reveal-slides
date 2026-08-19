@@ -35,10 +35,8 @@ exports[`fixture: full-deck > renders stable section html 1`] = `
 <section class="rfo-canvas">
 <div class="grid" style="position: absolute; width: 40%; height: 30%; left: 10%; top: 15%; background: var(--brand); color: #fff;" data-rfo-box="40×30% @ 10% 15%"><p>左上角的块</p></div>
 <div class="grid fragment animate__animated animate__fadeIn" style="position: absolute; width: 30%; height: 30%; left: 100%; top: 100%; transform: translate(-100%, -100%); clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);" data-rfo-box="30×30% @ 100% 100%" data-fragment-index="1"><p>六边形</p></div>
-<div class="grid wide" style="position: absolute; width: 80%; height: 20%; left: 50%; top: 50%; transform: translate(-50%, -50%);" data-rfo-box="80×20% @ 50% 50%"><div class="split" style="display: flex; width: 100%; gap: 2em;">
-<div class="split-column" style="flex: 1; min-width: 0;"><p>左栏</p></div>
-<div class="split-column" style="flex: 1; min-width: 0;"><p>右栏</p></div>
-</div></div>
+<div class="grid wide" style="position: absolute; width: 80%; height: 20%; left: 50%; top: 50%; transform: translate(-50%, -50%);" data-rfo-box="80×20% @ 50% 50%"><div class="grid" style="position: absolute; width: 44%; height: 60%; left: 4%; top: 20%;" data-rfo-box="44×60% @ 4% 20%"><p>左栏</p></div>
+<div class="grid" style="position: absolute; width: 44%; height: 60%; left: 52%; top: 20%;" data-rfo-box="44×60% @ 52% 20%"><p>右栏</p></div></div>
 
 </section>
 <section>

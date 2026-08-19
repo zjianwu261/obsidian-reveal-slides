@@ -76,13 +76,6 @@ describe('PipelineOrchestrator (MVP)', () => {
     expect(html).not.toContain('GRID_0');
   });
 
-  it('renders split tags into flex columns', async () => {
-    const deck = await run('<split even gap="2">col a\n\ncol b</split>');
-    const html = deck.pages[0].html;
-    expect(html).toContain('class="split"');
-    expect(html).toContain('gap: 2em');
-  });
-
   it('extracts speaker notes per page', async () => {
     const deck = await run('# Talk\n\nnote:\nhello audience\n\n---\n\n# Next');
     expect(deck.pages[0].notes).toHaveLength(1);
@@ -144,39 +137,6 @@ describe('PipelineOrchestrator (MVP)', () => {
     expect(html).toContain('🚀');
   });
 
-  it('post-processes content inside a split column', async () => {
-    const deck = await pipeline.run('<split even>\n\n<img src="app://id/a/b.png?1">\n\nright\n\n</split>', {
-      settings: { ...DEFAULT_SETTINGS },
-      sourcePath: 'test.md',
-      renderMarkdown: fakeRender,
-      serverBase: 'http://127.0.0.1:3000',
-    });
-    expect(deck.pages[0].html).toContain('http://127.0.0.1:3000/vault/a/b.png');
-  });
-
-  it('resolves a grid nested inside a split column', async () => {
-    const deck = await run(
-      '<split even>\n\n<grid dim="10 10" pos="center">boxed</grid>\n\nright\n\n</split>',
-    );
-    const html = deck.pages[0].html;
-    expect(html).toContain('class="split"');
-    expect(html).toContain('class="grid"');
-    expect(html).toContain('boxed');
-    expect(html).not.toContain('GRID_');
-  });
-
-  it('resolves a split nested inside a grid', async () => {
-    const deck = await run(
-      '<grid dim="80 40" pos="center">\n<split even gap="1">left col\n\nright col</split>\n</grid>',
-    );
-    const html = deck.pages[0].html;
-    expect(html).toContain('class="grid"');
-    expect(html).toContain('class="split"');
-    expect(html).toContain('left col');
-    expect(html).toContain('right col');
-    expect(html).not.toContain('SPLIT_');
-  });
-
   it('collects .slide comments written inside a grid', async () => {
     const deck = await run(
       '<grid dim="50 50" pos="center">\n\nContent\n\n<!-- .slide: background-color="#abcdef" -->\n\n</grid>',
@@ -195,14 +155,6 @@ describe('PipelineOrchestrator (MVP)', () => {
     expect(html).not.toContain('GRID_');
     // 内层 div 必须落在外层 div 内部
     expect(/<div class="grid"[^>]*>\s*<div class="grid"/.test(html)).toBe(true);
-  });
-
-  it('resolves nested splits', async () => {
-    const deck = await run('<split even>\n\n<split gap="1">a\n\nb</split>\n\nright\n\n</split>');
-    const html = deck.pages[0].html;
-    expect(html).not.toContain('SPLIT_');
-    expect(html).toContain('gap: 1em');
-    expect((html.match(/class="split"/g) ?? []).length).toBe(2);
   });
 
   it('leaves an unmatched grid tag alone instead of looping', async () => {

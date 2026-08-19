@@ -106,18 +106,6 @@ describe('parseSlideHtml', () => {
     expect(grid.box).toEqual(ROOT);
   });
 
-  it('keeps the outer grid as the positioning frame for grids inside a split column', () => {
-    const html =
-      '<div class="grid" style="position: absolute; width: 50%; height: 100%; left: 50%; top: 0%;">' +
-      '<div class="split" style="display: flex; width: 100%;">' +
-      '<div class="split-column" style="flex: 1; min-width: 0;">' +
-      '<div class="grid" style="position: absolute; width: 100%; height: 50%; left: 0%; top: 0%;">' +
-      '<p>内</p></div></div></div></div>';
-    const inner = parse(html).find((region) => region.blocks.length > 0)!;
-    // 分栏容器没有 position，内层 grid 仍按外层 grid（x=0.5, w=0.5）算
-    expect(inner.box.x).toBeCloseTo(0.5);
-    expect(inner.box.w).toBeCloseTo(0.5);
-  });
 
   it('scales heading sizes the way canvas.scss does', () => {
     const block = firstText(parse('<h1>大</h1><h2>中</h2><h3>小</h3><p>正文</p>'));
@@ -150,21 +138,6 @@ describe('parseSlideHtml', () => {
     expect(inner.box.w).toBeCloseTo(0.25);
   });
 
-  it('splits <split> columns by their flex weights', () => {
-    const html =
-      '<div class="split" style="display: flex; width: 100%;">' +
-      '<div class="split-column" style="flex: 2; min-width: 0;"><p>宽</p></div>' +
-      '<div class="split-column" style="flex: 1; min-width: 0;"><p>窄</p></div>' +
-      '</div>';
-    const regions = parse(html);
-    const columns = regions.filter((region) => region.blocks.length > 0);
-
-    expect(columns).toHaveLength(2);
-    expect(columns[0].box.w).toBeGreaterThan(columns[1].box.w);
-    // 两栏加上 2% 栏距应铺满整行
-    expect(columns[0].box.w + columns[1].box.w).toBeCloseTo(0.98);
-    expect(columns[1].box.x).toBeCloseTo(columns[0].box.x + columns[0].box.w + 0.02);
-  });
 
   it('carries inline font-size and color from the grid down to the runs', () => {
     const html =

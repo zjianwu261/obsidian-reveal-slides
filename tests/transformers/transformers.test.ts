@@ -6,7 +6,7 @@ import { ClassTransformer } from '../../src/transformers/class';
 import { FragmentTransformer } from '../../src/transformers/fragment';
 import { AnimateTransformer } from '../../src/transformers/animate';
 import { normalizeSlideAttributes } from '../../src/transformers/backgroundImage';
-import { renderGridHtml, renderSplitHtml, type TransformerResult } from '../../src/transformers';
+import { renderGridHtml, type TransformerResult } from '../../src/transformers';
 import type { GridElement } from '../../src/types/grid';
 
 function makeGrid(overrides: Partial<GridElement> = {}): GridElement {
@@ -128,7 +128,7 @@ describe('normalizeSlideAttributes', () => {
   });
 });
 
-describe('renderGridHtml / renderSplitHtml', () => {
+describe('renderGridHtml', () => {
   it('composes the final grid div', () => {
     const html = renderGridHtml(
       makeGrid({ style: 'background: red;', className: 'box', children: '<p>hi</p>' }),
@@ -139,33 +139,5 @@ describe('renderGridHtml / renderSplitHtml', () => {
     expect(html).toContain('<p>hi</p>');
   });
 
-  it('renders even split with gap', () => {
-    const html = renderSplitHtml({
-      tag: 'split',
-      even: true,
-      gap: 2,
-      left: 1,
-      right: 1,
-      wrap: null,
-      noMargin: false,
-      columns: ['<p>a</p>', '<p>b</p>'],
-    });
-    expect(html).toContain('gap: 2em');
-    expect(html.match(/flex: 1/g)).toHaveLength(2);
-  });
 
-  it('renders weighted split', () => {
-    const html = renderSplitHtml({
-      tag: 'split',
-      even: false,
-      gap: 0,
-      left: 2,
-      right: 1,
-      wrap: null,
-      noMargin: true,
-      columns: ['<p>a</p>', '<p>b</p>'],
-    });
-    expect(html).toContain('flex: 2');
-    expect(html).toContain('split-no-margin');
-  });
 });

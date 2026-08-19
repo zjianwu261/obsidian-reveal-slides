@@ -1,4 +1,4 @@
-import type { GridElement, SplitElement } from '../types/grid';
+import type { GridElement } from '../types/grid';
 import { escapeHtml } from '../utils/dom';
 import { GridTransformer } from './grid';
 import { ShapeTransformer } from './shape';
@@ -58,28 +58,4 @@ export function renderGridHtml(grid: GridElement, registry = createDefaultRegist
     .join('');
 
   return `<div class="${escapeHtml(classes)}" style="${escapeHtml(style)}"${attrs}>${grid.children}</div>`;
-}
-
-/** SplitElement → 最终 flex 分栏 HTML（columns 须为已渲染的 HTML） */
-export function renderSplitHtml(split: SplitElement): string {
-  const styleParts = ['display: flex', 'width: 100%'];
-  if (split.gap > 0) styleParts.push(`gap: ${split.gap}em`);
-  if (split.wrap !== null) styleParts.push('flex-wrap: wrap');
-
-  const classes = ['split'];
-  if (split.wrap !== null) classes.push('split-wrap');
-
-  const weights = split.even
-    ? split.columns.map(() => 1)
-    : split.columns.map((_, i) => (i === 0 ? split.left : i === 1 ? split.right : 1));
-
-  const columns = split.columns
-    .map((col, i) => {
-      const colClasses = ['split-column'];
-      if (split.noMargin) colClasses.push('split-no-margin');
-      return `<div class="${colClasses.join(' ')}" style="flex: ${weights[i]}; min-width: 0;">${col}</div>`;
-    })
-    .join('\n');
-
-  return `<div class="${classes.join(' ')}" style="${styleParts.join('; ')};">\n${columns}\n</div>`;
 }

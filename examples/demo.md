@@ -26,7 +26,6 @@ Welcome the audience. This whole deck is a single Obsidian note.
 ## What's inside
 
 - `<grid>` absolute positioning
-- `<split>` columns
 - fragments, shapes, speaker notes
 - mermaid, charts, emoji, Font Awesome
 </grid>
@@ -59,23 +58,6 @@ negative position: 4% from the right, 6% from the bottom
 shape="hexagon"
 </grid>
 
----
-
-# Split columns
-
-<split even gap="2">
-### Left :thumbsup:
-
-- columns split on blank lines
-- `even` = equal width
-
-### Right :zap:
-
-- `gap="2"` = 2em spacing
-- `left`/`right` = flex weights
-</split>
-
----
 
 # Fragments
 

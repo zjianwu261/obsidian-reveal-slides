@@ -1,12 +1,11 @@
 import type { PluginSettings } from '../types/config';
 import type { SlideDeck, SlideNote, SlidePage } from '../types/slide';
-import type { GridElement, SplitElement } from '../types/grid';
+import type { GridElement } from '../types/grid';
 import { extractFrontmatter } from './frontmatter';
 import { extractStyleBlocks } from './cssProcessor';
 import { offsetToLine, splitSlides } from './slideSplitter';
 import { extractNotes } from './noteProcessor';
 import { parseGridTags } from './gridParser';
-import { parseSplitTags } from './splitParser';
 import { processImages } from './imageProcessor';
 import { processSvgBlocks } from './svgProcessor';
 import { processChartBlocks } from './chartProcessor';
@@ -19,8 +18,7 @@ import { expandCodeLineSpecs } from './codeLineNumbers';
 import { applyMath, extractMath } from './mathProcessor';
 import type { MathBlock } from './mathProcessor';
 import type { ElementDirective } from './elementComment';
-import { createDefaultRegistry, renderGridHtml, renderSplitHtml } from '../transformers';
-import { splitPlaceholder } from '../constants';
+import { createDefaultRegistry, renderGridHtml } from '../transformers';
 
 /** 渲染函数注入：Obsidian 环境用 renderMarkdownToHtml，测试用桩 */
 export type MarkdownRenderFn = (markdown: string, sourcePath: string) => Promise<string>;
@@ -42,25 +40,25 @@ export interface PipelineOptions {
 /** ```slide 嵌入的最大递归深度（防循环嵌入） */
 const MAX_EMBED_DEPTH = 2;
 
-/** 占位符替换的最大轮数（嵌套 grid/split 每层各需一轮，解析层数上限为 8） */
+/** 占位符替换的最大轮数（grid 每嵌套一层各需一轮，解析层数上限为 8） */
 const MAX_PLACEHOLDER_PASSES = 20;
 
-/** 任意 grid / split 占位符（不带 g 标志，仅用于探测） */
-const ANY_PLACEHOLDER_RE = /⟦RFO-(?:GRID|SPLIT)-\d+⟧/;
+/** 任意 grid 占位符（不带 g 标志，仅用于探测） */
+const ANY_PLACEHOLDER_RE = /⟦RFO-GRID-\d+⟧/;
 
 /**
  * 一轮替换的匹配式，两种情形合成一条正则、一次扫描完成：
  *   1. 整段只有占位符（可能多个，中间夹 <br>）→ 连 <p> 包装一起换掉。
- *      grid/split 渲染出来是块级 <div>，留在 <p> 里会被浏览器踢出段落，结构错乱；
+ *      grid 渲染出来是块级 <div>，留在 <p> 里会被浏览器踢出段落，结构错乱；
  *      Obsidian 输出的是 <p dir="auto">，属性不能写死；连续几行写的 grid 会落进同一段。
  *   2. 段落里混着正文 → 占位符原地替换，保留正文。
  * 必须一次扫描：replace 不会重扫刚插入的内容，内层占位符留到下一轮，
  * 这样它的 <p> 包装才有机会在下一轮开头被一并处理。
  */
 const PLACEHOLDER_PASS_RE =
-  /<p[^>]*>((?:\s|<br\s*\/?>|⟦RFO-(?:GRID|SPLIT)-\d+⟧)+)<\/p>|⟦RFO-(GRID|SPLIT)-(\d+)⟧/g;
+  /<p[^>]*>((?:\s|<br\s*\/?>|⟦RFO-GRID-\d+⟧)+)<\/p>|⟦RFO-GRID-(\d+)⟧/g;
 
-const SINGLE_PLACEHOLDER_RE = /⟦RFO-(GRID|SPLIT)-(\d+)⟧/g;
+const SINGLE_PLACEHOLDER_RE = /⟦RFO-GRID-\d+⟧/g;
 
 /** frontmatter 中允许覆盖的配置键 */
 const OVERRIDABLE_KEYS: (keyof PluginSettings)[] = [
@@ -101,8 +99,8 @@ export function mergeConfig(
 /**
  * 管线编排器：Markdown → SlideDeck。
  * 执行顺序见 TASK_PLAN「五、管线执行顺序」：
- * frontmatter → style 提取 → 分页 → 逐页备注 → grid/split 占位符 →
- * 整页渲染 → grid/split 内容二次渲染 → 图片/SVG/Emoji/element 注释后处理 →
+ * frontmatter → style 提取 → 分页 → 逐页备注 → grid 占位符 →
+ * 整页渲染 → grid 内容二次渲染 → 图片/SVG/Emoji/element 注释后处理 →
  * 占位符替换 → 组装。
  */
 export class PipelineOrchestrator {
@@ -154,39 +152,19 @@ export class PipelineOrchestrator {
       //     必须在渲染前抽走：Obsidian 会把 HTML 注释整段删掉
       const { text: marked, directives } = extractElementComments(withMath);
 
-      // 5/6. grid / split → 占位符
+      // 5/6. grid → 占位符
       const gridParsed = parseGridTags(marked);
-      const splitParsed = parseSplitTags(gridParsed.html);
       const grids = gridParsed.grids;
-      const splits = splitParsed.splits;
-
-      // 6.5 grid 内部的 <split> 也要解析（占位符索引与页面级共用一张表，
-      //     嵌套关系由后面的多轮占位符替换解开）
-      for (const grid of grids) {
-        const nested = parseSplitTags(grid.children);
-        if (nested.splits.length === 0) continue;
-        const offset = splits.length;
-        grid.children = nested.html.replace(
-          /⟦RFO-SPLIT-(\d+)⟧/g,
-          (_m, n: string) => splitPlaceholder(offset + Number(n)),
-        );
-        splits.push(...nested.splits);
-      }
 
       // 7. 整页 Markdown 渲染（占位符是纯文本，渲染器原样保留）
-      let html = await renderMarkdown(splitParsed.html, sourcePath);
+      let html = await renderMarkdown(gridParsed.html, sourcePath);
 
-      // 8. grid.children / split.columns 二次渲染
+      // 8. grid.children 二次渲染
       for (const grid of grids) {
         grid.children = await renderMarkdown(grid.children, sourcePath);
       }
-      for (const split of splits) {
-        split.columns = await Promise.all(
-          split.columns.map((col) => renderMarkdown(col, sourcePath)),
-        );
-      }
 
-      // 9~14. 后处理。grid/split 的内容此时还在各自的字符串里（页面 html 中只有占位符），
+      // 9~14. 后处理。grid 的内容此时还在各自的字符串里（页面 html 中只有占位符），
       //       必须逐份处理，否则 grid 里的图片不会被改写、代码块不会被转换。
       const pageResult = this.postProcess(html, { serverBase, fileExists, directives, maths });
       html = pageResult.html;
@@ -197,16 +175,9 @@ export class PipelineOrchestrator {
         grid.children = result.html;
         Object.assign(slideAttributes, result.slideAttributes);
       }
-      for (const split of splits) {
-        split.columns = split.columns.map((col) => {
-          const result = this.postProcess(col, { serverBase, fileExists, directives, maths });
-          Object.assign(slideAttributes, result.slideAttributes);
-          return result.html;
-        });
-      }
 
       // 15. 占位符替换为最终 HTML
-      html = this.replacePlaceholders(html, grids, splits);
+      html = this.replacePlaceholders(html, grids);
 
       pages.push({
         index: i,
@@ -251,7 +222,7 @@ export class PipelineOrchestrator {
 
   /**
    * 渲染后 HTML 的后处理链（管线第 9~14 步）。
-   * 页面 html、每个 grid.children、每个 split 栏都要各跑一遍。
+   * 页面 html 与每个 grid.children 都要各跑一遍。
    */
   private postProcess(
     html: string,
@@ -286,29 +257,27 @@ export class PipelineOrchestrator {
   }
 
   /**
-   * 把渲染后 HTML 中的 ⟦RFO-GRID-n⟧ / ⟦RFO-SPLIT-n⟧ 占位符替换为最终元素。
-   * 插入的 grid/split 自身可能还带着内层占位符（grid 里放 split、split 里放 grid），
+   * 把渲染后 HTML 中的 ⟦RFO-GRID-n⟧ 占位符替换为最终元素。
+   * 插入的 grid 自身可能还带着内层占位符（grid 套 grid），
    * 所以要多轮替换直到没有占位符为止（嵌套索引严格递增，不会循环）。
    */
-  private replacePlaceholders(html: string, grids: GridElement[], splits: SplitElement[]): string {
+  private replacePlaceholders(html: string, grids: GridElement[]): string {
     const gridHtml = grids.map((grid) => renderGridHtml(grid, this.registry));
-    const splitHtml = splits.map((split) => renderSplitHtml(split));
 
-    const htmlFor = (kind: string, index: string): string =>
-      (kind === 'GRID' ? gridHtml[Number(index)] : splitHtml[Number(index)]) ?? '';
+    const htmlFor = (index: string): string => gridHtml[Number(index)] ?? '';
 
     let result = html;
     for (let pass = 0; pass < MAX_PLACEHOLDER_PASSES && ANY_PLACEHOLDER_RE.test(result); pass++) {
       const next = result.replace(
         PLACEHOLDER_PASS_RE,
-        (whole, paragraph: string | undefined, kind: string, index: string) => {
-          if (paragraph === undefined) return htmlFor(kind, index);
+        (whole, paragraph: string | undefined, index: string) => {
+          if (paragraph === undefined) return htmlFor(index);
           // 整段都是占位符：丢掉 <p> 与 <br>，只留各占位符对应的元素
           const parts = paragraph.match(SINGLE_PLACEHOLDER_RE) ?? [];
           return parts
             .map((token) => {
-              const match = /⟦RFO-(GRID|SPLIT)-(\d+)⟧/.exec(token);
-              return match ? htmlFor(match[1], match[2]) : '';
+              const match = /⟦RFO-GRID-(\d+)⟧/.exec(token);
+              return match ? htmlFor(match[1]) : '';
             })
             .join('\n') || whole;
         },

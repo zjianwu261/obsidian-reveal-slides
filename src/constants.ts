@@ -12,7 +12,7 @@ export const CANVAS_PRESETS: Record<string, [number, number]> = {
 };
 
 /**
- * Grid / Split 占位符。
+ * Grid 占位符。
  *
  * ⚠️ 不能用 HTML 注释：Obsidian 的 MarkdownRenderer 会把 `<!-- ... -->` 整段丢弃，
  * 而一页正文在解析后往往只剩占位符，渲染结果就成了空字符串（整页空白）。
@@ -20,7 +20,6 @@ export const CANVAS_PRESETS: Record<string, [number, number]> = {
  * 生僻方括号避免与正文撞车，内部只有字母/数字/连字符，不触发任何 Markdown 行内语法。
  */
 export const GRID_PLACEHOLDER_PREFIX = '⟦RFO-GRID-';
-export const SPLIT_PLACEHOLDER_PREFIX = '⟦RFO-SPLIT-';
 export const PLACEHOLDER_CLOSE = '⟧';
 
 /** 占位符文本 */
@@ -28,9 +27,6 @@ export function gridPlaceholder(index: number): string {
   return `${GRID_PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_CLOSE}`;
 }
 
-export function splitPlaceholder(index: number): string {
-  return `${SPLIT_PLACEHOLDER_PREFIX}${index}${PLACEHOLDER_CLOSE}`;
-}
 
 /** 视频文件扩展名（imageProcessor 包装为 <video>） */
 export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogv', 'mov', 'm4v'];

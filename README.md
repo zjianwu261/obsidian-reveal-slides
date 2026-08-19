@@ -16,7 +16,6 @@
 - [分页语法](#分页语法)
 - [Frontmatter 配置](#frontmatter-配置)
 - [Grid 定位系统（核心）](#grid-定位系统核心)
-- [Split 分栏](#split-分栏)
 - [演讲者备注](#演讲者备注)
 - [元素与页面注释](#元素与页面注释)
 - [图片、视频与 Excalidraw](#图片视频与-excalidraw)
@@ -37,7 +36,6 @@
 
 - **Markdown → 幻灯片**：`---` 水平分页，`xxx` 垂直分页，也支持按标题级别自动分页
 - **`<grid>` 绝对定位**：百分比坐标、方位关键字、负偏移（距右/下边缘），把任何内容放到画布任何位置
-- **`<split>` 分栏**：一行标签搞定 flexbox 多栏布局
 - **动画**：reveal.js fragment 渐显、animate.css 风格入场动画、12 种内置图形裁切（shape）
 - **演讲者备注**：`note:` 逐页备注，按 `S` 打开演讲者视图
 - **Obsidian 原生语法**：wikilink 图片（`![[img.png|800]]`）、视频、Callout、脚注、Excalidraw
@@ -225,9 +223,7 @@ margin: 0.01
 
 ### 第 3 步：一屏放两栏
 
-两种做法，看你要不要精确控制位置：
-
-**A. 两个 grid 各占一半**（位置完全可控）
+两个 grid 各占一半，位置完全可控：
 
 ````markdown
 <grid dim="43 66" pos="6 16">
@@ -245,22 +241,6 @@ margin: 0.01
 </grid>
 ````
 
-**B. 一个 grid 里塞 `<split>`**（栏宽自动平分，内容多时更省心）
-
-````markdown
-<grid dim="88 60" pos="center">
-<split even gap="2">
-
-左栏内容
-
-右栏内容
-
-</split>
-</grid>
-````
-
-`<split>` 用**空行**分栏；`even` 等宽，`gap` 是栏间距（em），
-也可以用 `left="2" right="1"` 控制权重。grid 和 split 都能嵌套。
 
 ### 第 4 步：插图、备注、逐步显示
 
@@ -813,20 +793,6 @@ void main(void) { }
 - 等价的完整写法是紧跟代码块的 `<!-- .element: data-line-numbers="2,4-6" -->`，
   需要 `data-ln-start-from`（行号从第几行起算）时用它。
 
-#### 分栏（栏宽自动平分时更省事）
-
-```markdown
-<grid dim="88 60" pos="center">
-<split even gap="2">
-
-左栏
-
-右栏
-
-</split>
-</grid>
-```
-
 ---
 
 ### 六、反模式
@@ -861,7 +827,6 @@ void main(void) { }
 | 距右下留白 | `pos="-6 -8"`（负数 = 距右/下边缘） |
 | 逐步显示 | `frag="1"` |
 | 图形裁切 | `shape="hexagon"` |
-| 分栏 | `<split even gap="2">`，栏间空行分隔 |
 | 演讲备注 | 页面末尾 `note:` 起，到本页结束 |
 | 指定图片宽度 | `![[图.png\|800]]` |
 | 整页背景 | `<!-- .slide: background-color="#101010" -->` |
@@ -997,7 +962,6 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 ### 嵌套
 
 `<grid>` 可以嵌套：内层 grid 的百分比是**相对外层 grid**算的，适合先划分区域再在区域内排版。
-`<split>` 同样可以嵌套，也可以放进 `<grid>` 里。
 
 ```markdown
 <grid dim="90 60" pos="center" style="background: #f8fafc;">
@@ -1008,7 +972,7 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 
 ### 属性自动补全
 
-在笔记里输入 `<grid ` 或 `<split ` 会弹出属性名候选；`pos="` / `shape="` / `frag="` / `animate="`
+在笔记里输入 `<grid ` 会弹出属性名候选；`pos="` / `shape="` / `frag="` / `animate="`
 还会提示可用取值。不需要可在设置 → Preview → Autocomplete 关掉。
 
 ### 完整示例：封面页
@@ -1027,27 +991,6 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 </grid>
 ```
 
-## Split 分栏
-
-`<split>` 用于快速多栏布局，栏与栏之间用**空行**分隔：
-
-```markdown
-<split even gap="2">
-
-左栏内容
-
-右栏内容
-
-</split>
-```
-
-| 属性 | 说明 |
-|------|------|
-| `even` | 各栏等宽 |
-| `left` / `right` | 双栏宽度权重（如 `left="2" right="1"` → 2:1） |
-| `gap` | 栏间距（em） |
-| `wrap` | 允许换行 |
-| `no-margin` | 去掉栏内首个元素的上边距 |
 
 ## 演讲者备注
 
@@ -1265,7 +1208,6 @@ Obsidian 用的是 MathJax 的 CHTML 输出，字形靠一张动态增补的样�
 |--------------|--------------|
 | `<grid>` 的百分比定位 | 同样位置的文本框（坐标按整块画布换算，与预览一致） |
 | `<grid shape="circle">` 等内置图形 | PowerPoint 预设图形（圆/三角/菱形/六边形/星形/箭头…） |
-| `<split>` 分栏 | 按 flex 权重并排的文本框 |
 | 标题、正文、**粗体**、*斜体*、`行内代码`、链接 | 带对应字号/字重/超链接的文字段落 |
 | 有序/无序列表（含多级嵌套） | 带项目符号与自动编号的段落 |
 | 表格 | 原生 PowerPoint 表格（表头带底色和边框） |
@@ -1320,7 +1262,7 @@ Obsidian 用的是 MathJax 的 CHTML 输出，字形靠一张动态增补的样�
 | Document | 默认标题、追加 CSS、全局背景 |
 | Preview Server | 自动启动开关、端口（默认 3000，端口被占用时自动顺延；改完失焦即重启服务器） |
 | Export | 导出目录、PPTX 占位说明框开关（mermaid / 图表 / 视频这类带不进 PPTX 的块，是留个灰框还是直接略过） |
-| Preview | 面板位置（**默认与笔记并排**，可选独立窗口 / 右侧边栏）、滚动视图阈值、自动刷新、跟随当前笔记（默认关）、光标跟随（Follow cursor：光标→预览）、翻页跟随（Follow slide：预览→光标）、`<grid>`/`<split>` 属性自动补全、版面辅助线、```svg 块自动折叠 |
+| Preview | 面板位置（**默认与笔记并排**，可选独立窗口 / 右侧边栏）、滚动视图阈值、自动刷新、跟随当前笔记（默认关）、光标跟随（Follow cursor：光标→预览）、翻页跟随（Follow slide：预览→光标）、`<grid>` 属性自动补全、版面辅助线、```svg 块自动折叠 |
 
 ## 常见问题（排障）
 

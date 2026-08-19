@@ -10,14 +10,3 @@ export interface GridElement {
   animate: string | null;
   children: string;                // 内部 HTML 内容（已渲染过的 Markdown）
 }
-
-export interface SplitElement {
-  tag: 'split';
-  even: boolean;
-  gap: number;                     // em
-  left: number;
-  right: number;
-  wrap: number | null;
-  noMargin: boolean;
-  columns: string[];               // 每栏内容
-}

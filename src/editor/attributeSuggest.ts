@@ -1,5 +1,5 @@
 /**
- * <grid> / <split> 属性自动补全的纯逻辑（不依赖 obsidian，可单测）。
+ * <grid> 属性自动补全的纯逻辑（不依赖 obsidian，可单测）。
  * Obsidian 侧的 EditorSuggest 外壳见 src/editor/index.ts。
  */
 import { SHAPE_CLIP_PATHS } from '../transformers/shape';
@@ -78,23 +78,13 @@ const GRID_ATTRIBUTES: AttributeDef[] = [
   },
 ];
 
-const SPLIT_ATTRIBUTES: AttributeDef[] = [
-  { name: 'even', detail: '等宽分栏', boolean: true },
-  { name: 'gap', detail: '栏间距（em）' },
-  { name: 'left', detail: '左栏权重' },
-  { name: 'right', detail: '右栏权重' },
-  { name: 'wrap', detail: '允许换行' },
-  { name: 'no-margin', detail: '去掉栏内首元素外边距', boolean: true },
-];
-
-/** 光标前是否处于未闭合的 <grid / <split 标签内，返回标签名 */
-function findOpenTag(lineUpToCursor: string): 'grid' | 'split' | null {
-  const match = /<(grid|split)(?![\w-])[^<>]*$/.exec(lineUpToCursor);
-  return match ? (match[1] as 'grid' | 'split') : null;
+/** 光标前是否处于未闭合的 <grid 标签内 */
+function findOpenTag(lineUpToCursor: string): 'grid' | null {
+  return /<grid(?![\w-])[^<>]*$/.test(lineUpToCursor) ? 'grid' : null;
 }
 
 /**
- * 计算光标处的补全上下文；不在 <grid>/<split> 标签内返回 null。
+ * 计算光标处的补全上下文；不在 <grid> 标签内返回 null。
  * 两种形态：
  *   `<grid dim`            → 补全属性名
  *   `<grid position="cen`  → 补全该属性的取值
@@ -103,7 +93,7 @@ export function getSuggestContext(lineUpToCursor: string): SuggestContext | null
   const tag = findOpenTag(lineUpToCursor);
   if (!tag) return null;
 
-  const attributes = tag === 'grid' ? GRID_ATTRIBUTES : SPLIT_ATTRIBUTES;
+  const attributes = GRID_ATTRIBUTES;
 
   // 取值补全：光标在某个 name=" 之后且引号未闭合
   const valueMatch = /([\w-]+)\s*=\s*"([^"]*)$/.exec(lineUpToCursor);
