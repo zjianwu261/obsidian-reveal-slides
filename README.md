@@ -1418,7 +1418,7 @@ python3 scripts/nl2figure.py "画一张 TCON 的位分布，这节讲 IT0" \
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `FIGURE_API_BASE` | `https://api.deepseek.com/v1` | OpenAI 兼容的接口地址 |
-| `FIGURE_MODEL` | `deepseek-chat` | 模型名 |
+| `FIGURE_MODEL` | `deepseek-v4-flash` | 模型名 |
 | `FIGURE_API_KEY` | 无 | 你的 key |
 
 也可以写进 skill 目录下的 `config.json`，优先级：命令行 > 环境变量 > config.json。

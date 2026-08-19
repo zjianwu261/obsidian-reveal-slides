@@ -424,7 +424,7 @@ export class RevealSettingTab extends PluginSettingTab {
       .setName('模型')
       .addText((text) =>
         text
-          .setPlaceholder('deepseek-chat')
+          .setPlaceholder('deepseek-v4-flash')
           .setValue(settings.aiModel)
           .onChange(async (value) => {
             settings.aiModel = value.trim();

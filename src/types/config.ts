@@ -119,6 +119,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiEnabled: true,
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
-  aiModel: 'deepseek-chat',
+  aiModel: 'deepseek-v4-flash',
   aiPanelHeight: 220,
 };

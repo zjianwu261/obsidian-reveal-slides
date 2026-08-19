@@ -31,7 +31,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from figure import RENDERERS, render  # noqa: E402
 
 CONFIG_PATH = pathlib.Path(__file__).resolve().parent.parent / "config.json"
-DEFAULTS = {"api_base": "https://api.deepseek.com/v1", "model": "deepseek-chat", "api_key": ""}
+DEFAULTS = {"api_base": "https://api.deepseek.com/v1", "model": "deepseek-v4-flash", "api_key": ""}
 
 SYSTEM = """你把课件作者的一句话，翻译成一份画图声明（JSON）。只输出 JSON，不要解释、不要代码围栏。
 
