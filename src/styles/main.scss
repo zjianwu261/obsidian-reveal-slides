@@ -298,3 +298,18 @@ body.rfo-immersive {
   color: var(--text-muted);
   font-size: var(--font-smallest);
 }
+
+/* 提案是可编辑的：模型给的十有八九差一点意思，就地改比回笔记里找快 */
+.rfo-chat-draft {
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  resize: vertical;
+  font-family: var(--font-monospace);
+  font-size: var(--font-smallest);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-wrap: normal;
+  user-select: text;
+  -webkit-user-select: text;
+}

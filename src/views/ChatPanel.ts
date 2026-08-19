@@ -244,7 +244,10 @@ export class ChatPanel {
     this.pending = markdown;
 
     const box = this.log.createDiv({ cls: 'rfo-chat-msg is-assistant rfo-chat-proposal' });
-    box.createEl('pre', { cls: 'rfo-chat-diff', text: markdown });
+    // 可编辑：模型给的十有八九差一点意思，就地改掉比先应用再回笔记里找快
+    const draft = box.createEl('textarea', { cls: 'rfo-chat-draft' });
+    draft.value = markdown;
+    draft.rows = Math.min(16, markdown.split('\n').length + 1);
 
     const actions = box.createDiv({ cls: 'rfo-chat-actions' });
     const apply = actions.createEl('button', { cls: 'mod-cta', text: '应用到这一页' });
@@ -253,20 +256,21 @@ export class ChatPanel {
 
     // 不想整页替换时，手动挑一段抄走
     copy.addEventListener('click', () => {
-      void navigator.clipboard.writeText(markdown).then(
+      void navigator.clipboard.writeText(draft.value).then(
         () => copy.setText('已复制'),
         () => new Notice('reveal-slide-for-obsidian: 复制失败，手动选中吧'),
       );
     });
 
     apply.addEventListener('click', () => {
-      const pending = this.pending;
+      const pending = draft.value.trim();
       if (!pending) return;
+      this.pending = pending;
       void this.handlers
         .apply(pending)
         .then(() => {
           actions.remove();
-          this.say('assistant', '写回笔记了。不满意就 ⌘/Ctrl + Z 撤销。');
+          this.say('assistant', '写回笔记了。不满意就在笔记里改，或 ⌘/Ctrl + Z 撤销。');
         })
         .catch((err: unknown) => {
           this.say('assistant', `写回失败：${err instanceof Error ? err.message : String(err)}`);
