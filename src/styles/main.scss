@@ -138,12 +138,13 @@ body.rfo-immersive {
  * 对话框只占它自己需要的高度，画布不会因此变小。
  */
 .rfo-chat {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 45%;
-  padding: 8px 10px;
-  border-top: 1px solid var(--background-modifier-border);
+  flex: 0 0 auto;      /* 高度由拖动决定，iframe 用 flex: 1 吃掉剩下的 */
+  min-height: 90px;
+  padding: 12px 10px 8px;
   background: var(--background-primary);
 
   &.is-hidden {
@@ -170,6 +171,31 @@ body.rfo-immersive {
     align-self: flex-end;
     background: var(--interactive-accent);
     color: var(--text-on-accent);
+  }
+}
+
+/* 顶边的分割线：拖它决定幻灯片与对话各占多少 */
+.rfo-chat-resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: row-resize;
+  touch-action: none;   /* 触屏上按住拖动，别被当成滚动页面 */
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--background-modifier-border);
+  }
+
+  &:hover::after {
+    background: var(--interactive-accent);
   }
 }
 

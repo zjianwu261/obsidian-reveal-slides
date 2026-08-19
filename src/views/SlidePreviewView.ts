@@ -85,11 +85,19 @@ export class SlidePreviewView extends ItemView {
     this.buildMenuBar(container);
 
     if (this.plugin.settings.aiEnabled) {
-      this.chat = new ChatPanel(container, {
-        canEdit: () => this.plugin.canEditCurrentPage(),
-        ask: (request) => this.plugin.askAboutCurrentPage(request),
-        apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
-      });
+      this.chat = new ChatPanel(
+        container,
+        {
+          canEdit: () => this.plugin.canEditCurrentPage(),
+          ask: (request) => this.plugin.askAboutCurrentPage(request),
+          apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
+          onResize: (height) => {
+            this.plugin.settings.aiPanelHeight = height;
+            void this.plugin.saveSettings();
+          },
+        },
+        this.plugin.settings.aiPanelHeight,
+      );
     }
 
     // 标题栏按钮，从左到右：沉浸式 / 刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX

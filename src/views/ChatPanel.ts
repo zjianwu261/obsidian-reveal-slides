@@ -9,8 +9,11 @@
  * 课件是要拿去上课的，不能让它背着人改。
  */
 import { Notice } from 'obsidian';
+import { clampPanelHeight } from './panelLayout';
 
 export interface ChatPanelHandlers {
+  /** 拖动分割线后的新高度，交给调用方存起来 */
+  onResize?(height: number): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
   /** 应用改动 */
@@ -26,8 +29,14 @@ export class ChatPanel {
   private sendButton: HTMLButtonElement;
   private pending: string | null = null;
 
-  constructor(parent: HTMLElement, private handlers: ChatPanelHandlers) {
+  constructor(
+    private parent: HTMLElement,
+    private handlers: ChatPanelHandlers,
+    height = 220,
+  ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
+    this.root.style.height = `${clampPanelHeight(height, parent.clientHeight)}px`;
+    this.buildResizer();
 
     this.log = this.root.createDiv({ cls: 'rfo-chat-log' });
     this.say('assistant', '说一句话改当前这一页，比如「把右边的要点改成对比图」。改动会先给你看。');
@@ -45,6 +54,41 @@ export class ChatPanel {
         event.preventDefault();
         void this.send();
       }
+    });
+  }
+
+  /**
+   * 顶边的分割线可以拖。幻灯片和对话谁该多占一点，取决于此刻在干什么 ——
+   * 调版面时想看大图，连着问几轮时想看长回复。
+   */
+  private buildResizer(): void {
+    const handle = this.root.createDiv({ cls: 'rfo-chat-resizer' });
+
+    handle.addEventListener('pointerdown', (event: PointerEvent) => {
+      event.preventDefault();
+      handle.setPointerCapture(event.pointerId);
+
+      const startY = event.clientY;
+      const startHeight = this.root.getBoundingClientRect().height;
+
+      const move = (moveEvent: PointerEvent): void => {
+        // 往上拖 = 对话框变高，所以是起点减当前
+        const next = clampPanelHeight(
+          startHeight + (startY - moveEvent.clientY),
+          this.parent.clientHeight,
+        );
+        this.root.style.height = `${next}px`;
+      };
+
+      const done = (): void => {
+        handle.releasePointerCapture(event.pointerId);
+        handle.removeEventListener('pointermove', move);
+        handle.removeEventListener('pointerup', done);
+        this.handlers.onResize?.(this.root.getBoundingClientRect().height);
+      };
+
+      handle.addEventListener('pointermove', move);
+      handle.addEventListener('pointerup', done);
     });
   }
 

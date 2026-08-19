@@ -70,6 +70,8 @@ export interface PluginSettings {
   aiApiBase: string;
   aiApiKey: string;
   aiModel: string;
+  /** 对话框高度（px），拖分割线调整后记住 */
+  aiPanelHeight: number;
   /**
    * 切换笔记时预览是否跟着换。
    * 默认关：预览钉在你让它预览的那一篇上，翻别的笔记查资料不会把它带跑；
@@ -118,4 +120,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
   aiModel: 'deepseek-chat',
+  aiPanelHeight: 220,
 };
