@@ -1181,7 +1181,7 @@ note:
 ### 配套 skill：一句话生成示意图
 
 课件里的示意图有个两难：手写 SVG 累，让 AI 生位图又糊、还改不动。仓库里带了一个
-Claude Code skill 把中间那步固化下来——**模型只写一份 JSON 声明，Python 脚本把它渲染成
+Claude Code skill 把中间那步固化下来——**模型只写一份 JSON 声明，Python 脚本渲染成
 SVG**，产出能直接粘的 ```` ```svg ```` 代码块。
 
 ```
@@ -1189,7 +1189,7 @@ SVG**，产出能直接粘的 ```` ```svg ```` 代码块。
 ├── SKILL.md              给模型看的：怎么写声明、四种图型、版式规矩
 ├── scripts/figure.py     声明 → SVG（只用标准库，不联网，不需要 API key）
 ├── scripts/nl2figure.py  一句话 → 声明 → SVG（可选，走任意 OpenAI 兼容接口）
-└── examples/*.json       四份可运行的样例声明
+└── examples/             四份可运行的声明，以及它们渲染出来的 SVG
 ```
 
 #### 为什么是「声明 + 渲染器」，不是让 AI 直接画
@@ -1211,28 +1211,13 @@ ln -s "$(pwd)/.claude/skills/slide-figure" ~/.claude/skills/slide-figure
 
 不想用软链就 `cp -r`，代价是仓库更新后要重拷。
 
-#### 用
+#### 走一遍完整流程
 
-在 Claude Code 里直接说人话：
+**你说：**
 
 > 用 bitfield 画一张 TCON 的位分布，这节讲 IT0
 
-模型会写好声明、调脚本、把 ```` ```svg ```` 交给你。也可以自己跑：
-
-```bash
-python3 .claude/skills/slide-figure/scripts/figure.py 声明.json -o 图.svg
-```
-
-#### 四种图型
-
-| type | 用途 | 关键字段 |
-|------|------|----------|
-| `flow` | 步骤流程、前后对比（`++b` vs `b++`） | `rows[].chip` / `steps` / `note` |
-| `bitfield` | 寄存器位分布（TCON / TMOD / SCON） | `bits`（高位在前）/ `highlight` / `caption` |
-| `compare` | 两三列对照 | `columns[].title` / `lines` / `highlight` |
-| `timeline` | 时序、阶段推进 | `nodes[].label` / `sub` |
-
-一份 `bitfield` 声明长这样，十行换一张图：
+**模型写出声明**（存成 `tcon.json`，一并交给你留档）：
 
 ```json
 { "type": "bitfield", "name": "TCON", "addr": "0x88", "meta": "可位寻址",
@@ -1241,16 +1226,108 @@ python3 .claude/skills/slide-figure/scripts/figure.py 声明.json -o 图.svg
   "caption": "本节只用 IT0：置 1 = 下降沿触发外部中断 0" }
 ```
 
-框宽按字数算、D 编号自动标、重点位自动换色——这些都不用你操心。
+**渲染：**
+
+```bash
+python3 .claude/skills/slide-figure/scripts/figure.py tcon.json -o tcon.svg
+```
+
+**得到：**
+
+![bitfield 示例](.claude/skills/slide-figure/examples/bitfield.svg)
+
+框宽按位数均分、D7~D0 自动标号、`highlight` 的那一位自动换成主色描边——这些都不用你操心。
+
+**粘进笔记：**
+
+````markdown
+<grid dim="88 30" pos="6 20" class="fig">
+
+```svg
+（tcon.svg 的内容原样贴进来）
+```
+
+</grid>
+````
+
+**下次要改**——比如这节改讲 IT1——把 `highlight` 改成 `["IT1"]` 重渲一次即可，
+不用重新描述需求，也不会顺带把别处的排版改掉。
+
+#### 四种图型
+
+**`flow`** —— 步骤流程、前后对比。`chip` 是主体，`steps` 自动连箭头，`note` 挂右侧放例子；
+两行之间自动画分隔线。
+
+```json
+{ "type": "flow",
+  "rows": [
+    { "chip": "++b", "steps": ["先自增 +1", "再参与运算"],
+      "note_title": "b = 3 时", "note": "c = ++b → 4" },
+    { "chip": "b++", "steps": ["先参与运算", "再自增 +1"],
+      "note_title": "b = 3 时", "note": "c = b++ → 3" }
+  ] }
+```
+
+![flow 示例](.claude/skills/slide-figure/examples/flow.svg)
+
+**`bitfield`** —— 寄存器位分布。`bits` 高位在前，`highlight` 写位名或位号，
+`caption` 一句话点题。字段见上面的完整流程。
+
+**`compare`** —— 两三列对照。`lines` 里用反引号包住代码会自动切等宽字体，
+`highlight` 标出本节主角。一列不超过四行，多了该拆两页。
+
+```json
+{ "type": "compare",
+  "columns": [
+    { "title": "赋值运算符", "highlight": true,
+      "lines": ["`a = a + b`", "先算右边", "再装进左边的变量", "结果是「值」"] },
+    { "title": "关系运算符",
+      "lines": ["`a == b`", "比较两边", "给 if / while 用", "结果只有真 / 假"] }
+  ] }
+```
+
+![compare 示例](.claude/skills/slide-figure/examples/compare.svg)
+
+**`timeline`** —— 时序、阶段推进。`label` 写「发生了什么」，`sub` 写「对应哪个寄存器位」，
+节点不超过五个。
+
+```json
+{ "type": "timeline",
+  "nodes": [
+    { "label": "装初值", "sub": "TH0/TL0" },
+    { "label": "启动计数", "sub": "TR0 = 1" },
+    { "label": "溢出置位", "sub": "TF0 = 1" },
+    { "label": "进中断", "sub": "ISR" }
+  ] }
+```
+
+![timeline 示例](.claude/skills/slide-figure/examples/timeline.svg)
+
+四份声明都在 `examples/`，改一改就是新的图：
+
+```bash
+python3 scripts/figure.py examples/flow.json -o /tmp/试试.svg
+```
 
 #### 配色
 
 默认跟课程主题一致（主色 `#064FA1`）。改配色不用碰渲染器：
 
-- 单张图：声明里加 `"theme": {"brand": "#B81C22"}`
-- 整套图：写一份 `theme.json`，渲染时 `--theme theme.json`
+```json
+{ "type": "bitfield", "theme": { "brand": "#B81C22" }, "bits": ["…"] }
+```
 
-可覆盖 `brand` `soft` `line` `arrow` `text` `muted` `accent` `rule` `font` `mono`。
+整套图统一换色就写一份 `theme.json`，渲染时 `--theme theme.json`。可覆盖的键：
+
+| 键 | 用途 | 默认 |
+|----|------|------|
+| `brand` | 重点框描边、强调字 | `#064FA1` |
+| `soft` | 重点框填充 | `#EAF1FA` |
+| `line` | 普通框描边 | `#C9D8EC` |
+| `arrow` | 箭头、轴线 | `#9BB4D4` |
+| `text` / `muted` | 正文 / 辅助文字 | `#1a1a1a` / `#555` |
+| `accent` | 结论、易错点 | `#8A2B2F` |
+| `font` / `mono` | 正文 / 等宽字体栈 | 系统字体（含中文兜底） |
 
 #### 脱离智能体单独跑（可选，需要 API key）
 
@@ -1262,8 +1339,6 @@ python3 scripts/nl2figure.py "画一张 TCON 的位分布，这节讲 IT0" \
         -o tcon.svg --spec-out tcon.json
 ```
 
-换供应商改环境变量即可：
-
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `FIGURE_API_BASE` | `https://api.deepseek.com/v1` | OpenAI 兼容的接口地址 |
@@ -1271,10 +1346,16 @@ python3 scripts/nl2figure.py "画一张 TCON 的位分布，这节讲 IT0" \
 | `FIGURE_API_KEY` | 无 | 你的 key |
 
 也可以写进 skill 目录下的 `config.json`，优先级：命令行 > 环境变量 > config.json。
-`--spec-out` 会把模型生成的声明存下来，之后手改重渲，不必再花一次 token。
+`--spec-out` 把声明存下来，之后手改重渲，不必再花一次 token。
 
 **在 Claude Code 里用不到这个脚本**——模型自己就能写声明，直接调 `figure.py`
 更快也更省。
+
+#### 想加一种图型
+
+`scripts/figure.py` 里一个 type 就是一个函数：收声明、算坐标、拼 SVG 字符串，
+最后注册进 `RENDERERS`。四个现成的函数就是模板，照着加即可——渲染器没有依赖、
+没有框架，一百行以内能写完一种。
 
 ### Mermaid
 

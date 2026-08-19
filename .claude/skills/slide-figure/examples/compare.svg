@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 270" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9BB4D4"/></marker>
+    <style>
+      .chip{fill:#EAF1FA;stroke:#064FA1;stroke-width:2;rx:12}
+      .step{fill:#fff;stroke:#C9D8EC;stroke-width:2;rx:12}
+      .op{font:600 30px ui-monospace, Menlo, Consolas, monospace;fill:#064FA1}
+      .t{font:22px sans-serif;fill:#1a1a1a}
+      .m{font:20px ui-monospace, Menlo, Consolas, monospace;fill:#555}
+      .lead{font:600 22px sans-serif;fill:#8A2B2F}
+      .h{font:600 26px sans-serif;fill:#064FA1}
+      .arr{stroke:#9BB4D4;stroke-width:3;marker-end:url(#a)}
+    </style>
+  </defs>
+  <rect class="chip" x="10" y="10" width="425" height="250"/>
+  <text class="h" x="36" y="56">赋值运算符</text>
+  <text class="m" x="36" y="102">a = a + b</text>
+  <text class="t" x="36" y="142">先算右边</text>
+  <text class="t" x="36" y="182">再装进左边的变量</text>
+  <text class="t" x="36" y="222">结果是「值」</text>
+  <rect class="step" x="465" y="10" width="425" height="250"/>
+  <text class="h" x="491" y="56">关系运算符</text>
+  <text class="m" x="491" y="102">a == b</text>
+  <text class="t" x="491" y="142">比较两边</text>
+  <text class="t" x="491" y="182">给 if / while 用</text>
+  <text class="t" x="491" y="222">结果只有真 / 假</text>
+</svg>

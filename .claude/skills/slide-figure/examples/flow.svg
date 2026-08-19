@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 234" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9BB4D4"/></marker>
+    <style>
+      .chip{fill:#EAF1FA;stroke:#064FA1;stroke-width:2;rx:12}
+      .step{fill:#fff;stroke:#C9D8EC;stroke-width:2;rx:12}
+      .op{font:600 30px ui-monospace, Menlo, Consolas, monospace;fill:#064FA1}
+      .t{font:22px sans-serif;fill:#1a1a1a}
+      .m{font:20px ui-monospace, Menlo, Consolas, monospace;fill:#555}
+      .lead{font:600 22px sans-serif;fill:#8A2B2F}
+      .h{font:600 26px sans-serif;fill:#064FA1}
+      .arr{stroke:#9BB4D4;stroke-width:3;marker-end:url(#a)}
+    </style>
+  </defs>
+  <rect class="chip" x="10" y="26" width="110" height="60"/>
+  <text class="op" x="65" y="66" text-anchor="middle">++b</text>
+  <line class="arr" x1="132" y1="56" x2="176" y2="56"/>
+  <rect class="step" x="186" y="26" width="143" height="60"/>
+  <text class="t" x="258" y="63" text-anchor="middle">先自增 +1</text>
+  <line class="arr" x1="341.0" y1="56" x2="385.0" y2="56"/>
+  <rect class="step" x="395.0" y="26" width="154" height="60"/>
+  <text class="t" x="472" y="63" text-anchor="middle">再参与运算</text>
+  <text class="lead" x="575" y="52">b = 3 时</text>
+  <text class="m" x="575" y="80">c = ++b → 4</text>
+  <line x1="10" y1="118" x2="890" y2="118" stroke="#E5E5E5" stroke-width="2"/>
+  <rect class="chip" x="10" y="150" width="110" height="60"/>
+  <text class="op" x="65" y="190" text-anchor="middle">b++</text>
+  <line class="arr" x1="132" y1="180" x2="176" y2="180"/>
+  <rect class="step" x="186" y="150" width="154" height="60"/>
+  <text class="t" x="263" y="187" text-anchor="middle">先参与运算</text>
+  <line class="arr" x1="352.0" y1="180" x2="396.0" y2="180"/>
+  <rect class="step" x="406.0" y="150" width="143" height="60"/>
+  <text class="t" x="478" y="187" text-anchor="middle">再自增 +1</text>
+  <text class="lead" x="575" y="176">b = 3 时</text>
+  <text class="m" x="575" y="204">c = b++ → 3</text>
+</svg>
