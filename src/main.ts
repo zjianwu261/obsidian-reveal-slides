@@ -754,7 +754,11 @@ export default class RevealPlugin extends Plugin {
           { role: 'system', content: IMAGE_PROMPT_SYSTEM },
           {
             role: 'user',
-            content: buildImagePromptRequest({ pageSource: current.range.text, request }),
+            content: buildImagePromptRequest({
+              pageSource: current.range.text,
+              request,
+              notesSeparator: this.settings.notesSeparator,
+            }),
           },
         ],
       ),

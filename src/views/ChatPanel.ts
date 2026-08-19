@@ -431,7 +431,10 @@ export class ChatPanel {
       this.stopWaiting();
       const done = expanded.mode === 'image' ? '画好了' : '想好了';
       this.say('assistant', `${done}，用了 ${round.seconds()} 秒`);
-      this.showProposal(reply);
+      // 画图这条路直接写回：图早就存成文件了，摆在这儿要你确认的只是一行引用，
+      // 真正要看的是预览里那张图 —— 不满意 ⌘Z 就回去了
+      if (expanded.mode === 'image') await this.applyNow(reply);
+      else this.showProposal(reply);
     } catch (err) {
       if (round.abandoned) return;
       this.stopWaiting();
@@ -481,6 +484,16 @@ export class ChatPanel {
   }
 
   /** 模型的回复先摆出来，按了「应用」才写回笔记 */
+  /** 不问了，直接写回这一页 */
+  private async applyNow(markdown: string): Promise<void> {
+    try {
+      await this.handlers.apply(markdown);
+      this.say('assistant', '已经放进这一页了。不满意就再来一次，或 ⌘/Ctrl + Z 撤销。');
+    } catch (err) {
+      this.say('assistant', `写回失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   private showProposal(markdown: string): void {
     this.pending = markdown;
 

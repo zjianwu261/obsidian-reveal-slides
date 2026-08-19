@@ -3,6 +3,7 @@ import {
   IMAGE_PROMPT_SYSTEM,
   buildImagePromptRequest,
   cleanImagePrompt,
+  extractNotes,
   shapeForBox,
 } from '../../src/ai/imagePrompt';
 
@@ -12,16 +13,45 @@ describe('IMAGE_PROMPT_SYSTEM', () => {
     expect(IMAGE_PROMPT_SYSTEM).toContain('no text');
   });
 
-  it('asks for a metaphor rather than the abstract idea itself', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('比喻');
+  /* 讲稿才是这张图的题目，幻灯片正文是压缩过的结论 */
+  it('tells the model to work from the speaker notes', () => {
+    expect(IMAGE_PROMPT_SYSTEM).toContain('note: 讲稿为准');
+  });
+
+  /* 抽象名词只会换来一堆发光的电路和齿轮 */
+  it('bans the vague words that produce stock art', () => {
+    expect(IMAGE_PROMPT_SYSTEM).toContain('concept of increment');
+  });
+});
+
+describe('extractNotes', () => {
+  it('takes everything after the notes marker', () => {
+    expect(extractNotes('## 标题\n\nnote: 第一句\n第二句')).toBe('第一句\n第二句');
+  });
+
+  it('follows the marker you configured', () => {
+    expect(extractNotes('正文\n\n备注：讲这个', '备注：')).toBe('讲这个');
+  });
+
+  it('comes back empty when the page has no notes', () => {
+    expect(extractNotes('## 标题\n\n- 要点')).toBe('');
   });
 });
 
 describe('buildImagePromptRequest', () => {
-  it('hands over the page and what was asked for', () => {
-    const text = buildImagePromptRequest({ pageSource: '## 自增\nnote: 讲稿', request: '配张图' });
-    expect(text).toContain('note: 讲稿');
+  /* 讲稿混在整页源码里的话，模型多半只扫一眼标题就动笔了 */
+  it('puts the speaker notes first, before the page source', () => {
+    const text = buildImagePromptRequest({
+      pageSource: '## 自增\n\n- 要点\n\nnote: 先取旧值，回头才加一',
+      request: '配张图',
+    });
+    expect(text.indexOf('先取旧值，回头才加一')).toBeLessThan(text.indexOf('完整源码'));
     expect(text).toContain('配张图');
+  });
+
+  it('says so when the page has no notes to work from', () => {
+    const text = buildImagePromptRequest({ pageSource: '## 标题\n\n- 要点', request: '配张图' });
+    expect(text).toContain('没有讲稿');
   });
 });
 
