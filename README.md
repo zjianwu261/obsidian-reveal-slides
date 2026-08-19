@@ -931,6 +931,7 @@ void main(void) { }
 | Start Slide Preview Server | — | 手动启动本地预览服务器 |
 | Stop Slide Preview Server | — | 停止服务器 |
 | Open AI Prompt | — | 打开（没有就先创建）AI 提示词文件，改完立刻生效 |
+| Extract SVG Figures to Files | — | 把当前笔记里的 ```` ```svg ```` 块搬进 `assets/<笔记名>/`，正文换成链接 |
 | Toggle Immersive Preview | — | 预览铺满整屏、隐去 Obsidian 外壳，标题栏与「⋯」菜单也有（见[沉浸式预览](#沉浸式预览手机上尤其值得开)） |
 | Toggle Grid Guides | — | 开关版面辅助线（grid 边框 + 10% 标尺），标题栏也有按钮 |
 | Open Slide Stylesheet | — | 分栏打开当前笔记生效的样式文件，「⋯」菜单也有 |
@@ -1495,6 +1496,9 @@ prompt: Extra/RevealSlides/第4章提示词
 
 存不进去（目录建不了之类）会弹提示并把图留在正文里——图留着总比丢了强。
 几行的 ```` ```figure ```` 声明不受影响，仍旧留在笔记里，就地改就地看。
+
+笔记里**早先已经写着**的 ```` ```svg ````（手写的、以前 AI 塞进去的）用命令面板的
+**Extract SVG Figures to Files** 一次搬完，按图上方最近的标题命名。
 
 #### 输入框高度
 

@@ -53,6 +53,14 @@ export function registerCommands(plugin: RevealPlugin): void {
   });
 
   plugin.addCommand({
+    id: 'extract-svg-figures',
+    name: 'Extract SVG Figures to Files',
+    callback: () => {
+      void plugin.extractSvgFiguresFromActiveNote();
+    },
+  });
+
+  plugin.addCommand({
     id: 'toggle-grid-guides',
     name: 'Toggle Grid Guides',
     callback: () => {

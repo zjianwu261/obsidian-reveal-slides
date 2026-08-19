@@ -70,6 +70,8 @@ export interface PluginSettings {
   aiApiBase: string;
   aiApiKey: string;
   aiModel: string;
+  /** 等模型多久就不等了（秒）。画一张图要吐两三千 token，慢模型三分钟写不完 */
+  aiTimeoutSeconds: number;
   /**
    * AI 提示词文件（库内路径）。存在就用它，不存在就用插件内置的那份。
    * 跟课程 CSS 一个思路：这套规矩是你的教学习惯，该由你改，不该藏在代码里。
@@ -130,6 +132,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
   aiModel: 'deepseek-v4-flash',
+  aiTimeoutSeconds: 300,
   aiPromptPath: 'Extra/RevealSlides/提示词.md',
   aiPanelRatio: 0.4,
   aiInputHeight: 0,

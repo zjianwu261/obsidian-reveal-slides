@@ -78,3 +78,37 @@ export function extractSvgFigures(
 
   return { markdown: result, figures };
 }
+
+/**
+ * 整篇笔记里已经写着的 \`\`\`svg 一次性搬出去（迁移用）。
+ *
+ * 逐块往回找最近的标题当名字 —— 页码这时候算不出来（要先分页、再对行号），
+ * 而标题就写在图上面几行，认得出是哪一页的图就够了。
+ */
+export function extractAllSvgFigures(markdown: string, dir: string): ExtractResult {
+  const figures: ExtractedFigure[] = [];
+  const used = new Map<string, number>();
+
+  const result = markdown.replace(SVG_FENCE, (block, indent: string, body: string, offset: number) => {
+    const svg = body.trim();
+    if (!svg.includes('<svg')) return block;
+
+    const stem = sanitize(headingBefore(markdown, offset)) || 'figure';
+    const seen = used.get(stem) ?? 0;
+    used.set(stem, seen + 1);
+    const name = seen === 0 ? `${stem}.svg` : `${stem}-${seen + 1}.svg`;
+
+    figures.push({ path: `${dir}${name}`, svg });
+    return `${indent}![[${dir}${name}]]`;
+  });
+
+  return { markdown: result, figures };
+}
+
+/** 这个位置往回数，最近的一个 Markdown 标题 */
+function headingBefore(markdown: string, offset: number): string {
+  const before = markdown.slice(0, offset);
+  let title = '';
+  for (const match of before.matchAll(/^\s{0,3}#{1,6}\s+(.+?)\s*$/gm)) title = match[1];
+  return title;
+}

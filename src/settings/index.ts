@@ -437,6 +437,24 @@ export class RevealSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('等待上限')
+      .setDesc(
+        '等模型多久就不等了（秒）。画一张图要吐两三千个 token，' +
+          '慢一点的模型三分钟根本写不完 —— 超时了先想想是不是这里太小。',
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder('300')
+          .setValue(String(settings.aiTimeoutSeconds))
+          .onChange(async (value) => {
+            const seconds = Number(value.trim());
+            // 填了个负数或一句话就当没填：等 0 秒等于按钮直接报错，比默认值还难用
+            settings.aiTimeoutSeconds = Number.isFinite(seconds) && seconds >= 10 ? seconds : 300;
+            await save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('模型')
       .addText((text) =>
         text

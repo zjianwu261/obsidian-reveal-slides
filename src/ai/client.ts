@@ -12,10 +12,22 @@ export interface ChatConfig {
   apiBase: string;
   apiKey: string;
   model: string;
+  /** 等多久就不等了（秒）；缺省用下面这个 */
+  timeoutSeconds?: number;
 }
 
-/** 超时上限：requestUrl 不能中途取消，只能不再等它 */
-const TIMEOUT_MS = 180_000;
+/**
+ * 默认等五分钟。画一张图要吐两三千个 token，慢一点的模型三分钟根本写不完 ——
+ * 这时候超时不是「接口不通」，是我们没耐心。
+ */
+const DEFAULT_TIMEOUT_SECONDS = 300;
+
+/**
+ * 一次最多让它写多少 token。
+ * 不写死的话各家默认值不一样（常见 4096），一张手绘图正好卡在这个量级上，
+ * 写到一半被截断 —— 出来的是半张图，而且看不出是被截的。
+ */
+const MAX_TOKENS = 8192;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -31,12 +43,13 @@ export class MissingApiKeyError extends Error {
 /**
  * 返回模型的回复文本；失败时抛出带可读信息的 Error。
  *
- * 三分钟还没回就当它不会回了 —— requestUrl 没有中断口子，超时只是不再等，
+ * 等过头就当它不会回了 —— requestUrl 没有中断口子，超时只是不再等，
  * 但至少让界面从「想一想…」里出来，而不是永远转下去。
  */
 export async function chat(config: ChatConfig, messages: ChatMessage[]): Promise<string> {
   if (!config.apiKey) throw new MissingApiKeyError();
 
+  const seconds = config.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
   const response = await withTimeout(requestUrl({
     url: `${config.apiBase.replace(/\/+$/, '')}/chat/completions`,
     method: 'POST',
@@ -44,26 +57,39 @@ export async function chat(config: ChatConfig, messages: ChatMessage[]): Promise
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.apiKey}`,
     },
-    body: JSON.stringify({ model: config.model, messages, temperature: 0.2 }),
+    body: JSON.stringify({
+      model: config.model,
+      messages,
+      temperature: 0.2,
+      max_tokens: MAX_TOKENS,
+    }),
     // 4xx/5xx 不要直接抛：接口的错误信息（key 失效、余额不足、模型名写错）都在响应体里
     throw: false,
-  }));
+  }), seconds);
 
   if (response.status >= 400) {
     throw new Error(`接口返回 ${response.status}：${readError(response.text)}`);
   }
 
-  const reply = (response.json as ChatReply | undefined)?.choices?.[0]?.message?.content;
+  const choice = (response.json as ChatReply | undefined)?.choices?.[0];
+  const reply = choice?.message?.content;
   if (!reply) throw new Error('接口没有返回内容');
+  // 截断了就别拿去用：半张 SVG 看着像画坏了，其实是没写完
+  if (choice?.finish_reason === 'length') {
+    throw new Error(`模型写到 ${MAX_TOKENS} token 就被截断了，让它画简单点，或分两次改`);
+  }
   return reply;
 }
 
-async function withTimeout<T>(promise: Promise<T>): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, seconds: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`等了 ${TIMEOUT_MS / 1000} 秒还没回应，接口可能不通或模型名不对`)),
-      TIMEOUT_MS,
+      () => reject(new Error(
+        `等了 ${seconds} 秒还没回应。接口不通、模型名不对都有可能；` +
+        '要是它只是画得慢，把「等待上限」调大一些',
+      )),
+      seconds * 1000,
     );
   });
   try {
@@ -74,7 +100,7 @@ async function withTimeout<T>(promise: Promise<T>): Promise<T> {
 }
 
 interface ChatReply {
-  choices?: { message?: { content?: string } }[];
+  choices?: { message?: { content?: string }; finish_reason?: string }[];
 }
 
 /** 把接口的错误体压成一行人话 */

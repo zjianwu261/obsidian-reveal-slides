@@ -29,7 +29,7 @@ import { chat } from './ai/client';
 import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from './ai/prompt';
 import { extractFrontmatter } from './processors/frontmatter';
 import { pageRange, replacePage } from './ai/pageSource';
-import { extractSvgFigures, figureDir } from './ai/figureAssets';
+import { extractAllSvgFigures, extractSvgFigures, figureDir } from './ai/figureAssets';
 import { pageTitle } from './views/chatContext';
 import type { ChatContext } from './views/chatContext';
 import type { PageRange } from './ai/pageSource';
@@ -663,6 +663,7 @@ export default class RevealPlugin extends Plugin {
         apiBase: this.settings.aiApiBase,
         apiKey: this.settings.aiApiKey,
         model: this.settings.aiModel,
+        timeoutSeconds: this.settings.aiTimeoutSeconds,
       },
       [
         { role: 'system', content: await this.loadSystemPrompt() },
@@ -722,6 +723,41 @@ export default class RevealPlugin extends Plugin {
 
     new Notice(`reveal-slide-for-obsidian: 图已存到 ${figureDir(note.path)}`);
     return text;
+  }
+
+  /**
+   * 把当前笔记里已经写着的 ```svg 一次性搬成文件（早先手写的、AI 早先塞进去的）。
+   * 落盘那条路只管新写进去的图，老的得有个地方一并收拾。
+   */
+  async extractSvgFiguresFromActiveNote(): Promise<void> {
+    const file = this.app.workspace.getActiveFile();
+    if (!file || file.extension !== 'md') {
+      new Notice('reveal-slide-for-obsidian: 先打开一篇笔记');
+      return;
+    }
+
+    const source = await this.app.vault.read(file);
+    const { markdown, figures } = extractAllSvgFigures(source, figureDir(file.path));
+    if (figures.length === 0) {
+      new Notice('reveal-slide-for-obsidian: 这篇笔记里没有 ```svg 块');
+      return;
+    }
+
+    try {
+      for (const figure of figures) {
+        await this.ensureFolder(figure.path);
+        const existing = this.app.vault.getAbstractFileByPath(figure.path);
+        if (existing instanceof TFile) await this.app.vault.modify(existing, figure.svg);
+        else await this.app.vault.create(figure.path, figure.svg);
+      }
+    } catch (error) {
+      console.error('[reveal-slide-for-obsidian] figure save failed', error);
+      new Notice('reveal-slide-for-obsidian: 图没能存成文件，笔记没动');
+      return;
+    }
+
+    await this.app.vault.modify(file, markdown);
+    new Notice(`reveal-slide-for-obsidian: ${figures.length} 张图已搬到 ${figureDir(file.path)}`);
   }
 
   /** 逐级建出这个文件所在的目录（vault.createFolder 不会自动建父级） */
