@@ -285,6 +285,11 @@ body.rfo-immersive {
   &:hover {
     background: var(--background-modifier-hover);
   }
+
+  /* 上下键选中的那条。比 hover 重一点，不然键盘选到哪儿看不出来 */
+  &.is-active {
+    background: var(--background-modifier-active-hover, var(--background-secondary-alt));
+  }
 }
 
 .rfo-chat-menu-name {

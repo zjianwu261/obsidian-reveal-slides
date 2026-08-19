@@ -24,7 +24,18 @@ export function ratioFromHeight(height: number, containerHeight: number): number
 }
 
 /** 对话框输入区的按键处理（纯判断，可单测） */
-export type ChatKeyAction = 'send' | 'newline' | 'pass';
+export type ChatKeyAction =
+  | 'send'
+  | 'newline'
+  | 'pass'
+  /** 斜杠菜单：往下挪一格 */
+  | 'menu-next'
+  /** 斜杠菜单：往上挪一格 */
+  | 'menu-prev'
+  /** 斜杠菜单：选中当前这条 */
+  | 'menu-accept'
+  /** 斜杠菜单：关掉，回到普通输入 */
+  | 'menu-close';
 
 export interface ChatKeyEvent {
   key: string;
@@ -36,10 +47,25 @@ export interface ChatKeyEvent {
   isComposing: boolean;
 }
 
-export function chatKeyAction(event: ChatKeyEvent): ChatKeyAction {
-  if (event.key !== 'Enter') return 'pass';
-  // 中文输入法选词时按 Enter 是上屏，不是发送 —— 不判这一条，打一半就会被发出去
+/**
+ * @param menuOpen 斜杠菜单是否正开着 —— 开着的时候上下键归菜单，Enter 是「选这条」而不是发送
+ */
+export function chatKeyAction(event: ChatKeyEvent, menuOpen = false): ChatKeyAction {
+  // 中文输入法正在拼字：Enter 是上屏，上下键是翻候选词，一概不抢
   if (event.isComposing) return 'pass';
+
+  if (menuOpen) {
+    if (event.key === 'ArrowDown') return 'menu-next';
+    if (event.key === 'ArrowUp') return 'menu-prev';
+    if (event.key === 'Escape') return 'menu-close';
+    // Tab 只认不带 Shift 的：Shift + Tab 是往回跳焦点，抢了会让人跳不出输入框
+    if (event.key === 'Tab' && !event.shiftKey) return 'menu-accept';
+    // 菜单开着时 Enter 是「选这条」。裸着发一句 /图 给模型没有意义，
+    // 但 Alt/Shift + Enter 仍然是换行 —— 那是在写内容，不是在挑命令
+    if (event.key === 'Enter' && !event.altKey && !event.shiftKey) return 'menu-accept';
+  }
+
+  if (event.key !== 'Enter') return 'pass';
   if (event.altKey || event.shiftKey) return 'newline';
   return 'send';
 }

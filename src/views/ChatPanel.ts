@@ -37,7 +37,9 @@ export class ChatPanel {
   private root: HTMLElement;
   private contextBar: HTMLElement;
   private log: HTMLElement;
-  private menu: HTMLElement | null = null;
+  /** 斜杠菜单：DOM、每条对应的文本、当前选中第几条 */
+  private menu: { el: HTMLElement; items: HTMLElement[]; texts: string[]; index: number } | null =
+    null;
   private input: HTMLTextAreaElement;
   private sendButton: HTMLButtonElement;
   private pending: string | null = null;
@@ -71,11 +73,17 @@ export class ChatPanel {
     this.sendButton.addEventListener('click', () => void this.send());
     this.input.addEventListener('input', () => this.refreshMenu());
     this.input.addEventListener('keydown', (event) => {
-      const action = chatKeyAction(event);
+      const action = chatKeyAction(event, this.menu !== null);
       if (action === 'pass') return;
       event.preventDefault();
-      if (action === 'send') void this.send();
-      else this.insertNewline();
+      switch (action) {
+        case 'send': void this.send(); break;
+        case 'newline': this.insertNewline(); break;
+        case 'menu-next': this.moveMenu(1); break;
+        case 'menu-prev': this.moveMenu(-1); break;
+        case 'menu-accept': this.acceptMenu(); break;
+        case 'menu-close': this.closeMenu(); break;
+      }
     });
   }
 
@@ -134,23 +142,59 @@ export class ChatPanel {
    */
   private refreshMenu(): void {
     const matches = matchCommands(this.input.value);
-    this.menu?.remove();
-    this.menu = null;
+    this.closeMenu();
     if (matches.length === 0) return;
 
-    const menu = this.root.createDiv({ cls: 'rfo-chat-menu' });
-    for (const command of matches) {
-      const item = menu.createDiv({ cls: 'rfo-chat-menu-item' });
+    const el = this.root.createDiv({ cls: 'rfo-chat-menu' });
+    const items: HTMLElement[] = [];
+    matches.forEach((command, i) => {
+      const item = el.createDiv({ cls: 'rfo-chat-menu-item' });
       item.createSpan({ cls: 'rfo-chat-menu-name', text: command.name });
       item.createSpan({ cls: 'rfo-chat-menu-hint', text: command.hint });
-      item.addEventListener('click', () => {
-        this.input.value = command.text;
-        this.menu?.remove();
-        this.menu = null;
-        this.input.focus();
+      // mousedown 而不是 click：click 之前输入框会先失焦，鼠标党和键盘党就对不上了
+      item.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        this.menu!.index = i;
+        this.acceptMenu();
       });
-    }
-    this.menu = menu;
+      // 鼠标扫过就同步高亮，免得出现「鼠标指一条、键盘选另一条」两个选中态
+      item.addEventListener('mouseenter', () => this.highlight(i));
+      items.push(item);
+    });
+
+    this.menu = { el, items, texts: matches.map((c) => c.text), index: 0 };
+    this.highlight(0);
+  }
+
+  /** 上下键挪一格，到头绕回去 —— 五条命令的短列表，绕回来比卡住顺手 */
+  private moveMenu(step: number): void {
+    if (!this.menu) return;
+    const { items, index } = this.menu;
+    this.highlight((index + step + items.length) % items.length);
+  }
+
+  private highlight(index: number): void {
+    if (!this.menu) return;
+    this.menu.index = index;
+    this.menu.items.forEach((item, i) => item.toggleClass('is-active', i === index));
+    // 列表比菜单高时（max-height 180px），选中项要自己滚进视野
+    this.menu.items[index]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  /** 选中当前这条：命令文本填进输入框，菜单关掉，焦点留在输入框上等你再改两句 */
+  private acceptMenu(): void {
+    if (!this.menu) return;
+    const text = this.menu.texts[this.menu.index];
+    this.closeMenu();
+    if (text === undefined) return;
+    this.input.value = text;
+    this.input.selectionStart = this.input.selectionEnd = text.length;
+    this.input.focus();
+  }
+
+  private closeMenu(): void {
+    this.menu?.el.remove();
+    this.menu = null;
   }
 
   setVisible(visible: boolean): void {
@@ -178,8 +222,7 @@ export class ChatPanel {
       return;
     }
 
-    this.menu?.remove();
-    this.menu = null;
+    this.closeMenu();
     this.say('user', request);
     this.input.value = '';
     this.sendButton.disabled = true;

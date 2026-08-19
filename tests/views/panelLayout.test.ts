@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_RATIO, chatKeyAction, clampPanelRatio, ratioFromHeight } from '../../src/views/panelLayout';
-import type { ChatKeyEvent } from '../../src/views/panelLayout';
+import type { ChatKeyAction, ChatKeyEvent } from '../../src/views/panelLayout';
 
 /*
  * 拖分割线时高度要落在合理区间：太矮看不到回复，太高幻灯片就没地方了。
@@ -76,5 +76,46 @@ describe('chatKeyAction', () => {
   it('ignores every other key', () => {
     expect(chatKeyAction(press({ key: 'a' }))).toBe('pass');
     expect(chatKeyAction(press({ key: 'Escape' }))).toBe('pass');
+  });
+
+  /* 斜杠菜单开着的时候，这几个键归菜单 */
+  describe('with the slash menu open', () => {
+    const menu = (over: Partial<ChatKeyEvent> = {}): ChatKeyAction =>
+      chatKeyAction(press(over), true);
+
+    it('walks the list with the arrow keys', () => {
+      expect(menu({ key: 'ArrowDown' })).toBe('menu-next');
+      expect(menu({ key: 'ArrowUp' })).toBe('menu-prev');
+    });
+
+    it('picks the highlighted command with Enter or Tab', () => {
+      expect(menu({ key: 'Enter' })).toBe('menu-accept');
+      expect(menu({ key: 'Tab' })).toBe('menu-accept');
+    });
+
+    /* Shift + Tab 是往回跳焦点：抢了就跳不出输入框 */
+    it('leaves Shift + Tab to the browser', () => {
+      expect(menu({ key: 'Tab', shiftKey: true })).toBe('pass');
+    });
+
+    it('closes on Escape', () => {
+      expect(menu({ key: 'Escape' })).toBe('menu-close');
+    });
+
+    /* 写内容和挑命令是两回事：Alt/Shift + Enter 仍然换行 */
+    it('still breaks the line on Alt or Shift + Enter', () => {
+      expect(menu({ altKey: true })).toBe('newline');
+      expect(menu({ shiftKey: true })).toBe('newline');
+    });
+
+    /* 输入法的候选词也用上下键翻 —— 拼字时一个都不能抢 */
+    it('yields every key to the IME while composing', () => {
+      expect(menu({ key: 'ArrowDown', isComposing: true })).toBe('pass');
+      expect(menu({ key: 'Enter', isComposing: true })).toBe('pass');
+    });
+
+    it('leaves the arrow keys alone when the menu is closed', () => {
+      expect(chatKeyAction(press({ key: 'ArrowDown' }))).toBe('pass');
+    });
   });
 });
