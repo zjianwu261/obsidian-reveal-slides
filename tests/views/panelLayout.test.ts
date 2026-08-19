@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_RATIO, chatKeyAction, clampPanelRatio, ratioFromHeight } from '../../src/views/panelLayout';
+import {
+  DEFAULT_RATIO,
+  MIN_INPUT_HEIGHT,
+  chatKeyAction,
+  clampPanelRatio,
+  heightToRemember,
+  inputHeight,
+  ratioFromHeight,
+} from '../../src/views/panelLayout';
 import type { ChatKeyAction, ChatKeyEvent } from '../../src/views/panelLayout';
 
 /*
@@ -117,5 +125,38 @@ describe('chatKeyAction', () => {
     it('leaves the arrow keys alone when the menu is closed', () => {
       expect(chatKeyAction(press({ key: 'ArrowDown' }))).toBe('pass');
     });
+  });
+});
+
+describe('inputHeight', () => {
+  /* 一句话的时候就该是两行高，别一上来占半屏 */
+  it('never goes below two rows', () => {
+    expect(inputHeight(10, 400)).toBe(MIN_INPUT_HEIGHT);
+  });
+
+  it('follows the content in between', () => {
+    expect(inputHeight(120, 600)).toBe(120);
+  });
+
+  /* 长文一贴就把对话记录顶没了的话，看不见上一轮回复在说什么 */
+  it('stops at four tenths of the panel', () => {
+    expect(inputHeight(500, 600)).toBe(240);
+  });
+
+  /* 面板本身被拖得很矮时，下限说了算 —— 输入框不能比两行还矮 */
+  it('keeps two rows even in a tiny panel', () => {
+    expect(inputHeight(500, 60)).toBe(MIN_INPUT_HEIGHT);
+  });
+});
+
+describe('heightToRemember', () => {
+  it('remembers what you dragged out', () => {
+    expect(heightToRemember(180)).toBe(180);
+  });
+
+  /* 拖回最矮＝要自动挡回来，手动挡挂上摘不掉的话没地方复位 */
+  it('reads a drag back to the bottom as going automatic', () => {
+    expect(heightToRemember(MIN_INPUT_HEIGHT)).toBe(0);
+    expect(heightToRemember(MIN_INPUT_HEIGHT + 3)).toBe(0);
   });
 });

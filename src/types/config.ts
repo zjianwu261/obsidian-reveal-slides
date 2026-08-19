@@ -78,6 +78,11 @@ export interface PluginSettings {
   /** 对话框占预览面板的比例（0~1），默认四六开 */
   aiPanelRatio: number;
   /**
+   * 输入框高度（像素）。0 = 跟着内容自己长，拖过一次就记住你拖的那个高度；
+   * 再拖回最矮就退回自动 —— 不然改坏了没地方复位。
+   */
+  aiInputHeight: number;
+  /**
    * 切换笔记时预览是否跟着换。
    * 默认关：预览钉在你让它预览的那一篇上，翻别的笔记查资料不会把它带跑；
    * 想换对象就在新笔记上执行一次 Show Slide Preview。
@@ -127,4 +132,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiModel: 'deepseek-v4-flash',
   aiPromptPath: 'Extra/RevealSlides/提示词.md',
   aiPanelRatio: 0.4,
+  aiInputHeight: 0,
 };

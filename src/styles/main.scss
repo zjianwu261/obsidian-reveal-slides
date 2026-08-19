@@ -236,7 +236,9 @@ body.rfo-immersive {
 
 .rfo-chat-input {
   flex: 1;
+  /* 高度由 JS 管（跟着内容长），这里只兜住两头 */
   resize: vertical;
+  min-height: 48px;
   font-size: var(--font-ui-small);
 }
 

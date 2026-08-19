@@ -9,7 +9,13 @@
  * 课件是要拿去上课的，不能让它背着人改。
  */
 import { Notice } from 'obsidian';
-import { chatKeyAction, clampPanelRatio, ratioFromHeight } from './panelLayout';
+import {
+  chatKeyAction,
+  clampPanelRatio,
+  heightToRemember,
+  inputHeight,
+  ratioFromHeight,
+} from './panelLayout';
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
 import { matchCommands } from './chatCommands';
@@ -25,6 +31,8 @@ interface WaitingRound {
 export interface ChatPanelHandlers {
   /** 拖动分割线后的新比例（0~1），交给调用方存起来 */
   onResize?(ratio: number): void;
+  /** 拖动输入框后的新高度（像素，0 = 退回自动），交给调用方存起来 */
+  onInputResize?(height: number): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
   /** 应用改动 */
@@ -47,6 +55,11 @@ export class ChatPanel {
   private input: HTMLTextAreaElement;
   private sendButton: HTMLButtonElement;
   private pending: string | null = null;
+  /** 上一次「我们自己」设的输入框高度：拿它区分是自动长的还是你拖的 */
+  private autoHeight = 0;
+  /** 你拖出来的高度；null = 还没拖过，跟着内容长 */
+  private manualHeight: number | null = null;
+  private inputObserver: ResizeObserver | null = null;
   /** 正在等的这一轮：秒数计时器与它那行界面 */
   private waiting: { timer: number; line: HTMLElement } | null = null;
 
@@ -54,6 +67,7 @@ export class ChatPanel {
     private parent: HTMLElement,
     private handlers: ChatPanelHandlers,
     ratio = 0.4,
+    savedInputHeight = 0,
   ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
     // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
@@ -77,7 +91,14 @@ export class ChatPanel {
     this.sendButton = bar.createEl('button', { cls: 'rfo-chat-send', text: '发送' });
 
     this.sendButton.addEventListener('click', () => void this.send());
-    this.input.addEventListener('input', () => this.refreshMenu());
+    this.input.addEventListener('input', () => {
+      this.refreshMenu();
+      this.growInput();
+    });
+
+    if (savedInputHeight > 0) this.manualHeight = savedInputHeight;
+    this.applyInputHeight();
+    this.watchInputResize();
     this.input.addEventListener('keydown', (event) => {
       const action = chatKeyAction(event, this.menu !== null);
       if (action === 'pass') return;
@@ -164,11 +185,59 @@ export class ChatPanel {
     }
   }
 
+  /**
+   * 输入框跟着内容长。
+   *
+   * 两行是给「把图换成对比图」这种一句话准备的；真要交代清楚一段要求时，
+   * 打到第五行就看不见开头写了什么了 —— 一边写一边长，比每次去拖角省事。
+   * 自己拖过一次就听你的，不再自动长。
+   */
+  private growInput(): void {
+    if (this.manualHeight !== null) return;
+    this.input.style.height = 'auto'; // 先塌回去，scrollHeight 才是内容的真实高度
+    this.setInputHeight(inputHeight(this.input.scrollHeight, this.root.clientHeight));
+  }
+
+  private applyInputHeight(): void {
+    if (this.manualHeight !== null) {
+      this.setInputHeight(this.manualHeight);
+      return;
+    }
+    this.growInput();
+  }
+
+  private setInputHeight(height: number): void {
+    this.autoHeight = height;
+    this.input.style.height = `${height}px`;
+  }
+
+  /**
+   * 拖角改高度：textarea 的 resize 不发事件，只能盯着尺寸变。
+   * 与我们自己刚设的高度对得上就是自动长的，对不上才是你拖的。
+   */
+  private watchInputResize(): void {
+    if (typeof ResizeObserver === 'undefined') return;
+
+    this.inputObserver = new ResizeObserver(() => {
+      const height = this.input.getBoundingClientRect().height;
+      if (!height || Math.abs(height - this.autoHeight) < 2) return;
+
+      const remembered = heightToRemember(height);
+      this.manualHeight = remembered || null;
+      this.autoHeight = height;
+      this.handlers.onInputResize?.(remembered);
+      // 拖回最矮＝要自动挡，立刻按当前内容重算一次
+      if (!remembered) this.growInput();
+    });
+    this.inputObserver.observe(this.input);
+  }
+
   /** Alt/Shift + Enter：在光标处插一个换行（textarea 默认不会为这两个组合换行） */
   private insertNewline(): void {
     const { selectionStart, selectionEnd, value } = this.input;
     this.input.value = `${value.slice(0, selectionStart)}\n${value.slice(selectionEnd)}`;
     this.input.selectionStart = this.input.selectionEnd = selectionStart + 1;
+    this.growInput();
   }
 
   /** 预览翻页 / 换笔记之后刷新状态栏 */
@@ -230,6 +299,7 @@ export class ChatPanel {
     this.input.value = text;
     this.input.selectionStart = this.input.selectionEnd = text.length;
     this.input.focus();
+    this.growInput();
   }
 
   private closeMenu(): void {
@@ -242,6 +312,7 @@ export class ChatPanel {
   }
 
   destroy(): void {
+    this.inputObserver?.disconnect();
     this.stopWaiting();
     this.root.remove();
   }
@@ -284,6 +355,7 @@ export class ChatPanel {
     this.closeMenu();
     this.say('user', this.echo());
     this.input.value = '';
+    this.growInput();
     this.sendButton.disabled = true;
 
     const round = this.startWaiting();

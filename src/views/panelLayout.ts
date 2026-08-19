@@ -23,6 +23,28 @@ export function ratioFromHeight(height: number, containerHeight: number): number
   return clampPanelRatio(height / containerHeight);
 }
 
+/** 输入框最矮两行，再矮就看不见自己在打什么 */
+export const MIN_INPUT_HEIGHT = 48;
+
+/**
+ * 输入框该多高（纯计算，可单测）。
+ *
+ * 跟着内容长，但有两条边：矮不过两行，高不过面板的四成 ——
+ * 长文一贴就把对话记录顶没了的话，你就看不见上一轮回复在说什么。
+ */
+export function inputHeight(contentHeight: number, panelHeight: number): number {
+  const max = Math.max(MIN_INPUT_HEIGHT, panelHeight * 0.4);
+  return Math.round(Math.min(Math.max(contentHeight, MIN_INPUT_HEIGHT), max));
+}
+
+/**
+ * 拖出来的高度 → 该记住的值。拖回最矮（含误差）就是 0：退回「跟着内容长」。
+ * 手动挡一旦挂上就摘不掉的话，改坏了没地方复位。
+ */
+export function heightToRemember(dragged: number): number {
+  return dragged <= MIN_INPUT_HEIGHT + 4 ? 0 : Math.round(dragged);
+}
+
 /** 对话框输入区的按键处理（纯判断，可单测） */
 export type ChatKeyAction =
   | 'send'
