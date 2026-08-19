@@ -201,7 +201,16 @@ export class ChatPanel {
 
     const actions = box.createDiv({ cls: 'rfo-chat-actions' });
     const apply = actions.createEl('button', { cls: 'mod-cta', text: '应用到这一页' });
+    const copy = actions.createEl('button', { text: '复制' });
     const cancel = actions.createEl('button', { text: '算了' });
+
+    // 不想整页替换时，手动挑一段抄走
+    copy.addEventListener('click', () => {
+      void navigator.clipboard.writeText(markdown).then(
+        () => copy.setText('已复制'),
+        () => new Notice('reveal-slide-for-obsidian: 复制失败，手动选中吧'),
+      );
+    });
 
     apply.addEventListener('click', () => {
       const pending = this.pending;

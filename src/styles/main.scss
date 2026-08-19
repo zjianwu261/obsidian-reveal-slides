@@ -167,6 +167,14 @@ body.rfo-immersive {
   background: var(--background-secondary);
   white-space: pre-wrap;
 
+  /*
+   * Obsidian 给自家界面统一关了文字选择，插件视图里的文字也跟着选不中。
+   * 这里的回复是要拿去用的 —— 抄一段进笔记、把报错贴出来问人，都得能选。
+   */
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+
   &.is-user {
     align-self: flex-end;
     background: var(--interactive-accent);
@@ -205,6 +213,8 @@ body.rfo-immersive {
 }
 
 .rfo-chat-diff {
+  user-select: text;
+  -webkit-user-select: text;
   max-height: 220px;
   margin: 0 0 6px;
   overflow: auto;
