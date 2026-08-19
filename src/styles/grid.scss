@@ -59,14 +59,17 @@
   pre {
     max-width: 100%;
     margin: 0;
-
-    /*
-     * <code> 自己滚动（overflow-x: auto，见 canvas.scss）时，超宽的行只会撑大 code 的
-     * scrollWidth，<pre> 的 scrollWidth 仍等于容器宽 —— fitCodeBlock 据此判定「放得下」，
-     * 于是长行被静默裁掉而不是缩小。让溢出穿透到 pre，宽度这一路的自适应才会触发。
-     */
-    code {
-      overflow: visible;
-    }
   }
+}
+
+/*
+ * <code> 自己滚动（overflow-x: auto，见 canvas.scss）时，超宽的行只会撑大 code 的
+ * scrollWidth，<pre> 的 scrollWidth 仍等于容器宽 —— fitCodeBlock 据此判定「放得下」，
+ * 于是长行被静默裁掉而不是缩小。让溢出穿透到 pre，宽度这一路的自适应才会触发。
+ *
+ * 选择器必须带上 .reveal：写成 .grid pre code 与 canvas.scss 的 .reveal pre code 同为
+ * (0,1,2)，而 main.scss 里 canvas 排在 grid 之后，同分时后来者赢 —— 这条规则一直没生效。
+ */
+.reveal .grid pre code {
+  overflow: visible;
 }

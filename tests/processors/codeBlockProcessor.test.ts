@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { fitCodeBlocks } from '../../src/processors/codeBlockProcessor';
+import { fitCodeBlocks, highlightCodeBlocks } from '../../src/processors/codeBlockProcessor';
 
 /** happy-dom 无布局，用 defineProperty 模拟测量值 */
 function mockBox(el: HTMLElement, box: { clientH?: number; clientW?: number; scrollH?: number; scrollW?: number }) {
@@ -51,5 +51,47 @@ describe('fitCodeBlocks', () => {
 
     fitCodeBlocks(document);
     expect(pre.style.transform).toBe('');
+  });
+});
+
+describe('highlightCodeBlocks', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  /*
+   * reveal 的 highlight 插件只在 initialize() 里跑一遍，重渲染换掉 DOM 之后
+   * 新的代码块无人问津 —— 编辑一次预览，整屏代码就没了颜色。
+   */
+  it('highlights blocks the reveal plugin never saw', () => {
+    document.body.innerHTML = '<pre><code class="language-c">sfr P0 = 0x80;</code></pre>';
+    const highlighted: HTMLElement[] = [];
+
+    highlightCodeBlocks(document, (block) => highlighted.push(block));
+
+    expect(highlighted).toHaveLength(1);
+    expect(highlighted[0].className).toBe('language-c');
+    // 插件 init 给 pre 加的类，重渲染后一并补上
+    expect(document.querySelector('pre')?.className).toBe('code-wrapper');
+  });
+
+  /* 已高亮的块再染一遍，会把上一轮的 <span class="hljs-..."> 当源码重新分词 */
+  it('skips blocks hljs already handled', () => {
+    document.body.innerHTML =
+      '<pre class="code-wrapper"><code class="language-c hljs">x</code></pre>';
+    const highlighted: HTMLElement[] = [];
+
+    highlightCodeBlocks(document, (block) => highlighted.push(block));
+
+    expect(highlighted).toHaveLength(0);
+  });
+
+  it('leaves <code> outside a <pre> alone', () => {
+    document.body.innerHTML = '<p>行内 <code>sfr</code> 不是代码块</p>';
+    const highlighted: HTMLElement[] = [];
+
+    highlightCodeBlocks(document, (block) => highlighted.push(block));
+
+    expect(highlighted).toHaveLength(0);
   });
 });

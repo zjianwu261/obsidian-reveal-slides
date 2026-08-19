@@ -17,6 +17,16 @@ const prod = process.argv[2] === 'production';
 // （改了文件不重载插件时，很难判断在跑新代码还是旧代码）
 const buildStamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
+/*
+ * mathjax-full 的 components/version.js 在没有 PACKAGE_VERSION 全局时，会用
+ * `eval("require")` + `__dirname` 去读自己的 package.json 拿版本号 —— 浏览器里
+ * 一执行就是 ReferenceError: require is not defined，整个 iframe bundle 起不来。
+ * 构建期把版本号定义进去，那条分支就走不到了。
+ */
+const mathjaxVersion = JSON.parse(
+  readFileSync(path.join('node_modules', 'mathjax-full', 'package.json'), 'utf8'),
+).version;
+
 const distDir = 'dist';
 const assetsDir = path.join(distDir, 'assets');
 mkdirSync(assetsDir, { recursive: true });
@@ -136,6 +146,7 @@ const revealContext = await esbuild.context({
   bundle: true,
   format: 'esm',
   target: 'es2020',
+  define: { PACKAGE_VERSION: JSON.stringify(mathjaxVersion) },
   logLevel: 'info',
   sourcemap: false,
   minify: prod,

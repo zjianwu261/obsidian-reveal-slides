@@ -63,7 +63,7 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
 移动端的两点取舍：
 - **三种导出都不可用**：PDF 依赖桌面浏览器的打印对话框，HTML 与 PPTX 要读写文件系统，
   移动端两样都没有。需要导出时请在桌面端打开同一个库。
-- 内联页面把整个 reveal 运行时（含 Mermaid、Chart.js，约 5 MB）打进一个 blob，
+- 内联页面把整个 reveal 运行时（含 Mermaid、Chart.js、MathJax，约 7 MB）打进一个 blob，
   首次打开预览会有一两秒加载；之后编辑刷新不受影响。
 
 ### 沉浸式预览（手机上尤其值得开）
@@ -89,7 +89,7 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
   缩放挂在 reveal 的外层容器上，不碰它自己那套画布缩放。
 - 顺手申请一次 **Screen Wake Lock**，讲课时屏幕不会自己暗下去；平台不支持或被系统
   拒绝就静默跳过，不影响预览。
-- 进出只在 `<body>` 上加减一个 class，**不重建 iframe** —— 否则那 5 MB 的运行时要重跑一遍。
+- 进出只在 `<body>` 上加减一个 class，**不重建 iframe** —— 否则那 7 MB 的运行时要重跑一遍。
 
 桌面端若端口全被占用导致服务器起不来，预览会自动退到同一套内联渲染，不至于开天窗。
 
@@ -99,7 +99,7 @@ Windows 的盘符与反斜杠适配（`C:\Users\...` 与 URL 里的 `/C:/Users/.
 > **一个包通吃**：桌面端与移动端共用同一份构建产物，不区分平台。
 > iframe 需要的 reveal 运行时与样式在构建期就内联进了 `main.js`
 > （Obsidian 的安装器只下载 `main.js` / `manifest.json` / `styles.css` 三个文件，
-> 不会带上任何额外目录），所以这三个文件就是完整插件，代价是 `main.js` 约 5 MB。
+> 不会带上任何额外目录），所以这三个文件就是完整插件，代价是 `main.js` 约 7 MB。
 
 ### 手动安装（当前方式）
 
@@ -217,8 +217,10 @@ margin: 0.01
 `pos="top"` 是顶边居中，`pos="-6 -8"` 是**距右边 6%、距下边 8%**（右下角对齐）。
 写 `bottomright` 就是严丝合缝贴右下角。
 
-> 三种拼法等价，混用也没问题：`dim`/`pos`（推荐）、`dimension`/`position`、
-> `drag`/`drop`（advanced-slides 写法，老笔记直接能用）。
+> **尺寸位置只有 `dim` / `pos` 两个名字。** 早期还认 `dimension`/`position` 和
+> advanced-slides 的 `drag`/`drop`，现已全部作废——写这些名字的 grid 会被当成
+> 「没写尺寸位置」，拿到默认的满画布居中，而不是报错。从 advanced-slides 搬过来的
+> 笔记，把 `drag`→`dim`、`drop`→`pos` 全文替换一遍即可，取值语义完全相同。
 
 ### 第 3 步：一屏放两栏
 
@@ -717,6 +719,42 @@ sbit LED = P0^0;
   才整体缩放），`.code` 里的 `.62rem` 是「放得下时」的字号。嫌小就把 grid 开大。
 - **长行不折行**，超宽同样触发自动缩小，而且缩的是整块——一行 120 列的代码会把
   另外五行也一起拖小。该断行就断行，或者拆成两块 grid。
+- **代码框按代码宽度收缩**，最宽不超过所在 grid。短代码不会拉出一条通栏的深色长条；
+  它和 `ul`、`h2` 一样服从 grid 的 `align-items`（默认居中，想靠左写
+  `<grid ... style="align-items: flex-start">`）。
+
+##### 标出讲到的是哪几行
+
+语言标记旁写行号，讲到哪几行就标哪几行——加了行号栏，标中的行正常显示，其余行淡下去：
+
+````markdown
+```c [2,4-6]
+#include <reg52.h>
+sfr P0 = 0x80;
+sfr TCON = 0x88;
+sbit IT0 = TCON^0;
+sbit LED = P0^0;
+void main(void) { }
+```
+````
+
+| 写法 | 效果 |
+| --- | --- |
+| `[2]` | 第 2 行 |
+| `[2,5]` | 第 2、5 行 |
+| `[4-6]` | 第 4 到 6 行 |
+| `[2,4-6]` | 混着写 |
+| `[1-2\|3\|4-6]` | **分步**：竖线分组，每按一次方向键换一组（每组是一个 fragment） |
+| `[]` | 只加行号，不淡化任何行 |
+
+花括号 `{2,4-6}` 是同义写法，看哪种顺手。三点注意：
+
+- **行号和高亮是绑在一起的**（reveal 的 `data-line-numbers` 一个属性管两件事），
+  没法只淡化不显示行号。
+- **淡下去的行是 40% 透明度**，注释本来颜色就暗，淡完基本看不见。想留一点可读性，
+  在页内 `<style>` 里抬一档：`.reveal .hljs.has-highlights tr:not(.highlight-line){opacity:.6}`。
+- 等价的完整写法是紧跟代码块的 `<!-- .element: data-line-numbers="2,4-6" -->`，
+  需要 `data-ln-start-from`（行号从第几行起算）时用它。
 
 #### 分栏（栏宽自动平分时更省事）
 
@@ -866,9 +904,13 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 > **单位一律是画布百分比。** reveal.js 会把整块画布（默认 1920×1080）等比缩放到窗口，
 > 所以百分比布局在笔记本、投影仪、4K 大屏上表现一致，不需要也不提供绝对像素定位。
 >
-> **别名**：`dim` / `pos` 也可以写成完整的 `dimension` / `position`，
-> 或 advanced-slides 的 `drag` / `drop` —— 三种拼法语义完全相同，可以混用，
-> 已有的 advanced-slides 笔记不用改就能渲染。同一标签写了多种时以短写优先。
+> **只认这七个属性名。** 写别的（比如 advanced-slides 的 `align` / `flow` / `bg`，
+> 或早期支持过的 `dimension` / `position` / `drag` / `drop`）不会报错，会被静默忽略——
+> 这一点要留神：`<grid drag="70 60" drop="0 17">` 不会报红，它会**安静地**变成
+> 满画布居中的块，看上去像"版面塌了"。排查时先确认属性名拼对了没有。
+>
+> advanced-slides 的对照：`drag`→`dim`、`drop`→`pos`（取值语义相同，直接替换）；
+> `align` / `flow` 用 `style="align-items: …"` / `style="flex-direction: row"` 代替。
 
 ### pos 写法
 
@@ -909,7 +951,7 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 
 ### 属性自动补全
 
-在笔记里输入 `<grid ` 或 `<split ` 会弹出属性名候选；`position="` / `shape="` / `frag="` / `animate="`
+在笔记里输入 `<grid ` 或 `<split ` 会弹出属性名候选；`pos="` / `shape="` / `frag="` / `animate="`
 还会提示可用取值。不需要可在设置 → Preview → Autocomplete 关掉。
 
 ### 完整示例：封面页
@@ -1056,7 +1098,28 @@ series:
 
 ### 数学公式
 
-`$...$` 行内公式与 `$$...$$` 块级公式由 Obsidian 渲染器直接渲染（MathJax），另有 reveal.js math 插件兜底。
+`$...$` 行内公式、`$$...$$` 块级公式，写法与 Obsidian 笔记里完全一致：
+
+```markdown
+- **截止状态**：当 $I_b ≈ 0$，则 $I_C ≈ 0$，电路断开，LED 不亮。
+
+$$I_C = \beta \times I_b = \frac{V_{CC} - V_{CE}}{R_C}$$
+```
+
+公式由插件在预览里用 **MathJax 排成 SVG**，不是把 Obsidian 渲染好的结果搬过来——
+Obsidian 用的是 MathJax 的 CHTML 输出，字形靠一张动态增补的样式表加一批 woff 字体补出来，
+两者都在 Obsidian 自己的文档里，跨不进预览 iframe，搬过去只剩一串空元素（公式位置一片空白）。
+排成 SVG 则自带字形：离线、单文件 HTML 导出、导出图片都照样显示。
+
+几点：
+
+- **宏包按 MathJax 的 AllPackages 装满**，Obsidian 里能渲染的，幻灯片上就能渲染。
+- **公式跟着上下文字号缩放**（SVG 尺寸用 `ex`），放进 `<grid>` 不用单独调字号；
+  颜色取 `currentColor`，深色底上写白字，公式一起变白。
+- **不会误伤美元号**：代码块与行内代码整段跳过（`echo $HOME` 安全），`\$` 转义、
+  以及首尾带空格的 `$100 到 $200` 都不当公式。
+- **单条公式写错不拖垮整页**：该处保留原始 `$...$` 文本，控制台打出错误。
+- 演讲者备注里的公式不排版（备注是另一套渲染路径），正文不受影响。
 
 ## Emoji 与 Font Awesome
 

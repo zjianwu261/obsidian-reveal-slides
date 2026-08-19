@@ -83,20 +83,107 @@ html {
   }
 
   pre {
+    /*
+     * 代码块铺满所在容器：框由 <grid dim> 说了算。
+     * 曾经用 fit-content 让框贴着最长行收缩 —— 那是深色底时代的事，一块深底横穿整个
+     * grid 太打眼。底色改白之后框本身根本看不见，收不收缩只影响代码从哪一列起排，
+     * 再留一套隐形的宽度规则，等于让人对着看不见的东西调版面。
+     * 现在只有一个地方决定大小：grid 划多大，代码块就多大；装不下的长行仍由
+     * fitCodeBlocks 缩字号（见 codeBlockProcessor）。
+     */
     width: 100%;
     margin: 0.5em 0;
+
+    /*
+     * 分步行高亮（data-line-numbers="1-2|3"）靠 reveal 克隆出几份 <code>，
+     * 除第一份外都是 position: absolute + width: 100%，得有个定位祖先兜着。
+     * reveal 是在**主题** CSS 里给 pre 加的 position: relative，而本项目不带主题 ——
+     * 缺这一行，第二步开始整块代码会跳到 grid 左上角、按 grid 的宽度铺开。
+     */
+    position: relative;
     font-size: 0.55em;
     line-height: 1.4;
+
+    /*
+     * 制表符按 4 列算。浏览器默认是 8 —— 你在 Obsidian 里按一次 Tab 看到的是 4 列，
+     * 投出来却缩了两倍，两层嵌套就把语句推到半屏之外，看着像缩进坏了。
+     * 4 与 Obsidian 编辑器一致：写的时候什么样，投出来就什么样。
+     */
+    tab-size: 4;
 
     code {
       display: block;
       padding: 0.6em;
-      background: #2d2d2d;
-      color: #f8f8f2;
+      background: #fff;
+      color: #1f2328;
       border-radius: 6px;
       overflow-x: auto;
       text-align: left;
     }
+
+    /*
+     * 亮色语法配色（GitHub Light 色板）。
+     *
+     * reveal 只带 monokai 和 zenburn 两套高亮主题，都是给深色底配的：底色一换成白，
+     * 那些荧光绿、亮粉就直接糊在白纸上，投影时尤其看不清。所以整套 token 颜色都要重写。
+     * 选择器带 `.reveal pre` 前缀（0,2,1），压得过 monokai 的 `.hljs-*`（0,1,0）。
+     *
+     * .hljs-number 这条 monokai 干脆没有（早年移植版漏了），寄存器代码一屏十六进制，
+     * 不上色看着就像没高亮 —— 这里一并补上。
+     */
+    .hljs-comment,
+    .hljs-quote {
+      color: #6e7781;
+      font-style: normal;
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag,
+    .hljs-literal,
+    .hljs-type,
+    .hljs-meta {
+      color: #cf222e;
+    }
+
+    .hljs-string,
+    .hljs-regexp,
+    .hljs-addition,
+    .hljs-attribute,
+    .hljs-symbol,
+    .hljs-template-tag {
+      color: #0a3069;
+    }
+
+    .hljs-number,
+    .hljs-built_in,
+    .hljs-builtin-name,
+    .hljs-variable,
+    .hljs-template-variable {
+      color: #0550ae;
+    }
+
+    .hljs-title,
+    .hljs-section,
+    .hljs-class,
+    .hljs-name {
+      color: #8250df;
+      font-weight: 600;
+    }
+
+    .hljs-deletion {
+      color: #82071e;
+    }
+  }
+
+  /*
+   * 公式占位元素（客户端排版前是 $...$ 原文，排完是 MathJax 的 <mjx-container>）。
+   * mjx-container 自身的样式由 MathJax 生成的样式表负责，这里只管块级公式独占一行居中。
+   * 不写死字号：SVG 输出的尺寸单位是 ex，跟着上下文字号缩放，rem/em 那套照旧管用。
+   */
+  .rfo-math[data-display] {
+    display: block;
+    text-align: center;
+    margin: 0.4em 0;
   }
 
   table {

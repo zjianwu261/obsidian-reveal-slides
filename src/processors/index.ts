@@ -15,6 +15,9 @@ import { processCodeBlocks } from './codeHighlight';
 import { processSlideEmbeds } from './embedProcessor';
 import { processInlineMarkup } from './footnoteProcessor';
 import { applyElementComments, extractElementComments } from './elementComment';
+import { expandCodeLineSpecs } from './codeLineNumbers';
+import { applyMath, extractMath } from './mathProcessor';
+import type { MathBlock } from './mathProcessor';
 import type { ElementDirective } from './elementComment';
 import { createDefaultRegistry, renderGridHtml, renderSplitHtml } from '../transformers';
 import { splitPlaceholder } from '../constants';
@@ -138,9 +141,18 @@ export class PipelineOrchestrator {
         config.notesSeparator ?? settings.notesSeparator,
       );
 
+      // 4.4 ```c [2,4-6] → 行号 / 行高亮，就地展开成 .element 指令，
+      //     故须排在下一步之前
+      const withLineSpecs = expandCodeLineSpecs(noted);
+
+      // 4.45 $...$ / $$...$$ → 文本标记
+      //      同样必须在渲染前抽走：Obsidian 渲染出的 MathJax CHTML 到了 iframe 里
+      //      是一串空元素（字形靠它自己文档里的那张样式表补），见 mathProcessor
+      const { text: withMath, maths } = extractMath(withLineSpecs);
+
       // 4.5 <!-- .element: --> / <!-- .slide: --> → 文本标记
       //     必须在渲染前抽走：Obsidian 会把 HTML 注释整段删掉
-      const { text: marked, directives } = extractElementComments(noted);
+      const { text: marked, directives } = extractElementComments(withMath);
 
       // 5/6. grid / split → 占位符
       const gridParsed = parseGridTags(marked);
@@ -176,18 +188,18 @@ export class PipelineOrchestrator {
 
       // 9~14. 后处理。grid/split 的内容此时还在各自的字符串里（页面 html 中只有占位符），
       //       必须逐份处理，否则 grid 里的图片不会被改写、代码块不会被转换。
-      const pageResult = this.postProcess(html, { serverBase, fileExists, directives });
+      const pageResult = this.postProcess(html, { serverBase, fileExists, directives, maths });
       html = pageResult.html;
       const slideAttributes = { ...pageResult.slideAttributes };
 
       for (const grid of grids) {
-        const result = this.postProcess(grid.children, { serverBase, fileExists, directives });
+        const result = this.postProcess(grid.children, { serverBase, fileExists, directives, maths });
         grid.children = result.html;
         Object.assign(slideAttributes, result.slideAttributes);
       }
       for (const split of splits) {
         split.columns = split.columns.map((col) => {
-          const result = this.postProcess(col, { serverBase, fileExists, directives });
+          const result = this.postProcess(col, { serverBase, fileExists, directives, maths });
           Object.assign(slideAttributes, result.slideAttributes);
           return result.html;
         });
@@ -247,6 +259,7 @@ export class PipelineOrchestrator {
       serverBase?: string;
       fileExists?: (absolutePath: string) => boolean;
       directives?: ElementDirective[];
+      maths?: MathBlock[];
     },
   ): { html: string; slideAttributes: Record<string, string> } {
     let result = processImages(html, options);
@@ -256,6 +269,7 @@ export class PipelineOrchestrator {
     // 余下的 <pre><code> 才是真代码块：mermaid / chart / svg 到这里已被换成各自的元素
     result = processCodeBlocks(result);
     result = processInlineMarkup(result);
+    result = applyMath(result, options.maths);
     const elementResult = applyElementComments(result, options.directives);
     return { html: elementResult.html, slideAttributes: elementResult.slideAttributes };
   }

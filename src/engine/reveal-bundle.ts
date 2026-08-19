@@ -26,7 +26,8 @@ import { applyScrollViewGuard } from './scrollViewHandler';
 import { applyHistoryGuard } from './historyGuard';
 import { installTapNavigation } from './tapNavigation';
 import { PinchZoom } from './pinchZoom';
-import { fitCodeBlocks } from '../processors/codeBlockProcessor';
+import { fitCodeBlocks, highlightCodeBlocks } from '../processors/codeBlockProcessor';
+import { renderMath } from './mathRenderer';
 
 declare global {
   interface Window {
@@ -87,6 +88,16 @@ window.addEventListener('unhandledrejection', (event) => showError(String(event.
 // Mermaid 全局初始化一次；插件侧把 ```mermaid 转成 <div class="rfo-mermaid"> 占位，
 // 每次 render 后用 mermaid.run 渲染为 SVG
 mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+/**
+ * highlight 插件的实例（模块级单例，`RevealHighlight()` 每次返回同一个对象）。
+ * 直接取而不走 deck.getPlugin('highlight')：highlightBlock 只用到插件内部打包的 hljs，
+ * 跟 Reveal 实例无关，少一层依赖也就少一处能返回 undefined 的地方。
+ * 类型声明里的插件契约只有 id / init，highlightBlock 是它额外挂的方法，按结构补上。
+ */
+const highlightPlugin = RevealHighlight() as unknown as {
+  highlightBlock: (block: HTMLElement) => void;
+};
 
 /**
  * deck 的三个来源：
@@ -313,7 +324,14 @@ async function render(): Promise<void> {
     slideMuted(indices.h, indices.v ?? 0);
   }
 
-  // reveal.js 初始化/同步会改 DOM，长代码自适应须在其后执行
+  // 重渲染出来的代码块 reveal 不会再高亮（插件只在 initialize 时跑一遍），自己补
+  highlightCodeBlocks(document, (block) => highlightPlugin.highlightBlock(block));
+
+  // 公式排版：占位符由插件侧 mathProcessor 生成，排完才有确定尺寸，故排在自适应之前
+  renderMath(document);
+
+  // reveal.js 初始化/同步会改 DOM，长代码自适应须在其后执行；
+  // 高亮同样排在自适应之前 —— 带 data-line-numbers 的块会被 hljs 换成 <table>，尺寸随之变
   fitCodeBlocks(document);
 
   // Mermaid / Chart.js 客户端渲染（占位元素由插件侧处理器生成）

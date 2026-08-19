@@ -92,6 +92,20 @@ function isOnlyContent(parent: Element, node: Node, remainingText = ''): boolean
   ) && !remainingText.trim();
 }
 
+/**
+ * reveal 的 highlight 插件是从 <code> 上读这两个属性的，而 .element 指令按规则
+ * 落在紧邻的上一个元素 —— 代码块渲染出来是 <pre>。不转发的话，属性挂在 <pre> 上
+ * 插件一眼都看不到，行号与行高亮静默失效。
+ * 名单只收这两个：class / style / data-fragment-index 之类作用于整块，留在 <pre> 才对。
+ */
+const CODE_ATTRIBUTES = ['data-line-numbers', 'data-ln-start-from'];
+
+/** 属性的实际落点：代码块的那两个属性改挂到内层 <code> */
+function attributeTarget(el: Element, key: string): Element {
+  if (el.tagName !== 'PRE' || !CODE_ATTRIBUTES.includes(key)) return el;
+  return el.querySelector('code') ?? el;
+}
+
 /** class 合并、style 追加、其余 setAttribute */
 function applyAttributes(el: Element | null, attrs: Record<string, string>): void {
   if (!el) return;
@@ -103,7 +117,7 @@ function applyAttributes(el: Element | null, attrs: Record<string, string>): voi
       const sep = existing ? (existing.endsWith(';') ? ' ' : '; ') : '';
       el.setAttribute('style', `${existing}${sep}${value}`);
     } else {
-      el.setAttribute(key, value);
+      attributeTarget(el, key).setAttribute(key, value);
     }
   }
 }

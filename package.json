@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "chart.js": "^4.5.1",
+    "mathjax-full": "^3.2.1",
     "mermaid": "^10.9.8",
     "reveal.js": "^6.0.1"
   },
