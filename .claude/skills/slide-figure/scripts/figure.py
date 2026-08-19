@@ -34,8 +34,22 @@ THEME = {
     "mono": "ui-monospace, Menlo, Consolas, monospace",
 }
 
-W = 900          # viewBox 宽，固定；高度按内容算
+BASE_W = 900     # viewBox 基准宽；高度按内容算
 PAD = 10
+
+
+def canvas_width(scale) -> int:
+    """图里的字号是 viewBox 单位，最终多大取决于图被塞进多宽的 grid。
+
+    textScale 不改字号，改画布宽度（900 / scale）：画布窄了，同样的字在最终画面里
+    就显得大。想让图里的字跟旁边正文一样大时调它。与 src/figure 的实现保持一致。
+    """
+    try:
+        factor = float(scale) if scale else 1.0
+    except (TypeError, ValueError):
+        factor = 1.0
+    # 半数向上，与 JS 的 Math.round 一致（900/1.6 = 562.5：Python 的 round 会给 562）
+    return int(math.floor(BASE_W / min(3.0, max(0.5, factor)) + 0.5))
 
 
 def px(value: float) -> str:
@@ -75,9 +89,9 @@ def rich(s: str, mono: str) -> str:
     return "".join(out)
 
 
-def svg_open(height: int, t: dict) -> list[str]:
+def svg_open(width: int, height: int, t: dict) -> list[str]:
     return [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {height}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'font-family="{t["font"]}">',
         "  <defs>",
         '    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" '
@@ -99,10 +113,11 @@ def svg_open(height: int, t: dict) -> list[str]:
 
 # ── flow：一行一条流程 ──────────────────────────────────
 def render_flow(spec: dict, t: dict) -> str:
+    W = canvas_width(spec.get("textScale"))
     rows = spec["rows"]
     row_h, gap_y, box_h = 124, 0, 60
     height = PAD * 2 + len(rows) * row_h - (row_h - box_h - 30)
-    out = svg_open(height, t)
+    out = svg_open(W, height, t)
 
     for i, row in enumerate(rows):
         y = PAD + 16 + i * row_h
@@ -146,13 +161,14 @@ def render_flow(spec: dict, t: dict) -> str:
 
 # ── compare：两三列对照 ────────────────────────────────
 def render_compare(spec: dict, t: dict) -> str:
+    W = canvas_width(spec.get("textScale"))
     cols = spec["columns"]
     n = len(cols)
     gap = 30
     cw = (W - PAD * 2 - gap * (n - 1)) / n
     rows = max(len(c.get("lines", [])) for c in cols)
     height = PAD * 2 + 70 + rows * 40 + 20
-    out = svg_open(height, t)
+    out = svg_open(W, height, t)
 
     for i, col in enumerate(cols):
         x = PAD + i * (cw + gap)
@@ -173,12 +189,13 @@ def render_compare(spec: dict, t: dict) -> str:
 
 # ── bitfield：寄存器位分布 ─────────────────────────────
 def render_bitfield(spec: dict, t: dict) -> str:
+    W = canvas_width(spec.get("textScale"))
     bits = spec["bits"]                      # 高位在前
     n = len(bits)
     highlight = set(spec.get("highlight", []))
     caption = spec.get("caption")
     height = 200 if caption else 165
-    out = svg_open(height, t)
+    out = svg_open(W, height, t)
 
     if spec.get("name"):
         out.append(f'  <text class="op" x="{PAD}" y="42">{esc(spec["name"])}</text>')
@@ -208,9 +225,10 @@ def render_bitfield(spec: dict, t: dict) -> str:
 
 # ── timeline：时序 / 阶段 ──────────────────────────────
 def render_timeline(spec: dict, t: dict) -> str:
+    W = canvas_width(spec.get("textScale"))
     nodes = spec["nodes"]
     height = 200
-    out = svg_open(height, t)
+    out = svg_open(W, height, t)
     y = 110
     out.append(f'  <line class="arr" x1="30" y1="{y}" x2="{W - 20}" y2="{y}"/>')
 

@@ -46,6 +46,11 @@ export interface TimelineNode {
 export interface FigureSpecBase {
   type: string;
   theme?: Partial<FigureTheme>;
+  /**
+   * 图里文字的相对大小，默认 1。
+   * 图被塞进越窄的 grid，字看起来越小；跟正文并排时把它调到 1.5~1.8 才配得上。
+   */
+  textScale?: number;
 }
 
 export interface FlowSpec extends FigureSpecBase {

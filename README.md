@@ -1385,6 +1385,19 @@ python3 ~/.claude/skills/slide-figure/scripts/figure.py \
 python3 scripts/figure.py examples/flow.json -o /tmp/试试.svg
 ```
 
+#### 图里的字要和正文一样大
+
+字的最终大小取决于图被塞进多宽的格子。图占满整行（`dim` 宽 ≥ 88）时不用管；
+跟正文并排（图宽 50~65）时，在声明里加 `"textScale": 1.6`，否则图里的字会比正文
+明显小一圈。
+
+```json
+{ "type": "compare", "textScale": 1.6, "columns": [ … ] }
+```
+
+它不改字号，改的是画布宽度（900 ÷ scale）——画布窄了，同样的字在最终画面里就显得大。
+范围 0.5~3。
+
 #### 配色
 
 默认跟课程主题一致（主色 `#064FA1`）。改配色不用碰渲染器：
