@@ -29,6 +29,7 @@ import { chat } from './ai/client';
 import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from './ai/prompt';
 import { extractFrontmatter } from './processors/frontmatter';
 import { pageRange, replacePage } from './ai/pageSource';
+import { extractSvgFigures, figureDir } from './ai/figureAssets';
 import { pageTitle } from './views/chatContext';
 import type { ChatContext } from './views/chatContext';
 import type { PageRange } from './ai/pageSource';
@@ -686,7 +687,51 @@ export default class RevealPlugin extends Plugin {
     const current = await this.readCurrentPage();
     if (!current) throw new Error('找不到这一页在源码里的位置');
 
-    await this.app.vault.modify(file, replacePage(current.source, current.range, markdown));
+    const page = await this.saveFigures(markdown, file);
+    await this.app.vault.modify(file, replacePage(current.source, current.range, page));
+  }
+
+  /**
+   * 模型手绘的 ```svg 落盘成文件，正文里只留一行 ![[…]]。
+   *
+   * 几十上百行坐标留在笔记里，翻源码时得先跳过一屏尖括号才看得见讲稿；
+   * 写不进去（目录建不了、文件被占用）就退回原样 —— 图留在正文里总比丢了强。
+   */
+  private async saveFigures(markdown: string, note: TFile): Promise<string> {
+    const context = this.currentChatContext();
+    const { markdown: text, figures } = extractSvgFigures(markdown, {
+      dir: figureDir(note.path),
+      page: context?.page ?? '',
+      title: context?.title ?? '',
+    });
+    if (figures.length === 0) return markdown;
+
+    try {
+      for (const figure of figures) {
+        await this.ensureFolder(figure.path);
+        const existing = this.app.vault.getAbstractFileByPath(figure.path);
+        // 同一页重画就覆盖同一个文件，不在 assets 里堆没人认领的图
+        if (existing instanceof TFile) await this.app.vault.modify(existing, figure.svg);
+        else await this.app.vault.create(figure.path, figure.svg);
+      }
+    } catch (error) {
+      console.error('[reveal-slide-for-obsidian] figure save failed', error);
+      new Notice('reveal-slide-for-obsidian: 图没能存成文件，这次留在正文里了');
+      return markdown;
+    }
+
+    new Notice(`reveal-slide-for-obsidian: 图已存到 ${figureDir(note.path)}`);
+    return text;
+  }
+
+  /** 逐级建出这个文件所在的目录（vault.createFolder 不会自动建父级） */
+  private async ensureFolder(filePath: string): Promise<void> {
+    const parts = filePath.split('/').slice(0, -1);
+    for (let i = 1; i <= parts.length; i++) {
+      const folder = parts.slice(0, i).join('/');
+      if (!folder || this.app.vault.getAbstractFileByPath(folder)) continue;
+      await this.app.vault.createFolder(folder);
+    }
   }
 
   /**
