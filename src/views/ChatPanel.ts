@@ -13,7 +13,7 @@ import { chatKeyAction, clampPanelRatio, ratioFromHeight } from './panelLayout';
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
 import { matchCommands } from './chatCommands';
-import { SLIDE_LAYOUTS, composeRequest } from './slideLayouts';
+import { SLIDE_LAYOUTS, composeRequest, findBox, requestedBlock } from './slideLayouts';
 import type { SlideLayout } from './slideLayouts';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
@@ -253,6 +253,17 @@ export class ChatPanel {
     return line;
   }
 
+  /**
+   * 拿「通栏正文」去配图这种搭配：版式里根本没有图的位置。
+   * composeRequest 这时会把版式丢掉（宽度宁可不给，也不能瞎给一个），
+   * 但丢得静悄悄的话，你会以为宽度已经定死了 —— 吭一声。
+   */
+  private warnIfLayoutHasNoRoom(): void {
+    const block = requestedBlock(this.input.value);
+    if (!this.layout || !block || findBox(this.layout, block)) return;
+    new Notice(`reveal-slide-for-obsidian: 「${this.layout.name}」没有这一块的位置，这次没按版式发`);
+  }
+
   /** 对话里回显这一句：版式那段话是给模型看的，界面上写个名字就够了 */
   private echo(): string {
     const typed = this.input.value.trim();
@@ -263,6 +274,7 @@ export class ChatPanel {
   private async send(): Promise<void> {
     const request = composeRequest(this.input.value, this.layout);
     if (!request || this.sendButton.disabled) return;
+    this.warnIfLayoutHasNoRoom();
 
     if (!this.handlers.canEdit()) {
       new Notice('reveal-slide-for-obsidian: 还没有可改的页面');
