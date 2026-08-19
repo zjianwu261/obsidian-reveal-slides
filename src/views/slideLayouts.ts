@@ -42,7 +42,7 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
   {
     id: 'fig-top',
     name: '图上文下',
-    hint: '首选。flow / bitfield / timeline 这类宽扁的图',
+    hint: 'flow / bitfield / timeline 这类宽扁的图',
     boxes: [
       BAR,
       { kind: 'fig', x: 4, y: 14, w: 92, h: 34 },
@@ -64,7 +64,7 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
   {
     id: 'fig-left',
     name: '图左文右',
-    hint: 'compare 这类偏方的图，或文字较多时',
+    hint: '默认。图占大半、要点在右，一眼同时看见两边',
     boxes: [
       BAR,
       { kind: 'fig', x: 4, y: 15, w: 58, h: 66 },
@@ -98,6 +98,16 @@ export const SLIDE_LAYOUTS: SlideLayout[] = [
     ],
   },
 ];
+
+/**
+ * 没另外挑过时用哪一档。图左文右：图占大半、文字在右窄栏，
+ * 一眼能同时看见图和要点，是这门课最常用的排法。
+ */
+export const DEFAULT_LAYOUT_ID = 'fig-left';
+
+export function layoutById(id: string): SlideLayout | null {
+  return SLIDE_LAYOUTS.find((layout) => layout.id === id) ?? null;
+}
 
 /** 一格的写法：<grid dim="92 34" pos="4 14" class="fig"> */
 function gridTag(box: LayoutBox): string {

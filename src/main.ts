@@ -35,7 +35,13 @@ import {
   figureDir,
   figureFileName,
 } from './ai/figureAssets';
-import { activeProfile, imageProfile, migrateProfiles, profileProblem } from './ai/profiles';
+import {
+  activeProfile,
+  imageProfile,
+  migrateProfiles,
+  profileProblem,
+  profilesOfKind,
+} from './ai/profiles';
 import { generateImage } from './ai/imageClient';
 import {
   IMAGE_PROMPT_SYSTEM,
@@ -218,9 +224,15 @@ export default class RevealPlugin extends Plugin {
     this.settings.aiActiveProfile = this.currentAiProfile()?.id ?? '';
   }
 
-  /** 现在用哪一套接口 */
+  /**
+   * 对话用哪一套。只在「对话」那几套里挑 —— 画图接口也在这个列表里，
+   * 但它不会写字：让它当上对话接口，每句话都会撞在同一堵墙上。
+   */
   currentAiProfile(): AiProfile | null {
-    return activeProfile(this.settings.aiProfiles, this.settings.aiActiveProfile);
+    return activeProfile(
+      profilesOfKind(this.settings.aiProfiles, 'chat'),
+      this.settings.aiActiveProfile,
+    );
   }
 
   async saveSettings(): Promise<void> {

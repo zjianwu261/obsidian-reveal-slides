@@ -19,7 +19,13 @@ import {
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
 import { expandRequest, matchCommands } from './chatCommands';
-import { SLIDE_LAYOUTS, composeRequest, findBox, requestedBlock } from './slideLayouts';
+import {
+  SLIDE_LAYOUTS,
+  composeRequest,
+  findBox,
+  layoutById,
+  requestedBlock,
+} from './slideLayouts';
 import type { LayoutBox } from './slideLayouts';
 import type { SlideLayout } from './slideLayouts';
 
@@ -34,6 +40,8 @@ export interface ChatPanelHandlers {
   onResize?(ratio: number): void;
   /** 拖动输入框后的新高度（像素，0 = 退回自动），交给调用方存起来 */
   onInputResize?(height: number): void;
+  /** 换了版式（空串 = 取消选中），交给调用方存起来 */
+  onLayoutChange?(id: string): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
   /** 画一张位图配图，返回塞好图之后的新页面源码 */
@@ -78,12 +86,15 @@ export class ChatPanel {
     private handlers: ChatPanelHandlers,
     ratio = 0.4,
     savedInputHeight = 0,
+    savedLayout = '',
   ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
     // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
     this.root.style.height = `${(clampPanelRatio(ratio) * 100).toFixed(1)}%`;
     this.buildResizer();
 
+    // 上次选的那一档下次还在：每页都从头挑一次没有意义，课件的排法是稳定的
+    this.layout = layoutById(savedLayout);
     this.buildLayoutBar();
 
     // 状态栏：这句话会改哪一页。笔记切来切去之后，这一条比什么都重要
@@ -174,6 +185,7 @@ export class ChatPanel {
 
     for (const layout of SLIDE_LAYOUTS) {
       const cell = bar.createDiv({ cls: 'rfo-chat-layout', attr: { title: layout.hint } });
+      cell.toggleClass('is-active', layout.id === this.layout?.id);
       const thumb = cell.createDiv({ cls: 'rfo-chat-layout-thumb' });
       for (const box of layout.boxes) {
         const el = thumb.createDiv({ cls: `rfo-chat-layout-box is-${box.kind}` });
@@ -190,6 +202,7 @@ export class ChatPanel {
         bar.findAll('.rfo-chat-layout').forEach((other, i) => {
           other.toggleClass('is-active', SLIDE_LAYOUTS[i].id === this.layout?.id);
         });
+        this.handlers.onLayoutChange?.(this.layout?.id ?? '');
         this.input.focus();
       });
     }

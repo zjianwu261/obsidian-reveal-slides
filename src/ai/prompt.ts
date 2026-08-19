@@ -89,14 +89,14 @@ lines 里用反引号包代码，会自动切等宽字体。一列不超过四�
 **图比文字更需要横向空间**——flow 是一行一行往右排的，compare 是并排的列，
 挤在窄栏里会缩成一团。所以只有两种排法，别自己发明第三种：
 
-  上下排（首选，图是宽扁的 flow / bitfield / timeline 时）
-    <grid dim="92 34" pos="4 14" class="fig">        图占满整行
-    <grid dim="92 26" pos="4 52" class="abstract">  文字在下
-
-  左右排（compare 这类偏方的图，或者文字较多时）
+  左右排（首选，图占大半、要点在右，一眼同时看得见两边）
     <grid dim="58 66" pos="4 15" class="fig">        图占大半，别低于 55
     <grid dim="36 66" pos="62 15" class="abstract">  文字占小半
     并排时图一定要加 "textScale": 1.6
+
+  上下排（图特别宽扁时才用，如很长的 flow / bitfield / timeline）
+    <grid dim="92 34" pos="4 14" class="fig">        图占满整行
+    <grid dim="92 26" pos="4 52" class="abstract">  文字在下
 
 **别把图塞进 36% 这种窄栏再让文字占 64%** —— 那是反过来了。
 

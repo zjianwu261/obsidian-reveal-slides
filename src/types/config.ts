@@ -96,6 +96,8 @@ export interface PluginSettings {
    * 再拖回最矮就退回自动 —— 不然改坏了没地方复位。
    */
   aiInputHeight: number;
+  /** 版式条上默认选中哪一个（SlideLayout.id）；空串 = 不指定，位置交给模型 */
+  aiLayout: string;
   /**
    * 切换笔记时预览是否跟着换。
    * 默认关：预览钉在你让它预览的那一篇上，翻别的笔记查资料不会把它带跑；
@@ -150,4 +152,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiPromptPath: 'Extra/RevealSlides/提示词.md',
   aiPanelRatio: 0.4,
   aiInputHeight: 0,
+  aiLayout: 'fig-left',
 };

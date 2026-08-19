@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   activeProfile,
+  imageProfile,
   migrateProfiles,
   newProfileId,
   profileProblem,
+  profilesOfKind,
 } from '../../src/ai/profiles';
 import type { AiProfile } from '../../src/ai/profiles';
 
@@ -99,5 +101,27 @@ describe('profileProblem 认出画图接口', () => {
     for (const model of ['gpt-4o', 'claude-sonnet-4', 'deepseek-chat', 'gpt-5-mini']) {
       expect(profileProblem(profile({ model })), model).toBeNull();
     }
+  });
+});
+
+describe('profilesOfKind', () => {
+  const list = [
+    profile({ id: 'a' }),
+    profile({ id: 'b', name: '中转站', model: 'gpt-image-2' }),
+    profile({ id: 'c', name: '画图', model: 'my-model', kind: 'image' }),
+  ];
+
+  /* 画图接口也在同一个列表里，但它不会写字 —— 别让它当上对话接口 */
+  it('keeps the drawing endpoints out of the chat list', () => {
+    expect(profilesOfKind(list, 'chat').map((p) => p.id)).toEqual(['a']);
+  });
+
+  it('recognises a drawing endpoint by model name or by what you set', () => {
+    expect(profilesOfKind(list, 'image').map((p) => p.id)).toEqual(['b', 'c']);
+  });
+
+  it('picks the first drawing endpoint to draw with', () => {
+    expect(imageProfile(list)?.id).toBe('b');
+    expect(imageProfile([profile()])).toBeNull();
   });
 });
