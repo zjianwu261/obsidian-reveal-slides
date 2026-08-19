@@ -47,6 +47,23 @@ def esc(s) -> str:
     return escape(str(s), quote=False)
 
 
+def rich(s: str, mono: str) -> str:
+    """反引号包住的片段切成等宽字体：`a == b` 判断 → <tspan>a == b</tspan> 判断。
+
+    作者写声明时会照着 Markdown 的习惯敲反引号，直接输出就成了字面上的反引号。
+    """
+    parts = str(s).split("`")
+    out = []
+    for i, part in enumerate(parts):
+        if not part:
+            continue
+        if i % 2:                       # 奇数段落在一对反引号之间
+            out.append(f'<tspan font-family="{mono}">{esc(part)}</tspan>')
+        else:
+            out.append(esc(part))
+    return "".join(out)
+
+
 def svg_open(height: int, t: dict) -> list[str]:
     return [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {height}" '
@@ -98,7 +115,8 @@ def render_flow(spec: dict, t: dict) -> str:
             w = max(140, text_width(str(step), 22) + 44)
             out += [
                 f'  <rect class="step" x="{x}" y="{y}" width="{w:.0f}" height="{box_h}"/>',
-                f'  <text class="t" x="{x + w / 2:.0f}" y="{y + 37}" text-anchor="middle">{esc(step)}</text>',
+                f'  <text class="t" x="{x + w / 2:.0f}" y="{y + 37}" '
+                f'text-anchor="middle">{rich(step, t["mono"])}</text>',
             ]
             x += w + 12
         note = row.get("note")
@@ -134,10 +152,9 @@ def render_compare(spec: dict, t: dict) -> str:
         ]
         for j, line in enumerate(col.get("lines", [])):
             y = PAD + 92 + j * 40
-            mono = str(line).startswith("`") and str(line).endswith("`")
-            body = str(line).strip("`")
-            cls = "m" if mono else "t"
-            out.append(f'  <text class="{cls}" x="{x + 26:.0f}" y="{y}">{esc(body)}</text>')
+            out.append(
+                f'  <text class="t" x="{x + 26:.0f}" y="{y}">{rich(line, t["mono"])}</text>'
+            )
 
     out.append("</svg>")
     return "\n".join(out)
