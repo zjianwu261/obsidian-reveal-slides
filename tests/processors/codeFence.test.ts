@@ -16,11 +16,16 @@ import { DEFAULT_SETTINGS } from '../../src/types/config';
 /** 渲染桩：围栏代码块 → <pre><code>（转义 HTML），其余同 Obsidian（删注释、<p dir="auto">） */
 const render = async (markdown: string): Promise<string> => {
   const blocks: string[] = [];
-  const withFences = markdown.replace(/^```[^\n]*\n([\s\S]*?)^```[ \t]*$/gm, (_m, code: string) => {
-    const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    blocks.push(`<pre><code>${escaped}</code></pre>`);
-    return `@@BLOCK${blocks.length - 1}@@`;
-  });
+  const withFences = markdown.replace(
+    /^```([^\n]*)\n([\s\S]*?)^```[ \t]*$/gm,
+    (_m, lang: string, code: string) => {
+      const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // Obsidian 会把语言标记落成 class="language-xxx"，图表类处理器全靠它认领代码块
+      const cls = lang.trim() ? ` class="language-${lang.trim()}"` : '';
+      blocks.push(`<pre${cls}><code${cls}>${escaped}</code></pre>`);
+      return `@@BLOCK${blocks.length - 1}@@`;
+    },
+  );
   const html = withFences
     .replace(/<!--[\s\S]*?-->/g, '')
     .split(/\n{2,}/)
@@ -159,6 +164,22 @@ describe('end to end: a slide that teaches the syntax', () => {
     expect(deck.pages).toHaveLength(2);
     expect(deck.pages[0].notes[0].content).toContain('讲稿里也有');
     expect(deck.pages[0].html).not.toContain('讲稿里也有');
+  });
+
+  it('renders a ```figure block into an image, not a code block', async () => {
+    const deck = await run(
+      '# 定时器\n\n```figure\n{ "type": "timeline", "nodes": [{ "label": "装初值" }] }\n```',
+    );
+    const html = deck.pages[0].html;
+    expect(html).toContain('class="rfo-svg"');
+    expect(html).not.toContain('language-figure');
+
+    // 图是 data URI，文字在编码后的 SVG 里（与 ```svg 块同一条路）
+    const svg = Buffer.from(
+      /base64,([^"]+)/.exec(html)?.[1] ?? '',
+      'base64',
+    ).toString('utf8');
+    expect(svg).toContain('装初值');
   });
 
   it('keeps a YAML sample whole instead of moving half of it into notes', async () => {

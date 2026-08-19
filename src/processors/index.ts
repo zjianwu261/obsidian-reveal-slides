@@ -8,6 +8,7 @@ import { extractNotes } from './noteProcessor';
 import { parseGridTags } from './gridParser';
 import { processImages } from './imageProcessor';
 import { processSvgBlocks } from './svgProcessor';
+import { processFigureBlocks } from './figureProcessor';
 import { processChartBlocks } from './chartProcessor';
 import { processMermaidBlocks } from './mermaidProcessor';
 import { processCodeBlocks } from './codeHighlight';
@@ -235,6 +236,7 @@ export class PipelineOrchestrator {
   ): { html: string; slideAttributes: Record<string, string> } {
     let result = processImages(html, options);
     result = processSvgBlocks(result);
+    result = processFigureBlocks(result);
     result = processChartBlocks(result);
     result = processMermaidBlocks(result);
     // 余下的 <pre><code> 才是真代码块：mermaid / chart / svg 到这里已被换成各自的元素

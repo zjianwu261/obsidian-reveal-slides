@@ -17,8 +17,8 @@
   <line class="arr" x1="132" y1="56" x2="176" y2="56"/>
   <rect class="step" x="186" y="26" width="143" height="60"/>
   <text class="t" x="258" y="63" text-anchor="middle">先自增 +1</text>
-  <line class="arr" x1="341.0" y1="56" x2="385.0" y2="56"/>
-  <rect class="step" x="395.0" y="26" width="154" height="60"/>
+  <line class="arr" x1="341" y1="56" x2="385" y2="56"/>
+  <rect class="step" x="395" y="26" width="154" height="60"/>
   <text class="t" x="472" y="63" text-anchor="middle">再参与运算</text>
   <text class="lead" x="575" y="52">b = 3 时</text>
   <text class="m" x="575" y="80">c = ++b → 4</text>
@@ -28,8 +28,8 @@
   <line class="arr" x1="132" y1="180" x2="176" y2="180"/>
   <rect class="step" x="186" y="150" width="154" height="60"/>
   <text class="t" x="263" y="187" text-anchor="middle">先参与运算</text>
-  <line class="arr" x1="352.0" y1="180" x2="396.0" y2="180"/>
-  <rect class="step" x="406.0" y="150" width="143" height="60"/>
+  <line class="arr" x1="352" y1="180" x2="396" y2="180"/>
+  <rect class="step" x="406" y="150" width="143" height="60"/>
   <text class="t" x="478" y="187" text-anchor="middle">再自增 +1</text>
   <text class="lead" x="575" y="176">b = 3 时</text>
   <text class="m" x="575" y="204">c = b++ → 3</text>

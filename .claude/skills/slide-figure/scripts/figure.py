@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from html import escape
 
@@ -35,6 +36,16 @@ THEME = {
 
 W = 900          # viewBox 宽，固定；高度按内容算
 PAD = 10
+
+
+def px(value: float) -> str:
+    """坐标取整：半数向上，与 JavaScript 的 toFixed(0) 一致。
+
+    插件里有一份等价的 TypeScript 渲染器（src/figure），同一份声明两边必须渲染出
+    完全相同的 SVG；Python 的 f"{x:.0f}" 是「四舍六入五取偶」，452.5 会变成 452，
+    而 JS 给 453 —— 不统一的话，预览里调好的图用命令行重渲就会挪位。
+    """
+    return str(int(math.floor(value + 0.5)))
 
 
 def text_width(s: str, size: float) -> float:
@@ -105,17 +116,17 @@ def render_flow(spec: dict, t: dict) -> str:
         if chip:
             w = max(110, text_width(chip, 30) + 46)
             out += [
-                f'  <rect class="chip" x="{x}" y="{y}" width="{w:.0f}" height="{box_h}"/>',
-                f'  <text class="op" x="{x + w / 2:.0f}" y="{y + 40}" text-anchor="middle">{esc(chip)}</text>',
+                f'  <rect class="chip" x="{px(x)}" y="{y}" width="{px(w)}" height="{box_h}"/>',
+                f'  <text class="op" x="{px(x + w / 2)}" y="{y + 40}" text-anchor="middle">{esc(chip)}</text>',
             ]
             x += w + 12
         for step in row.get("steps", []):
-            out.append(f'  <line class="arr" x1="{x}" y1="{y + 30}" x2="{x + 44}" y2="{y + 30}"/>')
+            out.append(f'  <line class="arr" x1="{px(x)}" y1="{y + 30}" x2="{px(x + 44)}" y2="{y + 30}"/>')
             x += 54
             w = max(140, text_width(str(step), 22) + 44)
             out += [
-                f'  <rect class="step" x="{x}" y="{y}" width="{w:.0f}" height="{box_h}"/>',
-                f'  <text class="t" x="{x + w / 2:.0f}" y="{y + 37}" '
+                f'  <rect class="step" x="{px(x)}" y="{y}" width="{px(w)}" height="{box_h}"/>',
+                f'  <text class="t" x="{px(x + w / 2)}" y="{y + 37}" '
                 f'text-anchor="middle">{rich(step, t["mono"])}</text>',
             ]
             x += w + 12
@@ -124,10 +135,10 @@ def render_flow(spec: dict, t: dict) -> str:
             nx = min(x + 14, W - PAD - text_width(str(note), 20))
             title = row.get("note_title")
             if title:
-                out.append(f'  <text class="lead" x="{nx:.0f}" y="{y + 26}">{esc(title)}</text>')
-                out.append(f'  <text class="m" x="{nx:.0f}" y="{y + 54}">{esc(note)}</text>')
+                out.append(f'  <text class="lead" x="{px(nx)}" y="{y + 26}">{esc(title)}</text>')
+                out.append(f'  <text class="m" x="{px(nx)}" y="{y + 54}">{esc(note)}</text>')
             else:
-                out.append(f'  <text class="m" x="{nx:.0f}" y="{y + 38}">{esc(note)}</text>')
+                out.append(f'  <text class="m" x="{px(nx)}" y="{y + 38}">{esc(note)}</text>')
 
     out.append("</svg>")
     return "\n".join(out)
@@ -147,13 +158,13 @@ def render_compare(spec: dict, t: dict) -> str:
         x = PAD + i * (cw + gap)
         cls = "chip" if col.get("highlight") else "step"
         out += [
-            f'  <rect class="{cls}" x="{x:.0f}" y="{PAD}" width="{cw:.0f}" height="{height - PAD * 2:.0f}"/>',
-            f'  <text class="h" x="{x + 26:.0f}" y="{PAD + 46}">{esc(col.get("title", ""))}</text>',
+            f'  <rect class="{cls}" x="{px(x)}" y="{PAD}" width="{px(cw)}" height="{px(height - PAD * 2)}"/>',
+            f'  <text class="h" x="{px(x + 26)}" y="{PAD + 46}">{esc(col.get("title", ""))}</text>',
         ]
         for j, line in enumerate(col.get("lines", [])):
             y = PAD + 92 + j * 40
             out.append(
-                f'  <text class="t" x="{x + 26:.0f}" y="{y}">{rich(line, t["mono"])}</text>'
+                f'  <text class="t" x="{px(x + 26)}" y="{y}">{rich(line, t["mono"])}</text>'
             )
 
     out.append("</svg>")
@@ -181,11 +192,11 @@ def render_bitfield(spec: dict, t: dict) -> str:
         x = PAD + i * (cw + gap)
         hot = bit in highlight or (n - 1 - i) in highlight
         out += [
-            f'  <rect class="{"chip" if hot else "step"}" x="{x:.0f}" y="60" '
-            f'width="{cw:.0f}" height="58"/>',
-            f'  <text class="op" x="{x + cw / 2:.0f}" y="99" text-anchor="middle" '
+            f'  <rect class="{"chip" if hot else "step"}" x="{px(x)}" y="60" '
+            f'width="{px(cw)}" height="58"/>',
+            f'  <text class="op" x="{px(x + cw / 2)}" y="99" text-anchor="middle" '
             f'style="font-size:24px">{esc(bit)}</text>',
-            f'  <text class="m" x="{x + cw / 2:.0f}" y="140" text-anchor="middle" '
+            f'  <text class="m" x="{px(x + cw / 2)}" y="140" text-anchor="middle" '
             f'style="font-size:18px;fill:#888">D{n - 1 - i}</text>',
         ]
     if caption:
@@ -208,15 +219,15 @@ def render_timeline(spec: dict, t: dict) -> str:
     for i, node in enumerate(nodes):
         x = 100 + i * span
         out += [
-            f'  <line x1="{x:.0f}" y1="{y - 14}" x2="{x:.0f}" y2="{y + 14}" '
+            f'  <line x1="{px(x)}" y1="{y - 14}" x2="{px(x)}" y2="{y + 14}" '
             f'stroke="{t["line"]}" stroke-width="2"/>',
-            f'  <circle cx="{x:.0f}" cy="{y}" r="7" fill="{t["brand"]}"/>',
-            f'  <text class="t" x="{x:.0f}" y="{y - 34}" text-anchor="middle">'
+            f'  <circle cx="{px(x)}" cy="{y}" r="7" fill="{t["brand"]}"/>',
+            f'  <text class="t" x="{px(x)}" y="{y - 34}" text-anchor="middle">'
             f'{esc(node.get("label", ""))}</text>',
         ]
         if node.get("sub"):
             out.append(
-                f'  <text class="m" x="{x:.0f}" y="{y + 42}" text-anchor="middle" '
+                f'  <text class="m" x="{px(x)}" y="{y + 42}" text-anchor="middle" '
                 f'style="font-size:19px">{esc(node["sub"])}</text>'
             )
 

@@ -12,6 +12,11 @@ function toBase64(text: string): string {
   return btoa(unescape(encodeURIComponent(text)));
 }
 
+/** SVG 源码 → data URI，供 <img src> 使用（figureProcessor 也用这条） */
+export function svgToImage(svg: string): string {
+  return `data:image/svg+xml;base64,${toBase64(svg)}`;
+}
+
 export function processSvgBlocks(html: string): string {
   if (!html.includes('language-svg')) return html;
 
@@ -24,7 +29,7 @@ export function processSvgBlocks(html: string): string {
 
     const img = doc.createElement('img');
     img.setAttribute('class', 'rfo-svg');
-    img.setAttribute('src', `data:image/svg+xml;base64,${toBase64(svg)}`);
+    img.setAttribute('src', svgToImage(svg));
     code.closest('pre')?.replaceWith(img);
   });
 

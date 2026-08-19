@@ -26,7 +26,7 @@
   <rect class="step" x="342" y="60" width="106" height="58"/>
   <text class="op" x="395" y="99" text-anchor="middle" style="font-size:24px">TR0</text>
   <text class="m" x="395" y="140" text-anchor="middle" style="font-size:18px;fill:#888">D4</text>
-  <rect class="step" x="452" y="60" width="106" height="58"/>
+  <rect class="step" x="453" y="60" width="106" height="58"/>
   <text class="op" x="505" y="99" text-anchor="middle" style="font-size:24px">IE1</text>
   <text class="m" x="505" y="140" text-anchor="middle" style="font-size:18px;fill:#888">D3</text>
   <rect class="step" x="563" y="60" width="106" height="58"/>

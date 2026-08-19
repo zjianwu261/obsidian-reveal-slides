@@ -15,7 +15,12 @@
  */
 
 /** 语言标记由别的处理器接管的代码块（已被替换成图/占位，轮不到这里） */
-const HANDLED_LANGUAGES = ['language-mermaid', 'language-chart', 'language-svg'];
+const HANDLED_LANGUAGES = [
+  'language-mermaid',
+  'language-chart',
+  'language-svg',
+  'language-figure',
+];
 
 export function processCodeBlocks(html: string): string {
   if (!html.includes('<pre')) return html;
