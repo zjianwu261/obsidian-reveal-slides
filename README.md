@@ -233,14 +233,14 @@ margin: 0.01
 两个 grid 各占一半，位置完全可控：
 
 ````markdown
-<grid dim="43 66" pos="6 16" class="body">
+<grid dim="43 66" pos="6 16" class="abstract">
 ### 今天的核心问题
 
 - Q1 单片机是什么？
 - Q2 为什么要学它？
 </grid>
 
-<grid dim="43 66" pos="51 16" class="body">
+<grid dim="43 66" pos="51 16" class="abstract">
 ### 本课大纲
 
 - 答疑解惑
@@ -771,14 +771,14 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 ## 课程概述
 </grid>
 
-<grid dim="43 66" pos="6 16" class="body">
+<grid dim="43 66" pos="6 16" class="abstract">
 ### 今天的核心问题
 
 - 单片机是什么？
 - 为什么要学它？
 </grid>
 
-<grid dim="43 66" pos="51 16" class="body">
+<grid dim="43 66" pos="51 16" class="abstract">
 ### 本课大纲
 
 - 答疑解惑
@@ -1004,7 +1004,7 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 `<grid>` 是本插件的版面基础：一个**绝对定位**的容器，把内容精确放到画布上。
 
 ```markdown
-<grid dim="60 30" pos="20 25" class="body">
+<grid dim="60 30" pos="20 25" class="abstract">
 这里的 Markdown 会正常渲染：**加粗**、列表、图片都可以
 </grid>
 ```
@@ -1065,8 +1065,8 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 
 ```markdown
 <grid dim="90 60" pos="center" class="panel">
-<grid dim="45 80" pos="left" class="body">左半</grid>
-<grid dim="45 80" pos="right" class="body">右半</grid>
+<grid dim="45 80" pos="left" class="abstract">左半</grid>
+<grid dim="45 80" pos="right" class="abstract">右半</grid>
 </grid>
 ```
 
