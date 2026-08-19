@@ -70,6 +70,11 @@ export interface PluginSettings {
   aiApiBase: string;
   aiApiKey: string;
   aiModel: string;
+  /**
+   * AI 提示词文件（库内路径）。存在就用它，不存在就用插件内置的那份。
+   * 跟课程 CSS 一个思路：这套规矩是你的教学习惯，该由你改，不该藏在代码里。
+   */
+  aiPromptPath: string;
   /** 对话框占预览面板的比例（0~1），默认四六开 */
   aiPanelRatio: number;
   /**
@@ -120,5 +125,6 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
   aiModel: 'deepseek-v4-flash',
+  aiPromptPath: 'Extra/RevealSlides/提示词.md',
   aiPanelRatio: 0.4,
 };

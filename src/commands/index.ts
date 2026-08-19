@@ -45,6 +45,14 @@ export function registerCommands(plugin: RevealPlugin): void {
   });
 
   plugin.addCommand({
+    id: 'open-ai-prompt',
+    name: 'Open AI Prompt',
+    callback: () => {
+      void plugin.openAiPrompt();
+    },
+  });
+
+  plugin.addCommand({
     id: 'toggle-grid-guides',
     name: 'Toggle Grid Guides',
     callback: () => {

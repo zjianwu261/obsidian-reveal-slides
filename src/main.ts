@@ -26,6 +26,7 @@ import {
 import { VIEW_TYPE_SLIDE_PREVIEW } from './constants';
 import { chat } from './ai/client';
 import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from './ai/prompt';
+import { extractFrontmatter } from './processors/frontmatter';
 import { pageRange, replacePage } from './ai/pageSource';
 import type { PageRange } from './ai/pageSource';
 
@@ -624,7 +625,7 @@ export default class RevealPlugin extends Plugin {
         model: this.settings.aiModel,
       },
       [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: await this.loadSystemPrompt() },
         {
           role: 'user',
           content: buildUserMessage({
@@ -647,6 +648,39 @@ export default class RevealPlugin extends Plugin {
     if (!current) throw new Error('找不到这一页在源码里的位置');
 
     await this.app.vault.modify(file, replacePage(current.source, current.range, markdown));
+  }
+
+  /**
+   * 系统提示词：库里有那份 md 就用它，没有就用内置的。
+   * 每次发问都现读 —— 你在旁边改完提示词，下一句话就按新规矩来，不用重载插件。
+   */
+  private async loadSystemPrompt(): Promise<string> {
+    const file = this.app.vault.getAbstractFileByPath(this.settings.aiPromptPath);
+    if (!(file instanceof TFile)) return SYSTEM_PROMPT;
+
+    const text = await this.app.vault.cachedRead(file);
+    const body = extractFrontmatter(text).body.trim();
+    return body || SYSTEM_PROMPT;
+  }
+
+  /**
+   * 打开提示词文件；没有就先把内置的那份写进去 ——
+   * 面对空文件没人知道该写什么，给一份能跑的当起点才改得动。
+   */
+  async openAiPrompt(): Promise<void> {
+    const path = this.settings.aiPromptPath;
+    let file = this.app.vault.getAbstractFileByPath(path);
+
+    if (!(file instanceof TFile)) {
+      const folder = path.split('/').slice(0, -1).join('/');
+      if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
+        await this.app.vault.createFolder(folder);
+      }
+      file = await this.app.vault.create(path, SYSTEM_PROMPT + '\n');
+      new Notice(`reveal-slide-for-obsidian: 已创建 ${path}，内容是插件内置的那份，改它即可`);
+    }
+
+    await this.app.workspace.getLeaf('split', 'vertical').openFile(file as TFile);
   }
 
   /** 本篇生效的全部课程 CSS（用于告诉模型有哪些 class 可用） */

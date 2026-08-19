@@ -421,6 +421,22 @@ export class RevealSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
+      .setName('提示词文件')
+      .setDesc(
+        '库内路径。存在就用它，不存在用插件内置的那份。' +
+          '命令面板执行 "Open AI Prompt" 会把内置那份写进去并打开，改完立刻生效。',
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder('Extra/RevealSlides/提示词.md')
+          .setValue(settings.aiPromptPath)
+          .onChange(async (value) => {
+            settings.aiPromptPath = value.trim();
+            await save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('模型')
       .addText((text) =>
         text

@@ -936,6 +936,7 @@ void main(void) { }
 | Reload Slide Preview | `Ctrl/Cmd + Shift + R` | 强制重跑管线并刷新，标题栏也有按钮 |
 | Start Slide Preview Server | — | 手动启动本地预览服务器 |
 | Stop Slide Preview Server | — | 停止服务器 |
+| Open AI Prompt | — | 打开（没有就先创建）AI 提示词文件，改完立刻生效 |
 | Toggle Immersive Preview | — | 预览铺满整屏、隐去 Obsidian 外壳，标题栏与「⋯」菜单也有（见[沉浸式预览](#沉浸式预览手机上尤其值得开)） |
 | Toggle Grid Guides | — | 开关版面辅助线（grid 边框 + 10% 标尺），标题栏也有按钮 |
 | Open Slide Stylesheet | — | 分栏打开当前笔记生效的样式文件，「⋯」菜单也有 |
@@ -1439,6 +1440,24 @@ python3 scripts/nl2figure.py "画一张 TCON 的位分布，这节讲 IT0" \
 
 **在 Claude Code 里用不到这个脚本**——模型自己就能写声明，直接调 `figure.py`
 更快也更省。
+
+#### AI 提示词放在库里，随时自己改
+
+预览面板下方的对话框按一份系统提示词干活：一页由哪几种块组成、正文该整理成什么样、
+图什么时候要加 `textScale`、代码怎么标行号。**这套规矩是你的教学习惯，不该藏在插件代码里**——
+所以它跟课程 CSS 一样，是库里的一个 md 文件：
+
+```
+Extra/RevealSlides/提示词.md
+```
+
+命令面板执行 **Open AI Prompt**：文件不存在就把插件内置的那份写进去再打开，
+存在就直接分栏打开。**改完存盘，下一句话就按新规矩来**，不用重载插件——每次发问都现读。
+
+路径可以在 设置 → Slide Preview → AI 助手 → 提示词文件 里改。删掉这个文件就退回内置版本。
+
+常见的调法：把正文的行数上限从 10 改成 6、加一条「所有代码示例都用 51 单片机的寄存器名」、
+或者把你这门课特有的术语表附在末尾。
 
 #### 想加一种图型
 
