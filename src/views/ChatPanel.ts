@@ -11,6 +11,12 @@
 import { Notice } from 'obsidian';
 import { chatKeyAction, clampPanelHeight } from './panelLayout';
 
+/** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
+interface WaitingRound {
+  abandoned: boolean;
+  seconds(): number;
+}
+
 export interface ChatPanelHandlers {
   /** 拖动分割线后的新高度，交给调用方存起来 */
   onResize?(height: number): void;
@@ -28,6 +34,8 @@ export class ChatPanel {
   private input: HTMLTextAreaElement;
   private sendButton: HTMLButtonElement;
   private pending: string | null = null;
+  /** 正在等的这一轮：秒数计时器与它那行界面 */
+  private waiting: { timer: number; line: HTMLElement } | null = null;
 
   constructor(
     private parent: HTMLElement,
@@ -105,6 +113,7 @@ export class ChatPanel {
   }
 
   destroy(): void {
+    this.stopWaiting();
     this.root.remove();
   }
 
@@ -127,18 +136,60 @@ export class ChatPanel {
     this.say('user', request);
     this.input.value = '';
     this.sendButton.disabled = true;
-    const thinking = this.say('assistant', '想一想…');
 
+    const round = this.startWaiting();
     try {
       const reply = await this.handlers.ask(request);
-      thinking.remove();
+      if (round.abandoned) return;                    // 用户已经点了「不等了」
+      this.stopWaiting();
+      this.say('assistant', `想好了，用了 ${round.seconds()} 秒`);
       this.showProposal(reply);
     } catch (err) {
-      thinking.remove();
+      if (round.abandoned) return;
+      this.stopWaiting();
       this.say('assistant', `没成：${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      this.sendButton.disabled = false;
+      if (!round.abandoned) this.sendButton.disabled = false;
     }
+  }
+
+  /**
+   * 等待时把秒数走起来。
+   * 接口一次要十几二十秒，一个不动的「想一想…」分不清是在算还是已经卡死；
+   * 秒数在跳就说明还活着，跳得太久你自己会想去查接口。
+   */
+  private startWaiting(): WaitingRound {
+    const startedAt = Date.now();
+    const round: WaitingRound = {
+      abandoned: false,
+      seconds: () => Math.round((Date.now() - startedAt) / 1000),
+    };
+
+    const line = this.say('assistant', '想一想… 0s');
+    const label = line.firstChild as Text;
+    const cancel = line.createEl('button', { cls: 'rfo-chat-cancel', text: '不等了' });
+
+    const timer = window.setInterval(() => {
+      label.data = `想一想… ${round.seconds()}s`;
+    }, 1000);
+    this.waiting = { timer, line };
+
+    cancel.addEventListener('click', () => {
+      round.abandoned = true;
+      this.stopWaiting();
+      this.say('assistant', '不等了。接口那边可能还在跑，回复会被丢掉。');
+      this.sendButton.disabled = false;
+    });
+
+    return round;
+  }
+
+  /** 收掉计时行（回复到了、出错了、或者用户不等了） */
+  private stopWaiting(): void {
+    if (!this.waiting) return;
+    window.clearInterval(this.waiting.timer);
+    this.waiting.line.remove();
+    this.waiting = null;
   }
 
   /** 模型的回复先摆出来，按了「应用」才写回笔记 */
