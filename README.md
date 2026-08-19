@@ -206,8 +206,7 @@ margin: 0.01
 - 里面照常写 Markdown，标题、列表、图片都会正常渲染。
 
 > **这一步先别管好看。** 现在预览里是白底黑字、方方正正，正常——先把位置摆对，
-> 底色圆角字号留到第 6 步一次性交给 CSS。想在 grid 上直接写
-> `style="background: …"` 也不是不行，但那条路走不远，[写作规范](#一核心规范grid-只管位置外观全在-css-里)里说明了原因。
+> 底色圆角字号留到第 6 步一次性交给 CSS。
 
 关键字定位更省事，而且对齐的是对应的边或角：
 
@@ -479,8 +478,8 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 #### 为什么不把外观写在 grid 上
 
-`style="background: var(--brand); color: #fff; border-radius: 15px; padding: 0 3%"`
-这一串，第一次写很爽——所见即所得，不用跳文件。代价在后面：
+把底色、圆角、内边距直接写在 grid 标签上，第一次很爽——所见即所得，不用跳文件。
+代价在后面：
 
 - 一门课十几章、几百页，同样的串复制几百遍
 - 改设计要全文替换，漏一处就有一页跟别人不一样
@@ -489,31 +488,9 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 **第一次做的时候写在 grid 上没关系**，等第二章开始复制粘贴，就该搬进 class 了。
 
-#### 拿一页封面练手
+#### 一页封面长什么样
 
-常见的写法是这样，看着能用，但样式散落在三个地方：
-
-```markdown
-<grid dim="76 24" pos="12 30" style="background:var(--brand); color:#fff; border-radius:16px; text-align:center; padding:0 48px;">
-
-# 第1章 如何学习单片机<!-- .element: style="font-size:100px; margin:0; font-weight:600; line-height:1.25" -->
-
-《单片机原理与应用》<!-- .element: style="font-size:.7em; margin:.4em 0 0; opacity:.85" -->
-
-</grid>
-```
-
-逐条归位——**除了 `dim` / `pos`，其余全部进 class**：
-
-| 声明 | 该去哪 | 理由 |
-|------|--------|------|
-| `dim` / `pos` | **grid** ✅ | 位置和尺寸，只有 grid 能表达 |
-| `background` / `border-radius` / `padding` | **class** ❌ | 「封面块」这个版式的固有外观，每页都一样 |
-| `color: #fff` / `text-align: center` | **class** ❌ | 同上，而且每个封面页都要重写一遍 |
-| h1 的 `font-size` / `margin` / `font-weight` / `line-height` | **class** ❌ | 纯排版 |
-| p 的 `font-size` / `margin` / `opacity` | **class** ❌ | 纯排版 |
-
-整理后，笔记里只剩位置和名字：
+笔记里只有位置和名字：
 
 ```markdown
 <grid dim="76 24" pos="12 30" class="cover">
@@ -525,7 +502,7 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 </grid>
 ```
 
-外观搬进课程 CSS，一次定义，十几章通用：
+外观全在课程 CSS，一次定义，十几章通用：
 
 ```css
 .cover {
@@ -539,7 +516,8 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 .cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
 ```
 
-正文回到纯 Markdown。后面十几页封面只写 `class="cover"`，想调字号就改 CSS 里那一处。
+底色、圆角、内边距、字号、行距、对齐——**一条都不在笔记里**。后面十几页封面只写
+`class="cover"`，想调字号就改 CSS 里那一处。
 
 #### `.element:` 用来加行为，不用来写样式
 
@@ -917,8 +895,8 @@ void main(void) { }
 
 | 别这么写 | 为什么 | 改成 |
 |---------|--------|------|
-| grid 上写 `style="background: …; border-radius: …"` | 一门课几百页复制同一串，改设计要全文替换 | 抽成 class，grid 上只留 `dim`/`pos`/`class` |
-| `style="align-items: center"` | `.grid` 默认就是居中，纯属重复 | 删掉；要左对齐才在 class 里写 `align-items: flex-start; text-align: left` |
+| 在 grid 上写底色、圆角、内边距 | 一门课几百页复制同一串，改设计要全文替换 | 抽成 class，grid 上只留 `dim`/`pos`/`class` |
+| 在 class 里写 `align-items: center` | `.grid` 默认就是居中，纯属重复 | 删掉；要左对齐才写 `align-items: flex-start; text-align: left` |
 | 正文里堆 `<!-- .element: -->` | 正文变脏、不可复用 | 用 class |
 | `font-size` 用 `em` | 嵌套连乘 | 用 `rem` |
 | 页面里散落 `#B81C22` | 改配色要全文替换 | `var(--brand)` |
@@ -1024,12 +1002,8 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 
 `<grid>` 是本插件的版面基础：一个**绝对定位**的容器，把内容精确放到画布上。
 
-> 本章的示例为了自包含，把颜色写在 `style` 里，一看就知道渲染成什么样。
-> **真正做课件时别这么写**——外观进 class，grid 上只留 `dim` / `pos` / `class`，
-> 理由见[写作规范](#一核心规范grid-只管位置外观全在-css-里)。
-
 ```markdown
-<grid dim="60 30" pos="20 25" style="background: #e74c3c;">
+<grid dim="60 30" pos="20 25" class="body">
 这里的 Markdown 会正常渲染：**加粗**、列表、图片都可以
 </grid>
 ```
@@ -1055,7 +1029,7 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 > 满画布居中的块，看上去像"版面塌了"。排查时先确认属性名拼对了没有。
 >
 > advanced-slides 的对照：`drag`→`dim`、`drop`→`pos`（取值语义相同，直接替换）；
-> `align` / `flow` 用 `style="align-items: …"` / `style="flex-direction: row"` 代替。
+> `align` / `flow` 在 class 里用 `align-items` / `flex-direction` 代替。
 
 ### pos 写法
 
@@ -1076,9 +1050,11 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 `circle` `ellipse` `triangle` `triangle-down` `diamond` `hexagon` `pentagon` `star` `arrow` `chevron` `parallelogram` `ribbon`
 
 ```markdown
-<grid dim="20 20" pos="topright" shape="hexagon" style="background: #f1c40f;">
+<grid dim="20 20" pos="topright" shape="hexagon" class="badge">
 </grid>
 ```
+
+裁切只决定形状，底色仍由 class 给：`.badge { background: var(--accent); }`
 
 > shape 表外的值会原样透传为 `clip-path`，可以写任意 CSS 裁切函数。
 
@@ -1087,9 +1063,9 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 `<grid>` 可以嵌套：内层 grid 的百分比是**相对外层 grid**算的，适合先划分区域再在区域内排版。
 
 ```markdown
-<grid dim="90 60" pos="center" style="background: #f8fafc;">
-<grid dim="45 80" pos="left" style="background: #2563eb; color: #fff;">左半</grid>
-<grid dim="45 80" pos="right" style="background: #e11d48; color: #fff;">右半</grid>
+<grid dim="90 60" pos="center" class="panel">
+<grid dim="45 80" pos="left" class="body">左半</grid>
+<grid dim="45 80" pos="right" class="body">右半</grid>
 </grid>
 ```
 
@@ -1101,17 +1077,24 @@ scrollActivationWidth:     # 留空=禁用滚动视图自动切换
 ### 完整示例：封面页
 
 ```markdown
-<grid dim="80 20" pos="top" style="text-align: center;">
+<grid dim="80 20" pos="top" class="cover">
 # 产品发布会
 </grid>
 
-<grid dim="30 40" pos="10 40" style="background: #3498db; color: #fff; border-radius: 12px; padding: 1em;">
+<grid dim="30 40" pos="10 40" class="card">
 左侧卡片
 </grid>
 
-<grid dim="30 40" pos="-10 40" shape="parallelogram" style="background: #e67e22;">
+<grid dim="30 40" pos="-10 40" shape="parallelogram" class="card">
 右侧图形块
 </grid>
+```
+
+对应的 class：
+
+```css
+.cover { text-align: center; }
+.card  { background: var(--brand); color: #fff; border-radius: 12px; padding: 1em; }
 ```
 
 
@@ -1132,15 +1115,16 @@ note:
 ## 元素与页面注释
 
 ```markdown
-这段文字会变红。
-<!-- .element: style="color: red;" -->
+- 要点一<!-- .element: class="fragment" -->
+- 要点二<!-- .element: class="fragment" -->
 
 <!-- .slide: background-color="#2d2d2d" -->
 ```
 
-- `<!-- .element: ... -->`：作用于**紧邻的上一个元素**，支持 `class="..."`、`style="..."` 及任意 `key="value"` 属性。
-  最典型的用途是给列表项挂 `class="fragment"` 实现逐条显示——`frag` 属性只能写在 `<grid>` 上，整块一起出现。
-  **写样式请优先用 class**，理由见[写作规范](#写作规范)。
+- `<!-- .element: ... -->`：作用于**紧邻的上一个元素**，支持 `class="..."` 及任意 `key="value"` 属性。
+  最典型的用途就是上面这个——给列表项挂 `class="fragment"` 实现**逐条**显示；
+  `frag` 属性只能写在 `<grid>` 上，那是整块一起出现。
+  它也能写 `style="..."`，但**外观请一律走 class**，理由见[写作规范](#一核心规范grid-只管位置外观全在-css-里)。
 - `<!-- .slide: ... -->`：作用于**当前页**，背景相关键（`background-color`、`background-image`、`background-size` 等）会自动映射为 reveal.js 的 `data-background-*`。
 
 ## 图片、视频与 Excalidraw
