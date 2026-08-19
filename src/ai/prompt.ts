@@ -39,8 +39,8 @@ top/bottom/center/bottomright 或负数表示距右/下边缘）、class="…"�
 
 ## 正文（class="abstract"）怎么写
 
-**正文块一律用 class="abstract"。** 课程 CSS 里可能还有个 \`body\`，那是早期版式，
-不要再用；改写已有正文时，原来写着 \`body\` 的也换成 \`abstract\`。
+**正文块一律用 class="abstract"。** 别的名字（\`body\`、\`content\` 之类）课程 CSS 里没有，
+写了等于没有版式。
 
 把内容整理成一页 PPT 大纲：**简洁、逻辑清晰、列表形式，包含一级和二级列表，
 总行数不超过 10 行**。幻灯片上只留结论和要点，展开的话写进 note: 讲稿。

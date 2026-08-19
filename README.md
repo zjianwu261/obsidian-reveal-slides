@@ -358,9 +358,6 @@ $$I_C = \beta \times I_b$$
 }
 .bar h2 { font-size: 1.3rem; margin: 0; }
 
-.body { justify-content: flex-start; align-items: stretch; text-align: left; font-size: .62rem; }
-.body h3 { font-size: .8rem; margin: 0 0 .8em; }
-
 .fig  { padding: 0; text-align: center; }
 .foot { background: var(--brand); color: #fff; border-radius: 15px; font-size: .8rem; text-align: center; }
 </style>
@@ -681,7 +678,6 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 .cover  /* 封面 */
 .toc    /* 目录 */
 .bar    /* 每页顶部的标题条 */
-.body   /* 正文栏 */
 .code   /* 代码面板 */
 .foot   /* 页脚条 */
 .end    /* 结尾页 */
@@ -797,9 +793,6 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 .bar h2 { font-size: 1.3rem; margin: 0; }
 .bar h3 { font-size: 1.05rem; margin: 0; }   /* 小节标题条，比 h2 降一档 */
 
-.body { justify-content: flex-start; align-items: stretch; text-align: left; font-size: .62rem; }
-.body h3 { font-size: .8rem; margin: 0 0 .8em; }
-
 .foot { background: var(--brand); color: #fff; border-radius: 15px; font-size: .8rem; text-align: center; }
 ```
 
@@ -820,6 +813,7 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 ```css
 .abstract { justify-content: center; align-items: center; text-align: left; font-size: 1.1rem; line-height: 1.7; }
+.abstract h3 { font-size: .9rem; margin: 0 0 .6em; }
 ```
 
 #### 代码页（代码 + 讲解）
