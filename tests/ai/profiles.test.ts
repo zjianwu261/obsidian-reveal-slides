@@ -76,3 +76,25 @@ describe('profileProblem', () => {
     expect(profileProblem(null)).toContain('还没有配置任何接口');
   });
 });
+
+describe('profileProblem 认出画图模型', () => {
+  /* 位图模型走 /images/generations，填在这儿只会拿到一句看不懂的 400 */
+  it('says an image model belongs to another endpoint', () => {
+    const message = profileProblem(profile({ model: 'gpt-image-2' }));
+    expect(message).toContain('画位图的模型');
+    expect(message).toContain('/images/generations');
+  });
+
+  it('catches the usual suspects', () => {
+    for (const model of ['dall-e-3', 'flux-pro', 'stable-diffusion-xl', 'seedream-4.0']) {
+      expect(profileProblem(profile({ model })), model).toContain('画位图的模型');
+    }
+  });
+
+  /* 别把正经对话模型误伤了 */
+  it('leaves chat models alone', () => {
+    for (const model of ['gpt-4o', 'claude-sonnet-4', 'deepseek-chat', 'gpt-5-mini']) {
+      expect(profileProblem(profile({ model })), model).toBeNull();
+    }
+  });
+});

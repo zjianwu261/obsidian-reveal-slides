@@ -86,11 +86,24 @@ export function activeProfile(profiles: AiProfile[], activeId: string): AiProfil
   return profiles.find((profile) => profile.id === activeId) ?? profiles[0];
 }
 
+/**
+ * 画图模型的名字。这些模型出的是位图，走的是 /images/generations，
+ * 跟这里用的 /chat/completions 是两个接口 —— 填了只会拿到一句看不懂的 400。
+ */
+const IMAGE_MODEL = /(gpt-image|dall-?e|stable-?diffusion|sdxl|flux|midjourney|imagen|seedream|wanx|kolors)/i;
+
 /** 档案配全了没有：缺一样都发不出去，界面上早点说比等接口报错强 */
 export function profileProblem(profile: AiProfile | null): string | null {
   if (!profile) return '还没有配置任何接口：设置 → Slide Preview → AI 助手';
   if (!profile.apiBase) return `「${profile.name}」还没填接口地址`;
   if (!profile.apiKey) return `「${profile.name}」还没填 API key`;
   if (!profile.model) return `「${profile.name}」还没填模型名`;
+  if (IMAGE_MODEL.test(profile.model)) {
+    return (
+      `${profile.model} 是画位图的模型，走的是另一个接口（/images/generations），` +
+      '这里要的是会写字的对话模型 —— 图是它写成 SVG 代码画出来的。' +
+      '换成 gpt-4o、claude-sonnet-4、deepseek-chat 这类'
+    );
+  }
   return null;
 }
