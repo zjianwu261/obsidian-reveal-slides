@@ -70,7 +70,7 @@ export interface PluginSettings {
   aiApiBase: string;
   aiApiKey: string;
   aiModel: string;
-  /** 对话框占预览面板的比例（0~1），默认三七开 */
+  /** 对话框占预览面板的比例（0~1），默认四六开 */
   aiPanelRatio: number;
   /**
    * 切换笔记时预览是否跟着换。
@@ -120,5 +120,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
   aiModel: 'deepseek-v4-flash',
-  aiPanelRatio: 0.3,
+  aiPanelRatio: 0.4,
 };

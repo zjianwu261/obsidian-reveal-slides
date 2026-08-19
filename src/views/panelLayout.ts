@@ -5,8 +5,8 @@
  * 写死 220px 的话，高窗口里它是一条缝，矮面板里它吃掉一半。
  */
 
-/** 默认三七开：对话三成，幻灯片七成 */
-export const DEFAULT_RATIO = 0.3;
+/** 默认四六开：对话四成，幻灯片六成 */
+export const DEFAULT_RATIO = 0.4;
 
 const MIN_RATIO = 0.15;
 const MAX_RATIO = 0.7;

@@ -18,7 +18,7 @@ describe('clampPanelRatio', () => {
     expect(clampPanelRatio(0.02)).toBe(0.15);
   });
 
-  /* 老配置里存的是像素（几百），坏配置可能是 0 或 NaN —— 都退回默认三七开 */
+  /* 老配置里存的是像素（几百），坏配置可能是 0 或 NaN —— 都退回默认四六开 */
   it('falls back to the default for anything unusable', () => {
     expect(clampPanelRatio(0)).toBe(DEFAULT_RATIO);
     expect(clampPanelRatio(Number.NaN)).toBe(DEFAULT_RATIO);

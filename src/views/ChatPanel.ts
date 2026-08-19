@@ -40,7 +40,7 @@ export class ChatPanel {
   constructor(
     private parent: HTMLElement,
     private handlers: ChatPanelHandlers,
-    ratio = 0.3,
+    ratio = 0.4,
   ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
     // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
