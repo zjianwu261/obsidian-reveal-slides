@@ -268,6 +268,20 @@ body.rfo-immersive {
   }
 }
 
+/* 接口选择：贴在版式条右端，只有一套时藏起来 */
+.rfo-chat-profile {
+  flex: 0 0 auto;
+  margin-left: auto;
+  max-width: 130px;
+  height: 24px;
+  padding: 0 22px 0 6px;
+  font-size: var(--font-smallest);
+
+  &.is-hidden {
+    display: none;
+  }
+}
+
 .rfo-chat-layouts-label {
   flex: 0 0 auto;
   color: var(--text-faint);

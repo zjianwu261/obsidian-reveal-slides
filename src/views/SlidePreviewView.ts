@@ -96,6 +96,12 @@ export class SlidePreviewView extends ItemView {
             this.plugin.settings.aiPanelRatio = ratio;
             void this.plugin.saveSettings();
           },
+          profiles: () => this.plugin.settings.aiProfiles,
+          activeProfile: () => this.plugin.currentAiProfile()?.id ?? '',
+          onProfileChange: (id) => {
+            this.plugin.settings.aiActiveProfile = id;
+            void this.plugin.saveSettings();
+          },
           onInputResize: (height) => {
             this.plugin.settings.aiInputHeight = height;
             void this.plugin.saveSettings();

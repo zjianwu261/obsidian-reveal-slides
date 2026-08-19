@@ -1,3 +1,5 @@
+import type { AiProfile } from '../ai/profiles';
+
 export interface PluginSettings {
   // 画布
   size: string;                    // "16:9" | "4:3" | "21:9" | "1920x1080"
@@ -66,9 +68,19 @@ export interface PluginSettings {
 
   // AI 助手（预览面板下方的对话框，只改当前这一页）
   aiEnabled: boolean;
-  /** OpenAI 兼容接口地址，默认 DeepSeek */
+  /**
+   * 存下来的几套接口（地址 + key + 模型）。一个不够用：便宜快的那个改文字挺好，
+   * 画图就明显不行；中转站上的 GPT / Claude 画得动，但每次改三个字段太烦。
+   */
+  aiProfiles: AiProfile[];
+  /** 现在用哪一套（AiProfile.id）；对不上就退回第一套 */
+  aiActiveProfile: string;
+
+  /** @deprecated 分档案之前的三个字段，只用来把老设置迁进 aiProfiles */
   aiApiBase: string;
+  /** @deprecated 见 aiApiBase */
   aiApiKey: string;
+  /** @deprecated 见 aiApiBase */
   aiModel: string;
   /** 等模型多久就不等了（秒）。画一张图要吐两三千 token，慢模型三分钟写不完 */
   aiTimeoutSeconds: number;
@@ -129,6 +141,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   followActiveNote: false,
 
   aiEnabled: true,
+  aiProfiles: [],
+  aiActiveProfile: '',
   aiApiBase: 'https://api.deepseek.com/v1',
   aiApiKey: '',
   aiModel: 'deepseek-v4-flash',

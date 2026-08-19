@@ -41,11 +41,18 @@ export interface ChatPanelHandlers {
   canEdit(): boolean;
   /** 现在这句话会落到哪一页（状态栏用） */
   context(): ChatContext | null;
+  /** 存下来的几套接口（名字给人看，id 用来切换） */
+  profiles?(): { id: string; name: string }[];
+  /** 现在用的是哪一套 */
+  activeProfile?(): string;
+  /** 换一套接口 */
+  onProfileChange?(id: string): void;
 }
 
 export class ChatPanel {
   private root: HTMLElement;
   private contextBar: HTMLElement;
+  private profilePicker: HTMLSelectElement | null = null;
   /** 选中的版式；null = 不指定，位置交给模型 */
   private layout: SlideLayout | null = null;
   private log: HTMLElement;
@@ -183,6 +190,38 @@ export class ChatPanel {
         this.input.focus();
       });
     }
+
+    this.buildProfilePicker(bar);
+  }
+
+  /**
+   * 接口选择：配了不止一套才露出来。
+   *
+   * 便宜快的那套改文字挺好，画图明显不行；换成中转站上的 GPT 画一张，
+   * 画完再换回来 —— 这种来回切换要是得跑一趟设置页，就没人会切了。
+   */
+  private buildProfilePicker(bar: HTMLElement): void {
+    if (!this.handlers.profiles) return;
+
+    const picker = bar.createEl('select', { cls: 'rfo-chat-profile dropdown' });
+    picker.addEventListener('change', () => this.handlers.onProfileChange?.(picker.value));
+    this.profilePicker = picker;
+    this.refreshProfiles();
+  }
+
+  /** 设置页那边加/删/改了接口，这里跟着换一批选项 */
+  private refreshProfiles(): void {
+    const picker = this.profilePicker;
+    const profiles = this.handlers.profiles?.() ?? [];
+    if (!picker) return;
+
+    // 只有一套时不占地方：没得选的下拉框只是噪音
+    picker.toggleClass('is-hidden', profiles.length < 2);
+    picker.empty();
+    for (const profile of profiles) {
+      picker.createEl('option', { value: profile.id, text: profile.name || '未命名' });
+    }
+    picker.value = this.handlers.activeProfile?.() ?? '';
   }
 
   /**
@@ -243,6 +282,7 @@ export class ChatPanel {
   /** 预览翻页 / 换笔记之后刷新状态栏 */
   refreshContext(): void {
     this.contextBar.setText(formatContext(this.handlers.context()));
+    this.refreshProfiles();
   }
 
   /**

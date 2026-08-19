@@ -1,6 +1,8 @@
 import { PluginSettingTab, Setting } from 'obsidian';
 import type { App } from 'obsidian';
 import type RevealPlugin from '../main';
+import { AI_PRESETS, newProfileId } from '../ai/profiles';
+import type { AiProfile } from '../ai/profiles';
 
 export class RevealSettingTab extends PluginSettingTab {
   constructor(
@@ -8,6 +10,112 @@ export class RevealSettingTab extends PluginSettingTab {
     private plugin: RevealPlugin,
   ) {
     super(app, plugin);
+  }
+
+  /**
+   * 接口档案：几套地址 + key + 模型，一套一块。
+   *
+   * 一个接口不够用 —— 便宜快的那个改文字挺好，画图明显不行；
+   * 中转站上的 GPT / Claude 画得动，但每次改三个字段太烦。存成几套，
+   * 在对话框上一拉就换。
+   */
+  private displayAiProfiles(containerEl: HTMLElement): void {
+    const settings = this.plugin.settings;
+    const save = () => this.plugin.saveSettings();
+
+    new Setting(containerEl)
+      .setName('接口')
+      .setDesc(
+        '任何 OpenAI 兼容的 /chat/completions 都行：官方、中转站、本地部署都一样填。' +
+          '地址填到 /v1 为止（/chat/completions 由插件补）。' +
+          'key 存在本库的插件设置里，不会发往该接口以外的任何地方。',
+      )
+      .addDropdown((drop) => {
+        for (const preset of AI_PRESETS) drop.addOption(preset.name, `＋ ${preset.name}`);
+        drop.setValue('');
+        drop.onChange(async (name) => {
+          const preset = AI_PRESETS.find((item) => item.name === name);
+          if (!preset) return;
+          const profile: AiProfile = { ...preset, id: newProfileId() };
+          settings.aiProfiles.push(profile);
+          // 新加的那套直接选上：加它就是为了用它
+          settings.aiActiveProfile = profile.id;
+          await save();
+          this.display();
+        });
+      });
+
+    for (const profile of settings.aiProfiles) {
+      const row = new Setting(containerEl).setClass('rfo-ai-profile');
+
+      row.addText((text) =>
+        text
+          .setPlaceholder('名字')
+          .setValue(profile.name)
+          .onChange(async (value) => {
+            profile.name = value.trim();
+            await save();
+          }),
+      );
+
+      row.addText((text) =>
+        text
+          .setPlaceholder('https://…/v1')
+          .setValue(profile.apiBase)
+          .onChange(async (value) => {
+            profile.apiBase = value.trim().replace(/\/+$/, '');
+            await save();
+          }),
+      );
+
+      row.addText((text) => {
+        text.inputEl.type = 'password';
+        text
+          .setPlaceholder('sk-…')
+          .setValue(profile.apiKey)
+          .onChange(async (value) => {
+            profile.apiKey = value.trim();
+            await save();
+          });
+      });
+
+      row.addText((text) =>
+        text
+          .setPlaceholder('模型名')
+          .setValue(profile.model)
+          .onChange(async (value) => {
+            profile.model = value.trim();
+            await save();
+          }),
+      );
+
+      // 选中标记也是按钮：点一下就切过去，不用再去别处找开关
+      const chosen = profile.id === settings.aiActiveProfile;
+      row.addExtraButton((button) =>
+        button
+          .setIcon(chosen ? 'check-circle' : 'circle')
+          .setTooltip(chosen ? '正在用这一套' : '改用这一套')
+          .onClick(async () => {
+            settings.aiActiveProfile = profile.id;
+            await save();
+            this.display();
+          }),
+      );
+
+      row.addExtraButton((button) =>
+        button
+          .setIcon('trash-2')
+          .setTooltip('删掉这一套')
+          .onClick(async () => {
+            settings.aiProfiles = settings.aiProfiles.filter((item) => item.id !== profile.id);
+            if (settings.aiActiveProfile === profile.id) {
+              settings.aiActiveProfile = settings.aiProfiles[0]?.id ?? '';
+            }
+            await save();
+            this.display();
+          }),
+      );
+    }
   }
 
   display(): void {
@@ -393,32 +501,7 @@ export class RevealSettingTab extends PluginSettingTab {
         }),
       );
 
-    new Setting(containerEl)
-      .setName('接口地址')
-      .setDesc('任何 OpenAI 兼容的 /chat/completions 都行，默认 DeepSeek')
-      .addText((text) =>
-        text
-          .setPlaceholder('https://api.deepseek.com/v1')
-          .setValue(settings.aiApiBase)
-          .onChange(async (value) => {
-            settings.aiApiBase = value.trim();
-            await save();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName('API key')
-      .setDesc('存在本库的插件设置里，不会发往接口以外的任何地方')
-      .addText((text) => {
-        text.inputEl.type = 'password';
-        text
-          .setPlaceholder('sk-…')
-          .setValue(settings.aiApiKey)
-          .onChange(async (value) => {
-            settings.aiApiKey = value.trim();
-            await save();
-          });
-      });
+    this.displayAiProfiles(containerEl);
 
     new Setting(containerEl)
       .setName('提示词文件')
@@ -454,17 +537,6 @@ export class RevealSettingTab extends PluginSettingTab {
           }),
       );
 
-    new Setting(containerEl)
-      .setName('模型')
-      .addText((text) =>
-        text
-          .setPlaceholder('deepseek-v4-flash')
-          .setValue(settings.aiModel)
-          .onChange(async (value) => {
-            settings.aiModel = value.trim();
-            await save();
-          }),
-      );
 
     new Setting(containerEl)
       .setName('Follow cursor')

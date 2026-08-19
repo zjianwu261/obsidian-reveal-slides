@@ -30,6 +30,8 @@ import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from '
 import { extractFrontmatter } from './processors/frontmatter';
 import { pageRange, replacePage } from './ai/pageSource';
 import { extractAllSvgFigures, extractSvgFigures, figureDir } from './ai/figureAssets';
+import { activeProfile, migrateProfiles, profileProblem } from './ai/profiles';
+import type { AiProfile } from './ai/profiles';
 import { pageTitle } from './views/chatContext';
 import type { ChatContext } from './views/chatContext';
 import type { PageRange } from './ai/pageSource';
@@ -196,6 +198,15 @@ export default class RevealPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    // 从「一个接口」升上来的：把老的三个字段收成第一份档案，别让人重填一次 key
+    this.settings.aiProfiles = migrateProfiles(this.settings.aiProfiles, this.settings);
+    // 选中的那套可能已经被删了：现在就落回第一套，省得每处用的时候各自兜底
+    this.settings.aiActiveProfile = this.currentAiProfile()?.id ?? '';
+  }
+
+  /** 现在用哪一套接口 */
+  currentAiProfile(): AiProfile | null {
+    return activeProfile(this.settings.aiProfiles, this.settings.aiActiveProfile);
   }
 
   async saveSettings(): Promise<void> {
@@ -658,11 +669,15 @@ export default class RevealPlugin extends Plugin {
     const current = await this.readCurrentPage();
     if (!current) throw new Error('还没有可改的页面');
 
+    const profile = this.currentAiProfile();
+    const problem = profileProblem(profile);
+    if (problem || !profile) throw new Error(problem ?? '接口没配好');
+
     const reply = await chat(
       {
-        apiBase: this.settings.aiApiBase,
-        apiKey: this.settings.aiApiKey,
-        model: this.settings.aiModel,
+        apiBase: profile.apiBase,
+        apiKey: profile.apiKey,
+        model: profile.model,
         timeoutSeconds: this.settings.aiTimeoutSeconds,
       },
       [
