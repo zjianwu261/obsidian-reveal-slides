@@ -9,7 +9,7 @@
  * 课件是要拿去上课的，不能让它背着人改。
  */
 import { Notice } from 'obsidian';
-import { clampPanelHeight } from './panelLayout';
+import { chatKeyAction, clampPanelHeight } from './panelLayout';
 
 export interface ChatPanelHandlers {
   /** 拖动分割线后的新高度，交给调用方存起来 */
@@ -44,16 +44,17 @@ export class ChatPanel {
     const bar = this.root.createDiv({ cls: 'rfo-chat-bar' });
     this.input = bar.createEl('textarea', {
       cls: 'rfo-chat-input',
-      attr: { rows: '2', placeholder: '改这一页…（⌘/Ctrl + Enter 发送）' },
+      attr: { rows: '2', placeholder: '改这一页…（Enter 发送，Alt + Enter 换行）' },
     });
     this.sendButton = bar.createEl('button', { cls: 'rfo-chat-send', text: '发送' });
 
     this.sendButton.addEventListener('click', () => void this.send());
     this.input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-        event.preventDefault();
-        void this.send();
-      }
+      const action = chatKeyAction(event);
+      if (action === 'pass') return;
+      event.preventDefault();
+      if (action === 'send') void this.send();
+      else this.insertNewline();
     });
   }
 
@@ -90,6 +91,13 @@ export class ChatPanel {
       handle.addEventListener('pointermove', move);
       handle.addEventListener('pointerup', done);
     });
+  }
+
+  /** Alt/Shift + Enter：在光标处插一个换行（textarea 默认不会为这两个组合换行） */
+  private insertNewline(): void {
+    const { selectionStart, selectionEnd, value } = this.input;
+    this.input.value = `${value.slice(0, selectionStart)}\n${value.slice(selectionEnd)}`;
+    this.input.selectionStart = this.input.selectionEnd = selectionStart + 1;
   }
 
   setVisible(visible: boolean): void {

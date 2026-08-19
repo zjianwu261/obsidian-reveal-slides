@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { clampPanelHeight } from '../../src/views/panelLayout';
+import { chatKeyAction, clampPanelHeight } from '../../src/views/panelLayout';
+import type { ChatKeyEvent } from '../../src/views/panelLayout';
 
 /*
  * 拖分割线时高度要落在合理区间：太矮看不到回复，太高幻灯片就没地方了。
@@ -25,5 +26,45 @@ describe('clampPanelHeight', () => {
 
   it('rounds to whole pixels', () => {
     expect(clampPanelHeight(220.6, 900)).toBe(221);
+  });
+});
+
+/*
+ * 输入区的按键：Enter 发送、Alt/Shift + Enter 换行。
+ * 中文输入法选词时的 Enter 必须放过 —— 那是上屏，不是发送。
+ */
+describe('chatKeyAction', () => {
+  const press = (over: Partial<ChatKeyEvent> = {}): ChatKeyEvent => ({
+    key: 'Enter',
+    altKey: false,
+    shiftKey: false,
+    metaKey: false,
+    ctrlKey: false,
+    isComposing: false,
+    ...over,
+  });
+
+  it('sends on a bare Enter', () => {
+    expect(chatKeyAction(press())).toBe('send');
+  });
+
+  it('breaks the line on Alt or Shift', () => {
+    expect(chatKeyAction(press({ altKey: true }))).toBe('newline');
+    expect(chatKeyAction(press({ shiftKey: true }))).toBe('newline');
+  });
+
+  it('keeps the old muscle memory working', () => {
+    expect(chatKeyAction(press({ metaKey: true }))).toBe('send');
+    expect(chatKeyAction(press({ ctrlKey: true }))).toBe('send');
+  });
+
+  it('never fires while the IME is composing', () => {
+    expect(chatKeyAction(press({ isComposing: true }))).toBe('pass');
+    expect(chatKeyAction(press({ isComposing: true, altKey: true }))).toBe('pass');
+  });
+
+  it('ignores every other key', () => {
+    expect(chatKeyAction(press({ key: 'a' }))).toBe('pass');
+    expect(chatKeyAction(press({ key: 'Escape' }))).toBe('pass');
   });
 });
