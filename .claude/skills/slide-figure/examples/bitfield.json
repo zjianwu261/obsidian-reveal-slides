@@ -1,0 +1,4 @@
+{ "type": "bitfield", "name": "TCON", "addr": "0x88", "meta": "可位寻址",
+  "bits": ["TF1","TR1","TF0","TR0","IE1","IT1","IE0","IT0"],
+  "highlight": ["IT0"],
+  "caption": "本节只用 IT0：置 1 = 下降沿触发外部中断 0" }

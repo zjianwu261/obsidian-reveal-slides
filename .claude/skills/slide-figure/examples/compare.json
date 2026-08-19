@@ -1,0 +1,7 @@
+{ "type": "compare",
+  "columns": [
+    { "title": "赋值运算符", "highlight": true,
+      "lines": ["`a = a + b`", "先算右边", "再装进左边的变量", "结果是「值」"] },
+    { "title": "关系运算符",
+      "lines": ["`a == b`", "比较两边", "给 if / while 用", "结果只有真 / 假"] }
+  ] }

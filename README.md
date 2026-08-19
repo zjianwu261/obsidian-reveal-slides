@@ -40,7 +40,7 @@
 - **演讲者备注**：`note:` 逐页备注，按 `S` 打开演讲者视图
 - **Obsidian 原生语法**：wikilink 图片（`![[img.png|800]]`）、视频、Callout、脚注、Excalidraw
 - **富内容**：Mermaid 图表、Chart.js 图表、代码高亮、数学公式、Emoji 短代码、Font Awesome
-- **配套 skill**：`.claude/skills/slide-figure`，让 AI 直接产出可编辑的 ```svg 示意图
+- **配套 skill**：`.claude/skills/slide-figure`，一句话生成可编辑的 ```svg 示意图（声明 → Python 渲染）
 - **实时预览**：停止输入 300ms 后自动刷新，切换笔记自动跟随
 - **导出**：PDF（打印视图）、可离线播放的单文件 HTML、以及**可编辑的 PPTX**（PowerPoint / WPS 直接打开）
 - **安全设计**：预览运行在隔离 iframe 中，由仅监听 `127.0.0.1` 的本地服务器承载
@@ -312,7 +312,7 @@ $$I_C = \beta \times I_b$$
 
 位图投影必糊，而且改一个字要重新出图；SVG 是矢量，放多大都锐利，改字就是改一行代码。
 笔记里 ```` ```svg ```` 块会自动折叠，不会把正文撑乱。
-仓库带了个[配套 skill](#配套-skill让-ai-直接画图) 帮你生成。
+仓库带了个[配套 skill](#配套-skill一句话生成示意图) 帮你生成。
 
 > **三样都别和右侧的文字列表重复。** 图讲图的、字讲字的——同一件事说两遍，
 > 观众不知道该看哪边，这是课件"割裂感"最常见的来源。
@@ -1071,47 +1071,103 @@ note:
 - 临时想全部展开/折起：命令面板的 **Fold / Unfold SVG Code Blocks**（还有没折的就全折，已经全折着就全展开），可自行绑快捷键。
 - 不想要这个行为：设置 → Preview → Fold SVG blocks 关掉（关掉后仍可用上面的命令手动折）。
 
-### 配套 skill：让 AI 直接画图
+### 配套 skill：一句话生成示意图
 
-手写 SVG 累，让 AI 生位图又糊。仓库里带了一个 Claude Code skill，把中间那步固化下来：
-**你说要什么图，它吐一个能直接粘的 ```` ```svg ```` 代码块。**
+课件里的示意图有个两难：手写 SVG 累，让 AI 生位图又糊、还改不动。仓库里带了一个
+Claude Code skill 把中间那步固化下来——**模型只写一份 JSON 声明，Python 脚本把它渲染成
+SVG**，产出能直接粘的 ```` ```svg ```` 代码块。
 
 ```
 .claude/skills/slide-figure/
-├── SKILL.md      产出契约、三条硬约束、色板、版式规则、自检清单
-└── templates.md  四份可直接改的骨架
+├── SKILL.md              给模型看的：怎么写声明、四种图型、版式规矩
+├── scripts/figure.py     声明 → SVG（只用标准库，不联网，不需要 API key）
+├── scripts/nl2figure.py  一句话 → 声明 → SVG（可选，走任意 OpenAI 兼容接口）
+└── examples/*.json       四份可运行的样例声明
 ```
 
-**装**——软链到用户级，这样写课件时（不只是在本仓库里）都能用：
+#### 为什么是「声明 + 渲染器」，不是让 AI 直接画
+
+让模型手写 SVG，每次构图都不一样，一处坐标算错就错位，改配色要动几十行；
+而框宽、间距、对齐这类事本来就该由代码算——同一类图，第 3 页和第 30 页必须长得一样。
+
+所以分工是：**模型负责内容（十几行 JSON），脚本负责像素。** 出了问题也一眼看得出
+是声明写错了，还是渲染器有 bug。附带的好处是**声明可以留下来**：下次改图是改 JSON
+重渲，不用回头把需求重新描述一遍。
+
+#### 装
+
+软链到用户级，这样在库里写课件时（不只是在本仓库里）都能用：
 
 ```bash
 ln -s "$(pwd)/.claude/skills/slide-figure" ~/.claude/skills/slide-figure
 ```
 
-不想用软链就直接 `cp -r`，代价是仓库更新后要重新拷。
+不想用软链就 `cp -r`，代价是仓库更新后要重拷。
 
-**用**——直接说人话，或者 `/slide-figure`：
+#### 用
+
+在 Claude Code 里直接说人话：
 
 > 用 bitfield 画一张 TCON 的位分布，这节讲 IT0
 
-**四种图型**，覆盖理工科课件里的绝大多数场景：
+模型会写好声明、调脚本、把 ```` ```svg ```` 交给你。也可以自己跑：
 
-| type | 用途 |
-|------|------|
-| `flow` | 步骤流程、前后对比（`++b` vs `b++` 这种） |
-| `compare` | 两列对照 |
-| `bitfield` | 寄存器位分布（TCON / TMOD / SCON） |
-| `timeline` | 时序、阶段推进 |
+```bash
+python3 .claude/skills/slide-figure/scripts/figure.py 声明.json -o 图.svg
+```
 
-skill 里写死了四条硬约束，都是踩出来的：
+#### 四种图型
 
-1. **文字必须是 `<text>`，绝不转曲**——转曲就等于又变回位图，字改不动了。
-2. **不引用任何外部资源**——SVG 被塞进 `<img>` 渲染，外链字体、外链图片一律加载不到。
-3. **中文字体带兜底**（`PingFang SC` / `Microsoft YaHei`），否则 Windows 上掉成宋体。
-4. **颜色写死十六进制**——`<img>` 里的 SVG 是独立文档，看不见页面的 CSS 变量。
+| type | 用途 | 关键字段 |
+|------|------|----------|
+| `flow` | 步骤流程、前后对比（`++b` vs `b++`） | `rows[].chip` / `steps` / `note` |
+| `bitfield` | 寄存器位分布（TCON / TMOD / SCON） | `bits`（高位在前）/ `highlight` / `caption` |
+| `compare` | 两三列对照 | `columns[].title` / `lines` / `highlight` |
+| `timeline` | 时序、阶段推进 | `nodes[].label` / `sub` |
 
-色板默认读课程主题文件，改主题配色时图会跟着走。想换成你自己的课程色，
-改 `SKILL.md` 里「配色」那一节即可。
+一份 `bitfield` 声明长这样，十行换一张图：
+
+```json
+{ "type": "bitfield", "name": "TCON", "addr": "0x88", "meta": "可位寻址",
+  "bits": ["TF1","TR1","TF0","TR0","IE1","IT1","IE0","IT0"],
+  "highlight": ["IT0"],
+  "caption": "本节只用 IT0：置 1 = 下降沿触发外部中断 0" }
+```
+
+框宽按字数算、D 编号自动标、重点位自动换色——这些都不用你操心。
+
+#### 配色
+
+默认跟课程主题一致（主色 `#064FA1`）。改配色不用碰渲染器：
+
+- 单张图：声明里加 `"theme": {"brand": "#B81C22"}`
+- 整套图：写一份 `theme.json`，渲染时 `--theme theme.json`
+
+可覆盖 `brand` `soft` `line` `arrow` `text` `muted` `accent` `rule` `font` `mono`。
+
+#### 脱离智能体单独跑（可选，需要 API key）
+
+`nl2figure.py` 让你在命令行里一句话出图，**任何 OpenAI 兼容接口都行**，默认 DeepSeek：
+
+```bash
+export FIGURE_API_KEY=sk-xxx
+python3 scripts/nl2figure.py "画一张 TCON 的位分布，这节讲 IT0" \
+        -o tcon.svg --spec-out tcon.json
+```
+
+换供应商改环境变量即可：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `FIGURE_API_BASE` | `https://api.deepseek.com/v1` | OpenAI 兼容的接口地址 |
+| `FIGURE_MODEL` | `deepseek-chat` | 模型名 |
+| `FIGURE_API_KEY` | 无 | 你的 key |
+
+也可以写进 skill 目录下的 `config.json`，优先级：命令行 > 环境变量 > config.json。
+`--spec-out` 会把模型生成的声明存下来，之后手改重渲，不必再花一次 token。
+
+**在 Claude Code 里用不到这个脚本**——模型自己就能写声明，直接调 `figure.py`
+更快也更省。
 
 ### Mermaid
 

@@ -1,0 +1,7 @@
+{ "type": "timeline",
+  "nodes": [
+    { "label": "装初值", "sub": "TH0/TL0" },
+    { "label": "启动计数", "sub": "TR0 = 1" },
+    { "label": "溢出置位", "sub": "TF0 = 1" },
+    { "label": "进中断", "sub": "ISR" }
+  ] }
