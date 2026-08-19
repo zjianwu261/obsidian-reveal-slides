@@ -16,7 +16,7 @@ import { RevealEngine } from './engine/revealEngine';
 import { renderMarkdownToHtml } from './engine/renderEngine';
 import { exportPdf as runPdfExport } from './export/pdfExporter';
 import { debounce } from './utils/debounce';
-import { lineToPageIndex } from './engine/templateEngine';
+import { lineToPageIndex, pageIndexToPosition } from './engine/templateEngine';
 import {
   cssRefCandidates,
   sidecarCssCandidates,
@@ -28,6 +28,8 @@ import { chat } from './ai/client';
 import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from './ai/prompt';
 import { extractFrontmatter } from './processors/frontmatter';
 import { pageRange, replacePage } from './ai/pageSource';
+import { pageTitle } from './views/chatContext';
+import type { ChatContext } from './views/chatContext';
 import type { PageRange } from './ai/pageSource';
 
 function createEmptyDeck(message = 'Empty'): SlideDeck {
@@ -162,6 +164,7 @@ export default class RevealPlugin extends Plugin {
           if (!view.ownsWindow(event.source)) return;
           this.currentPage = page;
           this.syncCursorToPage(page);
+          void this.readCurrentPage().then(() => view.refreshChatContext());
         });
       }
     });
@@ -596,6 +599,26 @@ export default class RevealPlugin extends Plugin {
     this.syncPreviewActions();
   }
 
+  /**
+   * 对话框状态栏要显示的东西：改的是哪篇笔记的第几页、那一页叫什么。
+   * 页码与预览右上角显示的一致（h.v），免得两处对不上让人犯嘀咕。
+   */
+  currentChatContext(): ChatContext | null {
+    const file = this.lastMarkdownFile;
+    const page = this.deck.pages[this.currentPage];
+    if (!file || !page) return null;
+
+    const { h, v } = pageIndexToPosition(this.deck, this.currentPage);
+    return {
+      note: file.basename,
+      page: `${h + 1}.${v}`,
+      title: pageTitle(this.pageSourceCache),
+    };
+  }
+
+  /** 最近一次读到的当前页源码（状态栏取标题用，避免每次都读盘） */
+  private pageSourceCache = '';
+
   /** 有没有可改的页面（对话框据此决定要不要发问） */
   canEditCurrentPage(): boolean {
     return this.lastMarkdownFile !== null && this.deck.pages.length > 0;
@@ -607,6 +630,7 @@ export default class RevealPlugin extends Plugin {
     if (!file) return null;
     const source = await this.app.vault.read(file);
     const range = pageRange(source, this.deck, this.currentPage);
+    if (range) this.pageSourceCache = range.text;
     return range ? { source, range } : null;
   }
 

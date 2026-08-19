@@ -10,6 +10,9 @@
  */
 import { Notice } from 'obsidian';
 import { chatKeyAction, clampPanelRatio, ratioFromHeight } from './panelLayout';
+import { formatContext } from './chatContext';
+import type { ChatContext } from './chatContext';
+import { matchCommands } from './chatCommands';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
 interface WaitingRound {
@@ -26,11 +29,15 @@ export interface ChatPanelHandlers {
   apply(markdown: string): Promise<void>;
   /** 有没有可改的页面 */
   canEdit(): boolean;
+  /** 现在这句话会落到哪一页（状态栏用） */
+  context(): ChatContext | null;
 }
 
 export class ChatPanel {
   private root: HTMLElement;
+  private contextBar: HTMLElement;
   private log: HTMLElement;
+  private menu: HTMLElement | null = null;
   private input: HTMLTextAreaElement;
   private sendButton: HTMLButtonElement;
   private pending: string | null = null;
@@ -47,8 +54,12 @@ export class ChatPanel {
     this.root.style.height = `${(clampPanelRatio(ratio) * 100).toFixed(1)}%`;
     this.buildResizer();
 
+    // 状态栏：这句话会改哪一页。笔记切来切去之后，这一条比什么都重要
+    this.contextBar = this.root.createDiv({ cls: 'rfo-chat-context' });
     this.log = this.root.createDiv({ cls: 'rfo-chat-log' });
     this.say('assistant', '说一句话改当前这一页，比如「把右边的要点改成对比图」。改动会先给你看。');
+
+    this.refreshContext();
 
     const bar = this.root.createDiv({ cls: 'rfo-chat-bar' });
     this.input = bar.createEl('textarea', {
@@ -58,6 +69,7 @@ export class ChatPanel {
     this.sendButton = bar.createEl('button', { cls: 'rfo-chat-send', text: '发送' });
 
     this.sendButton.addEventListener('click', () => void this.send());
+    this.input.addEventListener('input', () => this.refreshMenu());
     this.input.addEventListener('keydown', (event) => {
       const action = chatKeyAction(event);
       if (action === 'pass') return;
@@ -111,6 +123,36 @@ export class ChatPanel {
     this.input.selectionStart = this.input.selectionEnd = selectionStart + 1;
   }
 
+  /** 预览翻页 / 换笔记之后刷新状态栏 */
+  refreshContext(): void {
+    this.contextBar.setText(formatContext(this.handlers.context()));
+  }
+
+  /**
+   * 斜杠命令菜单。同样几句话每页都要说一遍，打个 / 挑一条就行；
+   * 提法固定下来之后，模型的表现也更稳。
+   */
+  private refreshMenu(): void {
+    const matches = matchCommands(this.input.value);
+    this.menu?.remove();
+    this.menu = null;
+    if (matches.length === 0) return;
+
+    const menu = this.root.createDiv({ cls: 'rfo-chat-menu' });
+    for (const command of matches) {
+      const item = menu.createDiv({ cls: 'rfo-chat-menu-item' });
+      item.createSpan({ cls: 'rfo-chat-menu-name', text: command.name });
+      item.createSpan({ cls: 'rfo-chat-menu-hint', text: command.hint });
+      item.addEventListener('click', () => {
+        this.input.value = command.text;
+        this.menu?.remove();
+        this.menu = null;
+        this.input.focus();
+      });
+    }
+    this.menu = menu;
+  }
+
   setVisible(visible: boolean): void {
     this.root.toggleClass('is-hidden', !visible);
   }
@@ -136,6 +178,8 @@ export class ChatPanel {
       return;
     }
 
+    this.menu?.remove();
+    this.menu = null;
     this.say('user', request);
     this.input.value = '';
     this.sendButton.disabled = true;

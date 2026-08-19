@@ -89,6 +89,7 @@ export class SlidePreviewView extends ItemView {
         container,
         {
           canEdit: () => this.plugin.canEditCurrentPage(),
+          context: () => this.plugin.currentChatContext(),
           ask: (request) => this.plugin.askAboutCurrentPage(request),
           apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
           onResize: (ratio) => {
@@ -157,6 +158,11 @@ export class SlidePreviewView extends ItemView {
     });
 
     this.menuBar = bar;
+  }
+
+  /** 预览翻到别的页 / 换了笔记：状态栏跟上 */
+  refreshChatContext(): void {
+    this.chat?.refreshContext();
   }
 
   /** 中间那一竖条被点了（消息由 iframe 发回宿主，见 tapNavigation） */
