@@ -409,9 +409,12 @@ export class ChatPanel {
 
   private async send(): Promise<void> {
     const expanded = expandRequest(this.input.value);
-    const request = composeRequest(expanded.text, this.layout);
+    // 画图那条路不把版式拼进话里：格子的宽高是另外交给 draw 的，
+    // 混进提示词只会让写提示词的模型跟着描述起 grid 来
+    const request =
+      expanded.mode === 'image' ? expanded.text : composeRequest(expanded.text, this.layout);
     if (!request || this.sendButton.disabled) return;
-    this.warnIfLayoutHasNoRoom(expanded.text);
+    if (expanded.mode !== 'image') this.warnIfLayoutHasNoRoom(expanded.text);
 
     if (!this.handlers.canEdit()) {
       new Notice('reveal-slide-for-obsidian: 还没有可改的页面');
