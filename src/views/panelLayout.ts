@@ -1,31 +1,26 @@
 /**
- * 对话框高度的约束（纯计算，不依赖 obsidian，可单测）。
- * 太矮看不到回复，太高幻灯片就没地方了。
+ * 对话框占面板的比例（纯计算，不依赖 obsidian，可单测）。
+ *
+ * 存比例而不是像素：同一个数字要在侧边栏、并排标签页、独立窗口里都成立。
+ * 写死 220px 的话，高窗口里它是一条缝，矮面板里它吃掉一半。
  */
 
-const MIN_HEIGHT = 90;
+/** 默认三七开：对话三成，幻灯片七成 */
+export const DEFAULT_RATIO = 0.3;
+
+const MIN_RATIO = 0.15;
 const MAX_RATIO = 0.7;
 
-/** 没拖过时对话框占面板的比例，以及它的上下限（px） */
-const DEFAULT_RATIO = 0.28;
-const DEFAULT_MIN = 150;
-const DEFAULT_MAX = 300;
-
-/**
- * 初次打开时的高度：按面板高度取三成左右，再夹在上下限之间。
- * 写死像素在不同尺寸的面板上都不对 —— 侧边栏里嫌它占地方，
- * 独立窗口里又只剩一条缝。
- */
-export function defaultPanelHeight(containerHeight: number): number {
-  return Math.round(
-    Math.min(DEFAULT_MAX, Math.max(DEFAULT_MIN, containerHeight * DEFAULT_RATIO)),
-  );
+/** 比例落在合理区间内；拿不到有效数字（老配置、手改坏了）就退回默认 */
+export function clampPanelRatio(ratio: number): number {
+  if (!Number.isFinite(ratio) || ratio <= 0) return DEFAULT_RATIO;
+  return Math.min(MAX_RATIO, Math.max(MIN_RATIO, ratio));
 }
 
-/** 拖动后的高度落在合理区间内 */
-export function clampPanelHeight(height: number, containerHeight: number): number {
-  const max = Math.max(MIN_HEIGHT, containerHeight * MAX_RATIO);
-  return Math.round(Math.min(max, Math.max(MIN_HEIGHT, height)));
+/** 拖动后的像素高度 → 比例 */
+export function ratioFromHeight(height: number, containerHeight: number): number {
+  if (containerHeight <= 0) return DEFAULT_RATIO;
+  return clampPanelRatio(height / containerHeight);
 }
 
 /** 对话框输入区的按键处理（纯判断，可单测） */

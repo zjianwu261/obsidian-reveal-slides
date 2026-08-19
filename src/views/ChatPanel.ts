@@ -9,7 +9,7 @@
  * 课件是要拿去上课的，不能让它背着人改。
  */
 import { Notice } from 'obsidian';
-import { chatKeyAction, clampPanelHeight } from './panelLayout';
+import { chatKeyAction, clampPanelRatio, ratioFromHeight } from './panelLayout';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
 interface WaitingRound {
@@ -18,8 +18,8 @@ interface WaitingRound {
 }
 
 export interface ChatPanelHandlers {
-  /** 拖动分割线后的新高度，交给调用方存起来 */
-  onResize?(height: number): void;
+  /** 拖动分割线后的新比例（0~1），交给调用方存起来 */
+  onResize?(ratio: number): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
   /** 应用改动 */
@@ -40,10 +40,11 @@ export class ChatPanel {
   constructor(
     private parent: HTMLElement,
     private handlers: ChatPanelHandlers,
-    height = 220,
+    ratio = 0.3,
   ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
-    this.root.style.height = `${clampPanelHeight(height, parent.clientHeight)}px`;
+    // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
+    this.root.style.height = `${(clampPanelRatio(ratio) * 100).toFixed(1)}%`;
     this.buildResizer();
 
     this.log = this.root.createDiv({ cls: 'rfo-chat-log' });
@@ -82,18 +83,20 @@ export class ChatPanel {
 
       const move = (moveEvent: PointerEvent): void => {
         // 往上拖 = 对话框变高，所以是起点减当前
-        const next = clampPanelHeight(
+        const next = ratioFromHeight(
           startHeight + (startY - moveEvent.clientY),
           this.parent.clientHeight,
         );
-        this.root.style.height = `${next}px`;
+        this.root.style.height = `${(next * 100).toFixed(1)}%`;
       };
 
       const done = (): void => {
         handle.releasePointerCapture(event.pointerId);
         handle.removeEventListener('pointermove', move);
         handle.removeEventListener('pointerup', done);
-        this.handlers.onResize?.(this.root.getBoundingClientRect().height);
+        this.handlers.onResize?.(
+          ratioFromHeight(this.root.getBoundingClientRect().height, this.parent.clientHeight),
+        );
       };
 
       handle.addEventListener('pointermove', move);
