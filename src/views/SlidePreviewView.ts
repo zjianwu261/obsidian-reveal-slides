@@ -2,6 +2,7 @@ import { ItemView, Notice } from 'obsidian';
 import type { Menu } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
+import { profilesOfKind } from '../ai/profiles';
 import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { ChatPanel } from './ChatPanel';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
@@ -91,12 +92,14 @@ export class SlidePreviewView extends ItemView {
           canEdit: () => this.plugin.canEditCurrentPage(),
           context: () => this.plugin.currentChatContext(),
           ask: (request) => this.plugin.askAboutCurrentPage(request),
+          draw: (request, box) => this.plugin.drawFigureForCurrentPage(request, box),
           apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
           onResize: (ratio) => {
             this.plugin.settings.aiPanelRatio = ratio;
             void this.plugin.saveSettings();
           },
-          profiles: () => this.plugin.settings.aiProfiles,
+          // 只列对话那几套：画图接口不是拿来在这儿切的
+          profiles: () => profilesOfKind(this.plugin.settings.aiProfiles, 'chat'),
           activeProfile: () => this.plugin.currentAiProfile()?.id ?? '',
           onProfileChange: (id) => {
             this.plugin.settings.aiActiveProfile = id;

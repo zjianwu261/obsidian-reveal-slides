@@ -29,8 +29,22 @@ import { chat } from './ai/client';
 import { SYSTEM_PROMPT, buildUserMessage, collectClassNames, stripFence } from './ai/prompt';
 import { extractFrontmatter } from './processors/frontmatter';
 import { pageRange, replacePage } from './ai/pageSource';
-import { extractAllSvgFigures, extractSvgFigures, figureDir } from './ai/figureAssets';
-import { activeProfile, migrateProfiles, profileProblem } from './ai/profiles';
+import {
+  extractAllSvgFigures,
+  extractSvgFigures,
+  figureDir,
+  figureFileName,
+} from './ai/figureAssets';
+import { activeProfile, imageProfile, migrateProfiles, profileProblem } from './ai/profiles';
+import { generateImage } from './ai/imageClient';
+import {
+  IMAGE_PROMPT_SYSTEM,
+  buildImagePromptRequest,
+  cleanImagePrompt,
+  shapeForBox,
+} from './ai/imagePrompt';
+import { placeFigure } from './ai/figurePlacement';
+import type { FigureBox } from './ai/figurePlacement';
 import type { AiProfile } from './ai/profiles';
 import { pageTitle } from './views/chatContext';
 import type { ChatContext } from './views/chatContext';
@@ -693,6 +707,75 @@ export default class RevealPlugin extends Plugin {
       ],
     );
     return stripFence(reply);
+  }
+
+  /**
+   * 画一张位图配图，塞进这一页的 fig 格子，返回新的页面源码。
+   *
+   * 两步：先让对话模型读讲稿写出英文提示词（画图模型没读过讲稿，
+   * 直接让它「按这一页配图」只会出泛泛的科技感插画），再交给画图模型画。
+   * 图落成文件，页面里只多一行引用 —— 正文和讲稿一个字不动。
+   */
+  async drawFigureForCurrentPage(request: string, box?: FigureBox): Promise<string> {
+    const current = await this.readCurrentPage();
+    if (!current) throw new Error('还没有可改的页面');
+
+    const chatProfile = this.currentAiProfile();
+    const chatProblem = profileProblem(chatProfile);
+    if (chatProblem || !chatProfile) throw new Error(chatProblem ?? '接口没配好');
+
+    const drawer = imageProfile(this.settings.aiProfiles);
+    if (!drawer) {
+      throw new Error('还没配画图接口：设置 → AI 助手 → 接口，加一套用途选「画图」的');
+    }
+    if (!drawer.apiBase || !drawer.apiKey) throw new Error(`「${drawer.name}」的地址或 key 还没填`);
+
+    const prompt = cleanImagePrompt(
+      await chat(
+        {
+          apiBase: chatProfile.apiBase,
+          apiKey: chatProfile.apiKey,
+          model: chatProfile.model,
+          timeoutSeconds: this.settings.aiTimeoutSeconds,
+        },
+        [
+          { role: 'system', content: IMAGE_PROMPT_SYSTEM },
+          {
+            role: 'user',
+            content: buildImagePromptRequest({ pageSource: current.range.text, request }),
+          },
+        ],
+      ),
+    );
+
+    const bytes = await generateImage(
+      { apiBase: drawer.apiBase, apiKey: drawer.apiKey, model: drawer.model },
+      prompt,
+      shapeForBox(box?.w ?? 92, box?.h ?? 34),
+    );
+
+    const path = await this.saveImage(bytes);
+    return placeFigure(current.range.text, `![[${path}]]`, box);
+  }
+
+  /** 图存成文件：命名跟手绘那条一样，同一页重画就覆盖同一张 */
+  private async saveImage(bytes: ArrayBuffer): Promise<string> {
+    const note = this.lastMarkdownFile;
+    if (!note) throw new Error('没有正在预览的笔记');
+
+    const context = this.currentChatContext();
+    const dir = figureDir(note.path);
+    const name = figureFileName(context?.page ?? '', context?.title ?? '', 0).replace(
+      /\.svg$/,
+      '.png',
+    );
+    const path = `${dir}${name}`;
+
+    await this.ensureFolder(path);
+    const existing = this.app.vault.getAbstractFileByPath(path);
+    if (existing instanceof TFile) await this.app.vault.modifyBinary(existing, bytes);
+    else await this.app.vault.createBinary(path, bytes);
+    return path;
   }
 
   /** 把这一页替换成新内容（只动这一页，分页符与别页原样保留） */

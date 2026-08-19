@@ -1,7 +1,7 @@
 import { PluginSettingTab, Setting } from 'obsidian';
 import type { App } from 'obsidian';
 import type RevealPlugin from '../main';
-import { AI_PRESETS, newProfileId } from '../ai/profiles';
+import { AI_PRESETS, newProfileId, profileKind } from '../ai/profiles';
 import type { AiProfile } from '../ai/profiles';
 
 export class RevealSettingTab extends PluginSettingTab {
@@ -26,8 +26,9 @@ export class RevealSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('接口')
       .setDesc(
-        '任何 OpenAI 兼容的 /chat/completions 都行：官方、中转站、本地部署都一样填。' +
-          '地址填到 /v1 为止（/chat/completions 由插件补）。' +
+        '任何 OpenAI 兼容的接口都行：官方、中转站、本地部署都一样填。' +
+          '地址填到 /v1 为止（后面那段路径由插件补）。用途分两类：' +
+          '「对话」出文字（正文、SVG 代码），「画图」出位图，两类走的不是同一个接口。' +
           'key 存在本库的插件设置里，不会发往该接口以外的任何地方。',
       )
       .addDropdown((drop) => {
@@ -89,18 +90,34 @@ export class RevealSettingTab extends PluginSettingTab {
           }),
       );
 
-      // 选中标记也是按钮：点一下就切过去，不用再去别处找开关
-      const chosen = profile.id === settings.aiActiveProfile;
-      row.addExtraButton((button) =>
-        button
-          .setIcon(chosen ? 'check-circle' : 'circle')
-          .setTooltip(chosen ? '正在用这一套' : '改用这一套')
-          .onClick(async () => {
-            settings.aiActiveProfile = profile.id;
+      // 用途：两类走的根本不是一个接口，填错了只会拿到一句看不懂的 400
+      row.addDropdown((drop) =>
+        drop
+          .addOption('chat', '对话')
+          .addOption('image', '画图')
+          .setValue(profileKind(profile))
+          .onChange(async (value) => {
+            profile.kind = value === 'image' ? 'image' : 'chat';
             await save();
             this.display();
           }),
       );
+
+      // 选中标记也是按钮：点一下就切过去，不用再去别处找开关。
+      // 画图那套没有「选中」一说 —— 画图命令自己去找它，不跟对话抢这个位置
+      if (profileKind(profile) === 'chat') {
+        const chosen = profile.id === settings.aiActiveProfile;
+        row.addExtraButton((button) =>
+          button
+            .setIcon(chosen ? 'check-circle' : 'circle')
+            .setTooltip(chosen ? '正在用这一套' : '改用这一套')
+            .onClick(async () => {
+              settings.aiActiveProfile = profile.id;
+              await save();
+              this.display();
+            }),
+        );
+      }
 
       row.addExtraButton((button) =>
         button

@@ -18,8 +18,9 @@ import {
 } from './panelLayout';
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
-import { matchCommands } from './chatCommands';
+import { expandRequest, matchCommands } from './chatCommands';
 import { SLIDE_LAYOUTS, composeRequest, findBox, requestedBlock } from './slideLayouts';
+import type { LayoutBox } from './slideLayouts';
 import type { SlideLayout } from './slideLayouts';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
@@ -35,6 +36,8 @@ export interface ChatPanelHandlers {
   onInputResize?(height: number): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
+  /** 画一张位图配图，返回塞好图之后的新页面源码 */
+  draw?(request: string, box?: LayoutBox): Promise<string>;
   /** 应用改动 */
   apply(markdown: string): Promise<void>;
   /** 有没有可改的页面 */
@@ -311,7 +314,9 @@ export class ChatPanel {
       items.push(item);
     });
 
-    this.menu = { el, items, texts: matches.map((c) => c.text), index: 0 };
+    // 填的是 `/svg ` 而不是整段要求：那一大段是给模型看的规矩，
+    // 铺在输入框里只会挡住你自己要补的那句话
+    this.menu = { el, items, texts: matches.map((c) => `${c.name} `), index: 0 };
     this.highlight(0);
   }
 
@@ -369,8 +374,8 @@ export class ChatPanel {
    * composeRequest 这时会把版式丢掉（宽度宁可不给，也不能瞎给一个），
    * 但丢得静悄悄的话，你会以为宽度已经定死了 —— 吭一声。
    */
-  private warnIfLayoutHasNoRoom(): void {
-    const block = requestedBlock(this.input.value);
+  private warnIfLayoutHasNoRoom(text: string): void {
+    const block = requestedBlock(text);
     if (!this.layout || !block || findBox(this.layout, block)) return;
     new Notice(`reveal-slide-for-obsidian: 「${this.layout.name}」没有这一块的位置，这次没按版式发`);
   }
@@ -382,10 +387,18 @@ export class ChatPanel {
     return typed ? `${typed}（版式：${this.layout.name}）` : `按「${this.layout.name}」重排这一页`;
   }
 
+  /** 这一轮该走哪条路：画图命令交给 draw，其余照旧问对话模型 */
+  private async run(request: string, mode: 'page' | 'image'): Promise<string> {
+    if (mode !== 'image') return this.handlers.ask(request);
+    if (!this.handlers.draw) throw new Error('这个版本还不支持画图');
+    return this.handlers.draw(request, this.layout ? findBox(this.layout, 'fig') ?? undefined : undefined);
+  }
+
   private async send(): Promise<void> {
-    const request = composeRequest(this.input.value, this.layout);
+    const expanded = expandRequest(this.input.value);
+    const request = composeRequest(expanded.text, this.layout);
     if (!request || this.sendButton.disabled) return;
-    this.warnIfLayoutHasNoRoom();
+    this.warnIfLayoutHasNoRoom(expanded.text);
 
     if (!this.handlers.canEdit()) {
       new Notice('reveal-slide-for-obsidian: 还没有可改的页面');
@@ -398,12 +411,13 @@ export class ChatPanel {
     this.growInput();
     this.sendButton.disabled = true;
 
-    const round = this.startWaiting();
+    const round = this.startWaiting(expanded.mode === 'image' ? '画图中…' : '想一想…');
     try {
-      const reply = await this.handlers.ask(request);
+      const reply = await this.run(request, expanded.mode);
       if (round.abandoned) return;                    // 用户已经点了「不等了」
       this.stopWaiting();
-      this.say('assistant', `想好了，用了 ${round.seconds()} 秒`);
+      const done = expanded.mode === 'image' ? '画好了' : '想好了';
+      this.say('assistant', `${done}，用了 ${round.seconds()} 秒`);
       this.showProposal(reply);
     } catch (err) {
       if (round.abandoned) return;
@@ -419,19 +433,19 @@ export class ChatPanel {
    * 接口一次要十几二十秒，一个不动的「想一想…」分不清是在算还是已经卡死；
    * 秒数在跳就说明还活着，跳得太久你自己会想去查接口。
    */
-  private startWaiting(): WaitingRound {
+  private startWaiting(what = '想一想…'): WaitingRound {
     const startedAt = Date.now();
     const round: WaitingRound = {
       abandoned: false,
       seconds: () => Math.round((Date.now() - startedAt) / 1000),
     };
 
-    const line = this.say('assistant', '想一想… 0s');
+    const line = this.say('assistant', `${what} 0s`);
     const label = line.firstChild as Text;
     const cancel = line.createEl('button', { cls: 'rfo-chat-cancel', text: '不等了' });
 
     const timer = window.setInterval(() => {
-      label.data = `想一想… ${round.seconds()}s`;
+      label.data = `${what} ${round.seconds()}s`;
     }, 1000);
     this.waiting = { timer, line };
 

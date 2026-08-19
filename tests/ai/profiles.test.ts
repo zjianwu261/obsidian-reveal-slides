@@ -77,18 +77,21 @@ describe('profileProblem', () => {
   });
 });
 
-describe('profileProblem 认出画图模型', () => {
-  /* 位图模型走 /images/generations，填在这儿只会拿到一句看不懂的 400 */
-  it('says an image model belongs to another endpoint', () => {
-    const message = profileProblem(profile({ model: 'gpt-image-2' }));
-    expect(message).toContain('画位图的模型');
-    expect(message).toContain('/images/generations');
+describe('profileProblem 认出画图接口', () => {
+  /* 画图模型走 /images/generations，拿去对话只会得到一句看不懂的 400 */
+  it('says a drawing endpoint cannot hold a conversation', () => {
+    expect(profileProblem(profile({ model: 'gpt-image-2' }))).toContain('画图接口');
   });
 
-  it('catches the usual suspects', () => {
+  it('catches the usual suspects by name', () => {
     for (const model of ['dall-e-3', 'flux-pro', 'stable-diffusion-xl', 'seedream-4.0']) {
-      expect(profileProblem(profile({ model })), model).toContain('画位图的模型');
+      expect(profileProblem(profile({ model })), model).toContain('画图接口');
     }
+  });
+
+  /* 明写了用途就听用途的，别再去猜模型名 */
+  it('believes the kind you set over the model name', () => {
+    expect(profileProblem(profile({ model: 'my-flux-chat', kind: 'chat' }))).toBeNull();
   });
 
   /* 别把正经对话模型误伤了 */
