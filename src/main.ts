@@ -755,8 +755,6 @@ export default class RevealPlugin extends Plugin {
             notesSeparator: this.settings.notesSeparator,
           }),
         ],
-        // 四行描述几百 token 就够；一律要 8192，8k 窗口的模型会直接判非法
-        1024,
       )
     ).trim();
   }
@@ -781,11 +779,7 @@ export default class RevealPlugin extends Plugin {
 
     const title = extractTitle(current.range.text);
     const { theme, scene } = parseFigureTranslation(
-      await this.askChat(
-        FIGURE_TRANSLATE_SYSTEM,
-        [buildFigureTranslateRequest(title, description)],
-        1024,
-      ),
+      await this.askChat(FIGURE_TRANSLATE_SYSTEM, [buildFigureTranslateRequest(title, description)]),
       title,
     );
 

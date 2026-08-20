@@ -29,10 +29,9 @@ const DEFAULT_TIMEOUT_SECONDS = 300;
  * 不写的话各家默认值不一样（常见 4096），改整页的活正好卡在这个量级上，
  * 写到一半被截断 —— 出来的是半张图，而且看不出是被截的。
  *
- * 但也不能一律往大了要：**上限是从上下文窗口里扣的**。
- * 8k 窗口的模型（moonshot-v1-8k 这类），提示词本身就占去大半，
- * 再要 8192 的输出直接被判非法 —— 报的是 400，看着像 key 或模型名不对。
- * 所以按这一趟真正要写多少来给：想一段描述几百 token 就够，改整页才需要放开。
+ * 也别为了省而收紧：**会思考的模型先写推理再写正文，推理也算在这个额度里**。
+ * 给 1024，它能把额度全烧在推理上，正文一个字不剩 —— 回来的是一条空回复。
+ * 窗口特别小的模型（8k 那种）真放不下时，接口会自己报错，那时再单独调。
  */
 const DEFAULT_MAX_TOKENS = 8192;
 
@@ -85,13 +84,18 @@ export async function chat(
     throw new Error(`接口返回 ${response.status}：${readError(response.text)}`);
   }
 
-  const choice = (response.json as ChatReply | undefined)?.choices?.[0];
+  const body = response.json as ChatReply | undefined;
+  const choice = body?.choices?.[0];
   const reply = choice?.message?.content;
-  if (!reply) throw new Error('接口没有返回内容');
+
   // 截断了就别拿去用：半张 SVG 看着像画坏了，其实是没写完
   if (choice?.finish_reason === 'length') {
-    throw new Error(`模型写到 ${maxTokens} token 就被截断了，让它画简单点，或分两次改`);
+    throw new Error(
+      `模型写到上限（${maxTokens} token）就被截断了。` +
+        (reply ? '让它写简单点，或者分两次改' : '会思考的模型把额度全花在推理上了，把上限调大'),
+    );
   }
+  if (!reply) throw new Error(emptyReplyReason(body, choice));
   return reply;
 }
 
@@ -114,7 +118,36 @@ async function withTimeout<T>(promise: Promise<T>, seconds: number): Promise<T> 
 }
 
 interface ChatReply {
-  choices?: { message?: { content?: string }; finish_reason?: string }[];
+  choices?: {
+    message?: {
+      content?: string;
+      /** 会思考的模型（deepseek-reasoner 这类）把推理过程放这儿，不放 content */
+      reasoning_content?: string;
+    };
+    finish_reason?: string;
+  }[];
+  error?: { message?: string };
+}
+
+/**
+ * 拿到一个空回复时，尽量说清是哪一种空。
+ *
+ * 「接口没有返回内容」这句话等于什么都没说 —— 同一句话背后至少三件事：
+ * 接口在响应体里报了错、这一趟被内容审查拦了、或者会思考的模型
+ * 只写了推理没写正文。分开说，才知道下一步该动哪儿。
+ */
+type ChatChoice = NonNullable<ChatReply['choices']>[number];
+
+function emptyReplyReason(body: ChatReply | undefined, choice: ChatChoice | undefined): string {
+  if (body?.error?.message) return `接口报错：${body.error.message}`;
+  if (choice?.message?.reasoning_content) {
+    return '模型只写了推理过程，正文是空的 —— 多半是被上限卡住了，把「等待上限」旁边的额度调大再试';
+  }
+  if (choice?.finish_reason === 'content_filter') {
+    return '这一趟被接口的内容审查拦下了，换个说法再试';
+  }
+  if (!body?.choices?.length) return '接口没有返回任何回复（响应体里连 choices 都没有）';
+  return '接口返回了一条空回复，重试一次；一直这样就换个模型试试';
 }
 
 /** 把接口的错误体压成一行人话 */
