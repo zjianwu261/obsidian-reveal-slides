@@ -20,6 +20,12 @@ describe('IMAGE_PROMPT_SYSTEM', () => {
     expect(IMAGE_PROMPT_SYSTEM).toContain('note: 讲稿决定内容');
   });
 
+  /* 讲稿罗列五样东西时各画一格，出来的是图例不是讲解 */
+  it('says where to look for the one thing worth drawing', () => {
+    expect(IMAGE_PROMPT_SYSTEM).toContain('最容易混淆');
+    expect(IMAGE_PROMPT_SYSTEM).toContain('不要五样各画一格');
+  });
+
   /* 抽象名词只会换来一堆发光的电路和齿轮 */
   it('bans the vague words that produce stock art', () => {
     expect(IMAGE_PROMPT_SYSTEM).toContain('concept of increment');
