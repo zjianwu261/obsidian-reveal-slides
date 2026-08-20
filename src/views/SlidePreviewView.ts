@@ -2,7 +2,7 @@ import { ItemView, Notice } from 'obsidian';
 import type { Menu } from 'obsidian';
 import type { WorkspaceLeaf } from 'obsidian';
 import type RevealPlugin from '../main';
-import { profilesOfKind } from '../ai/profiles';
+import { imageProfile, profilesOfKind } from '../ai/profiles';
 import { createInlinePreviewUrl } from '../preview/inlinePreview';
 import { ChatPanel } from './ChatPanel';
 import { VIEW_TYPE_SLIDE_PREVIEW } from '../constants';
@@ -89,9 +89,7 @@ export class SlidePreviewView extends ItemView {
       this.chat = new ChatPanel(
         container,
         {
-          canEdit: () => this.plugin.canEditCurrentPage(),
           context: () => this.plugin.currentChatContext(),
-          ask: (request) => this.plugin.askAboutCurrentPage(request),
           figure: {
             parts: () => this.plugin.currentPageParts(),
             describe: (request) => this.plugin.describeFigureForCurrentPage(request),
@@ -103,7 +101,6 @@ export class SlidePreviewView extends ItemView {
               void this.plugin.saveSettings();
             },
           },
-          apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
           onResize: (ratio) => {
             this.plugin.settings.aiPanelRatio = ratio;
             void this.plugin.saveSettings();
@@ -115,13 +112,10 @@ export class SlidePreviewView extends ItemView {
             this.plugin.settings.aiActiveProfile = id;
             void this.plugin.saveSettings();
           },
-          onInputResize: (height) => {
-            this.plugin.settings.aiInputHeight = height;
-            void this.plugin.saveSettings();
-          },
+          chatModel: () => this.plugin.currentAiProfile()?.model ?? '',
+          imageModel: () => imageProfile(this.plugin.settings.aiProfiles)?.model ?? '',
         },
         this.plugin.settings.aiPanelRatio,
-        this.plugin.settings.aiInputHeight,
         this.plugin.settings.aiFigureStyle,
       );
     }

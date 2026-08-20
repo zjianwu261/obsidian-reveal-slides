@@ -1,5 +1,6 @@
 import type RevealPlugin from '../main';
 import { toggleSvgFold } from '../editor/svgFold';
+import { PAGE_COMMANDS } from '../ai/pageCommands';
 
 export function registerCommands(plugin: RevealPlugin): void {
   plugin.addCommand({
@@ -51,6 +52,16 @@ export function registerCommands(plugin: RevealPlugin): void {
       void plugin.openAiPrompt();
     },
   });
+
+  for (const command of PAGE_COMMANDS) {
+    plugin.addCommand({
+      id: command.id,
+      name: command.name,
+      callback: () => {
+        void plugin.rewriteCurrentPage(command.text);
+      },
+    });
+  }
 
   plugin.addCommand({
     id: 'extract-svg-figures',

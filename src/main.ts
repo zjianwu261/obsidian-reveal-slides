@@ -826,6 +826,21 @@ export default class RevealPlugin extends Plugin {
     return path;
   }
 
+  /**
+   * 按一条固定要求改这一页，改完直接写回（命令面板那两条走这里）。
+   * 不再拿一段 markdown 问你要不要 —— 预览里就能看见，不满意 ⌘Z 撤销。
+   */
+  async rewriteCurrentPage(request: string): Promise<void> {
+    try {
+      new Notice('reveal-slide-for-obsidian: 想一想…');
+      await this.applyToCurrentPage(await this.askAboutCurrentPage(request));
+      new Notice('reveal-slide-for-obsidian: 改好了，不满意就 ⌘/Ctrl + Z 撤销');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      new Notice(`reveal-slide-for-obsidian: ${message}`);
+    }
+  }
+
   /** 把这一页替换成新内容（只动这一页，分页符与别页原样保留） */
   async applyToCurrentPage(markdown: string): Promise<void> {
     const file = this.lastMarkdownFile;

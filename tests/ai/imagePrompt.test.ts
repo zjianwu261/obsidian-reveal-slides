@@ -15,8 +15,18 @@ import {
 describe('FIGURE_DESCRIBE_SYSTEM', () => {
   /* 生成模型写不好字，中文尤其糊成一团 —— 每一套画风都得禁掉 */
   it('forbids text inside the picture', () => {
-    expect(FIGURE_DESCRIBE_SYSTEM).toContain('图里不许有文字');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('不要出现数字、字母');
     for (const style of IMAGE_STYLES) expect(withStyle('x', style.id)).toContain('no text');
+  });
+
+  /* 生成模型数不准个数，三个以上必错 —— 别让描述靠数量说话 */
+  it('keeps the description from counting things', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('不要靠数量表达');
+  });
+
+  /* 一句里塞满分号和「随后」「才」，画图的人读不懂 */
+  it('asks for short sentences, one thing each', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('一句一件事');
   });
 
   /* 风格由插件定死，模型那 80 个词全花在内容上 */
@@ -36,10 +46,10 @@ describe('FIGURE_DESCRIBE_SYSTEM', () => {
     expect(FIGURE_DESCRIBE_SYSTEM).toContain('不要五样各画一格');
   });
 
-  /* 抽象名词只会换来一堆发光的电路和齿轮 */
-  it('bans the vague words that produce stock art', () => {
-    expect(FIGURE_DESCRIBE_SYSTEM).toContain('体现自增的概念');
-    expect(FIGURE_DESCRIBE_SYSTEM).toContain('发光的电路和齿轮');
+  /* 画面描述是写给「没上过这门课的画师」看的，不是写代码含义 */
+  it('frames it as a picture for someone who never took the course', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('他没上过这门课');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('看得见的东西');
   });
 });
 

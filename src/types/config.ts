@@ -91,11 +91,6 @@ export interface PluginSettings {
   aiPromptPath: string;
   /** 对话框占预览面板的比例（0~1），默认四六开 */
   aiPanelRatio: number;
-  /**
-   * 输入框高度（像素）。0 = 跟着内容自己长，拖过一次就记住你拖的那个高度；
-   * 再拖回最矮就退回自动 —— 不然改坏了没地方复位。
-   */
-  aiInputHeight: number;
   /** 配图用哪一套画风（ImageStyle.id） */
   aiFigureStyle: string;
   /**
@@ -151,6 +146,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiTimeoutSeconds: 300,
   aiPromptPath: 'Extra/RevealSlides/提示词.md',
   aiPanelRatio: 0.4,
-  aiInputHeight: 0,
   aiFigureStyle: 'lecture',
 };
