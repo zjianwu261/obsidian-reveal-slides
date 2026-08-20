@@ -557,6 +557,23 @@ export class RevealSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName('配图提示词文件')
+      .setDesc(
+        '库内路径，管的是配图面板左边那一步：读题目和讲稿，想出一段画面描述。' +
+          '存在就用它，不存在用插件内置的那份。' +
+          '命令面板执行 "Open Figure Prompt" 会把内置那份写进去并打开，改完立刻生效。',
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder('Extra/RevealSlides/配图提示词.md')
+          .setValue(settings.aiFigurePromptPath)
+          .onChange(async (value) => {
+            settings.aiFigurePromptPath = value.trim();
+            await save();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName('等待上限')
       .setDesc(
         '等模型多久就不等了（秒）。画一张图要吐两三千个 token，' +

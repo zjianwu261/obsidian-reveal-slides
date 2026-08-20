@@ -53,6 +53,14 @@ export function registerCommands(plugin: RevealPlugin): void {
     },
   });
 
+  plugin.addCommand({
+    id: 'open-ai-figure-prompt',
+    name: 'Open Figure Prompt',
+    callback: () => {
+      void plugin.openAiFigurePrompt();
+    },
+  });
+
   for (const command of PAGE_COMMANDS) {
     plugin.addCommand({
       id: command.id,

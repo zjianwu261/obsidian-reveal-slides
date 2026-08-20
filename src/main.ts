@@ -747,7 +747,7 @@ export default class RevealPlugin extends Plugin {
 
     return (
       await this.askChat(
-        FIGURE_DESCRIBE_SYSTEM,
+        await this.loadFigurePrompt(),
         [
           buildFigureDescribeRequest({
             pageSource: current.range.text,
@@ -989,19 +989,40 @@ export default class RevealPlugin extends Plugin {
   }
 
   /**
+   * 配图那一步（题目 + 讲稿 → 一段画面描述）的提示词，规矩跟对话框那份一样：
+   * 设置里指的文件存在就用它，不在就用内置的那份，每次都现读 ——
+   * 你在旁边改完，下一次「想一段描述」就照新的来。
+   *
+   * 少一层本篇 frontmatter 的 `prompt:`：那一层是给「这一章的版式规矩」用的，
+   * 而怎么把讲稿想成一幅画整门课是一套，没有哪一篇要单独换。
+   */
+  private async loadFigurePrompt(): Promise<string> {
+    const file = this.app.vault.getAbstractFileByPath(this.settings.aiFigurePromptPath);
+    if (!(file instanceof TFile)) return FIGURE_DESCRIBE_SYSTEM;
+    const body = extractFrontmatter(await this.app.vault.cachedRead(file)).body.trim();
+    return body || FIGURE_DESCRIBE_SYSTEM;
+  }
+
+  /** 对话框那份提示词 */
+  openAiPrompt(): Promise<void> {
+    return this.openPromptFile(this.settings.aiPromptPath, SYSTEM_PROMPT);
+  }
+
+  /** 配图那份提示词 */
+  openAiFigurePrompt(): Promise<void> {
+    return this.openPromptFile(this.settings.aiFigurePromptPath, FIGURE_DESCRIBE_SYSTEM);
+  }
+
+  /**
    * 打开提示词文件；没有就先把内置的那份写进去 ——
    * 面对空文件没人知道该写什么，给一份能跑的当起点才改得动。
    */
-  async openAiPrompt(): Promise<void> {
-    const path = this.settings.aiPromptPath;
+  private async openPromptFile(path: string, builtin: string): Promise<void> {
     let file = this.app.vault.getAbstractFileByPath(path);
 
     if (!(file instanceof TFile)) {
-      const folder = path.split('/').slice(0, -1).join('/');
-      if (folder && !this.app.vault.getAbstractFileByPath(folder)) {
-        await this.app.vault.createFolder(folder);
-      }
-      file = await this.app.vault.create(path, SYSTEM_PROMPT + '\n');
+      await this.ensureFolder(path);
+      file = await this.app.vault.create(path, builtin + '\n');
       new Notice(`reveal-slide-for-obsidian: 已创建 ${path}，内容是插件内置的那份，改它即可`);
     }
 

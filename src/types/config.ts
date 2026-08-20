@@ -89,6 +89,12 @@ export interface PluginSettings {
    * 跟课程 CSS 一个思路：这套规矩是你的教学习惯，该由你改，不该藏在代码里。
    */
   aiPromptPath: string;
+  /**
+   * 配图描述提示词文件（库内路径）。规矩同上：存在就用它，不存在用内置那份。
+   * 跟对话框那份分开放 —— 一份管怎么改这一页的字，一份管怎么想这张图，
+   * 混在一个文件里改哪句都得先找半天。
+   */
+  aiFigurePromptPath: string;
   /** 对话框占预览面板的比例（0~1），默认四六开 */
   aiPanelRatio: number;
   /** 配图用哪一套画风（ImageStyle.id） */
@@ -145,6 +151,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   aiModel: 'deepseek-v4-flash',
   aiTimeoutSeconds: 300,
   aiPromptPath: 'Extra/RevealSlides/提示词.md',
+  aiFigurePromptPath: 'Extra/RevealSlides/配图提示词.md',
   aiPanelRatio: 0.4,
   aiFigureStyle: 'lecture',
 };
