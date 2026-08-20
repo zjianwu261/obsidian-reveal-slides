@@ -45,6 +45,17 @@ describe('FIGURE_DESCRIBE_SYSTEM', () => {
     expect(FIGURE_DESCRIBE_SYSTEM).toContain('不许自己概括');
   });
 
+  /* 图打的是认知难点：学生本来就懂的东西，画得再漂亮也是白画 */
+  it('aims the picture at where students get it wrong', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('最容易想错的是哪一步');
+  });
+
+  /* 三步是同一样东西的前后，不是三样不相干的东西排成一排 */
+  it('explains what each of the two layouts is for', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('同一样东西的前后');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('同一件事的正反面');
+  });
+
   /* 读一眼不等于搬走：b 只是被读了，画面里它一下都不能动 */
   it('keeps the untouched thing untouched', () => {
     expect(FIGURE_DESCRIBE_SYSTEM).toContain('全程留在原位');
