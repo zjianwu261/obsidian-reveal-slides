@@ -64,17 +64,48 @@ export const IMAGE_PROMPT_SYSTEM = `你在为一页大学课件配一张教学�
 - **整张图只讲那一件事。** 可以左右对照两格，但两格必须是**同一件事的正反面**
   （对的做法 vs 错的做法、先改再用 vs 先用再改），不能是两个话题各占一格。
   讲顺序的就画成一条从左到右的动作线。三格以上必乱。
-- **图里不许有文字。** 生成模型写不好字，中文尤其糊成一团。
-  提示词末尾写死 "no text, no letters, no numbers, no labels, no watermark"。
-  要说明的字由幻灯片正文承担。
+- **图里不许有文字。** 生成模型写不好字，中文尤其糊成一团 ——
+  要说明的字由幻灯片正文承担，你写画面就行（禁文字那句插件会自己加）。
 - **画面干净。** 大量留白，plain light background，没有边框和背景装饰。
   投到教室屏幕上后排要能一眼看清。
-- **风格。** flat vector illustration, clean bold outlines, limited palette
-  (two or three colors plus neutrals), soft even lighting。
-  不要写实照片、不要 3D 渲染、不要霓虹赛博朋克。
+- **不用写风格。** 扁平矢量、配色、光线这些由插件统一追加，
+  你把这 80 个词全花在「画面里有什么、谁在做什么」上。
 - 一段话，80 个英文词以内，不要分行、不要编号。
 
-**输出**：只输出这句英文提示词本身，不要解释、不要引号、不要代码围栏。`;
+**输出两行，就这两行**：
+
+  画什么：<一句中文，说清这张图要让学生看懂什么。给老师过目用的>
+  prompt: <那句英文提示词>
+
+不要解释、不要引号、不要代码围栏。`;
+
+/**
+ * 固定追加的风格。
+ *
+ * 让模型每次自己想风格，等于每一页抽一次卡：这一章扁平矢量、下一章 3D 渲染，
+ * 一本课件看着像好几个人拼的。风格定死在这里，模型那 80 个词就全花在内容上。
+ */
+export const IMAGE_STYLE =
+  'Style: flat vector illustration for a university lecture slide, ' +
+  'clean bold outlines, limited palette of one blue and one orange plus neutral grey, ' +
+  'soft even lighting, plain white background, generous white space, ' +
+  'simple geometric shapes, no gradients, no shadows, no 3D rendering, no photorealism, ' +
+  'no gears, no glowing circuits, no neon, no frame, no border, ' +
+  'no text, no letters, no numbers, no labels, no watermark.';
+
+/** 模型给的那两行 → 给老师看的一句中文 + 发给画图接口的英文 */
+export function parseImagePlan(reply: string): { plan: string; prompt: string } {
+  const text = reply.replace(/^```[^\n]*\n?|```$/g, '').trim();
+  const plan = /^\s*画什么\s*[:：]\s*(.+)$/m.exec(text)?.[1]?.trim() ?? '';
+  const prompt = /^\s*prompt\s*[:：]\s*([\s\S]+)$/im.exec(text)?.[1]?.trim();
+  // 两行的格式没守住就整段当提示词用 —— 图照画，只是少了那句给人看的话
+  return { plan, prompt: cleanImagePrompt(prompt ?? text) };
+}
+
+/** 内容提示词 + 固定风格 → 真正发给画图接口的那一串 */
+export function withStyle(prompt: string): string {
+  return `${prompt.replace(/\s*$/, '').replace(/\.$/, '')}. ${IMAGE_STYLE}`;
+}
 
 export function buildImagePromptRequest(options: {
   pageSource: string;

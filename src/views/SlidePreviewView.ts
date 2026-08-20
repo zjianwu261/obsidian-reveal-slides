@@ -92,7 +92,7 @@ export class SlidePreviewView extends ItemView {
           canEdit: () => this.plugin.canEditCurrentPage(),
           context: () => this.plugin.currentChatContext(),
           ask: (request) => this.plugin.askAboutCurrentPage(request),
-          draw: (request, box) => this.plugin.drawFigureForCurrentPage(request, box),
+          draw: (request, report) => this.plugin.drawFigureForCurrentPage(request, report),
           apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
           onResize: (ratio) => {
             this.plugin.settings.aiPanelRatio = ratio;
@@ -109,14 +109,9 @@ export class SlidePreviewView extends ItemView {
             this.plugin.settings.aiInputHeight = height;
             void this.plugin.saveSettings();
           },
-          onLayoutChange: (id) => {
-            this.plugin.settings.aiLayout = id;
-            void this.plugin.saveSettings();
-          },
         },
         this.plugin.settings.aiPanelRatio,
         this.plugin.settings.aiInputHeight,
-        this.plugin.settings.aiLayout,
       );
     }
 

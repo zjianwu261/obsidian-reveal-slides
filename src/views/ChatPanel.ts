@@ -19,15 +19,6 @@ import {
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
 import { expandRequest, matchCommands } from './chatCommands';
-import {
-  SLIDE_LAYOUTS,
-  composeRequest,
-  findBox,
-  layoutById,
-  requestedBlock,
-} from './slideLayouts';
-import type { LayoutBox } from './slideLayouts';
-import type { SlideLayout } from './slideLayouts';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
 interface WaitingRound {
@@ -40,12 +31,13 @@ export interface ChatPanelHandlers {
   onResize?(ratio: number): void;
   /** 拖动输入框后的新高度（像素，0 = 退回自动），交给调用方存起来 */
   onInputResize?(height: number): void;
-  /** 换了版式（空串 = 取消选中），交给调用方存起来 */
-  onLayoutChange?(id: string): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
-  /** 画一张位图配图，返回塞好图之后的新页面源码 */
-  draw?(request: string, box?: LayoutBox): Promise<string>;
+  /**
+   * 画一张位图配图，返回塞好图之后的新页面源码。
+   * report 是画之前那句「打算画什么」—— 一张图要跑一分钟，先说出来才好喊停
+   */
+  draw?(request: string, report: (plan: string) => void): Promise<string>;
   /** 应用改动 */
   apply(markdown: string): Promise<void>;
   /** 有没有可改的页面 */
@@ -64,8 +56,6 @@ export class ChatPanel {
   private root: HTMLElement;
   private contextBar: HTMLElement;
   private profilePicker: HTMLSelectElement | null = null;
-  /** 选中的版式；null = 不指定，位置交给模型 */
-  private layout: SlideLayout | null = null;
   private log: HTMLElement;
   /** 斜杠菜单：DOM、每条对应的文本、当前选中第几条 */
   private menu: { el: HTMLElement; items: HTMLElement[]; texts: string[]; index: number } | null =
@@ -86,16 +76,13 @@ export class ChatPanel {
     private handlers: ChatPanelHandlers,
     ratio = 0.4,
     savedInputHeight = 0,
-    savedLayout = '',
   ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
     // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
     this.root.style.height = `${(clampPanelRatio(ratio) * 100).toFixed(1)}%`;
     this.buildResizer();
 
-    // 上次选的那一档下次还在：每页都从头挑一次没有意义，课件的排法是稳定的
-    this.layout = layoutById(savedLayout);
-    this.buildLayoutBar();
+    this.buildTopBar();
 
     // 状态栏：这句话会改哪一页。笔记切来切去之后，这一条比什么都重要
     this.contextBar = this.root.createDiv({ cls: 'rfo-chat-context' });
@@ -172,41 +159,9 @@ export class ChatPanel {
     });
   }
 
-  /**
-   * 版式条：幻灯片和对话之间的一排缩略图。
-   *
-   * 「排得好看点」这种话模型每次给的 dim/pos 都不一样。先点一个结构，
-   * 位置就由插件给死，模型只管往格子里填内容 —— 改起来才有准头。
-   * 缩略图按 grid 的真实百分比画，看到的分布就是模型收到的数字。
-   */
-  private buildLayoutBar(): void {
+  /** 幻灯片和对话之间那一条：现在只放接口选择 */
+  private buildTopBar(): void {
     const bar = this.root.createDiv({ cls: 'rfo-chat-layouts' });
-    bar.createSpan({ cls: 'rfo-chat-layouts-label', text: '版式' });
-
-    for (const layout of SLIDE_LAYOUTS) {
-      const cell = bar.createDiv({ cls: 'rfo-chat-layout', attr: { title: layout.hint } });
-      cell.toggleClass('is-active', layout.id === this.layout?.id);
-      const thumb = cell.createDiv({ cls: 'rfo-chat-layout-thumb' });
-      for (const box of layout.boxes) {
-        const el = thumb.createDiv({ cls: `rfo-chat-layout-box is-${box.kind}` });
-        el.style.left = `${box.x}%`;
-        el.style.top = `${box.y}%`;
-        el.style.width = `${box.w}%`;
-        el.style.height = `${box.h}%`;
-      }
-      cell.createSpan({ cls: 'rfo-chat-layout-name', text: layout.name });
-
-      // 再点一次取消：选错了不用去找「不指定」那一格
-      cell.addEventListener('click', () => {
-        this.layout = this.layout?.id === layout.id ? null : layout;
-        bar.findAll('.rfo-chat-layout').forEach((other, i) => {
-          other.toggleClass('is-active', SLIDE_LAYOUTS[i].id === this.layout?.id);
-        });
-        this.handlers.onLayoutChange?.(this.layout?.id ?? '');
-        this.input.focus();
-      });
-    }
-
     this.buildProfilePicker(bar);
   }
 
@@ -382,39 +337,22 @@ export class ChatPanel {
     return line;
   }
 
-  /**
-   * 拿「通栏正文」去配图这种搭配：版式里根本没有图的位置。
-   * composeRequest 这时会把版式丢掉（宽度宁可不给，也不能瞎给一个），
-   * 但丢得静悄悄的话，你会以为宽度已经定死了 —— 吭一声。
-   */
-  private warnIfLayoutHasNoRoom(text: string): void {
-    const block = requestedBlock(text);
-    if (!this.layout || !block || findBox(this.layout, block)) return;
-    new Notice(`reveal-slide-for-obsidian: 「${this.layout.name}」没有这一块的位置，这次没按版式发`);
-  }
-
   /** 对话里回显这一句：版式那段话是给模型看的，界面上写个名字就够了 */
   private echo(): string {
-    const typed = this.input.value.trim();
-    if (!this.layout) return typed;
-    return typed ? `${typed}（版式：${this.layout.name}）` : `按「${this.layout.name}」重排这一页`;
+    return this.input.value.trim();
   }
 
   /** 这一轮该走哪条路：画图命令交给 draw，其余照旧问对话模型 */
   private async run(request: string, mode: 'page' | 'image'): Promise<string> {
     if (mode !== 'image') return this.handlers.ask(request);
     if (!this.handlers.draw) throw new Error('这个版本还不支持画图');
-    return this.handlers.draw(request, this.layout ? findBox(this.layout, 'fig') ?? undefined : undefined);
+    return this.handlers.draw(request, (plan) => this.say('assistant', `要画的是：${plan}`));
   }
 
   private async send(): Promise<void> {
     const expanded = expandRequest(this.input.value);
-    // 画图那条路不把版式拼进话里：格子的宽高是另外交给 draw 的，
-    // 混进提示词只会让写提示词的模型跟着描述起 grid 来
-    const request =
-      expanded.mode === 'image' ? expanded.text : composeRequest(expanded.text, this.layout);
+    const request = expanded.text;
     if (!request || this.sendButton.disabled) return;
-    if (expanded.mode !== 'image') this.warnIfLayoutHasNoRoom(expanded.text);
 
     if (!this.handlers.canEdit()) {
       new Notice('reveal-slide-for-obsidian: 还没有可改的页面');

@@ -250,22 +250,13 @@ body.rfo-immersive {
   box-shadow: none;
 }
 
-/*
- * 版式条：幻灯片和对话之间的一排缩略图。
- * 每一格按 grid 的真实百分比画，所见即模型收到的那几个数字。
- */
+/* 幻灯片和对话之间那一条：现在只放接口选择 */
 .rfo-chat-layouts {
   display: flex;
   gap: 8px;
   align-items: center;
   padding: 4px 4px 6px;
-  overflow-x: auto;
-  /* 面板窄的时候横向滚，别把缩略图挤变形 —— 变了形就不再是分布图了 */
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  min-height: 24px;
 }
 
 /* 接口选择：贴在版式条右端，只有一套时藏起来 */
@@ -282,96 +273,7 @@ body.rfo-immersive {
   }
 }
 
-.rfo-chat-layouts-label {
-  flex: 0 0 auto;
-  color: var(--text-faint);
-  font-size: var(--font-smallest);
-}
-
-.rfo-chat-layout {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 6px;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--background-modifier-hover);
-  }
-
-  &.is-active {
-    background: var(--background-modifier-active-hover, var(--background-secondary-alt));
-
-    .rfo-chat-layout-thumb {
-      border-color: var(--interactive-accent);
-    }
-
-    .rfo-chat-layout-name {
-      color: var(--text-accent);
-    }
-  }
-}
-
 /* 缩略图按 16:9 画，格子绝对定位在里面 */
-.rfo-chat-layout-thumb {
-  position: relative;
-  width: 56px;
-  height: 31.5px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 3px;
-  background: var(--background-primary);
-  overflow: hidden;
-}
-
-.rfo-chat-layout-box {
-  position: absolute;
-  border-radius: 1px;
-
-  /* 标题条和页脚：实心，一眼认出上下两条 */
-  &.is-bar,
-  &.is-foot {
-    background: var(--interactive-accent);
-    opacity: 0.55;
-  }
-
-  /* 图：描边空心，跟正文的实心块区分开 */
-  &.is-fig {
-    border: 1px solid var(--text-accent);
-    background: var(--background-modifier-hover);
-  }
-
-  /* 正文：横线暗示文字 */
-  &.is-abstract {
-    background: repeating-linear-gradient(
-      to bottom,
-      var(--text-faint) 0,
-      var(--text-faint) 1px,
-      transparent 1px,
-      transparent 4px
-    );
-  }
-
-  /* 代码：竖条纹，和正文的横线一眼分开 */
-  &.is-code {
-    background: repeating-linear-gradient(
-      to right,
-      var(--text-faint) 0,
-      var(--text-faint) 1px,
-      transparent 1px,
-      transparent 5px
-    );
-  }
-}
-
-.rfo-chat-layout-name {
-  color: var(--text-muted);
-  font-size: var(--font-smallest);
-  line-height: 1.2;
-  white-space: nowrap;
-}
 
 /* 状态栏：这句话会改哪一页 */
 .rfo-chat-context {

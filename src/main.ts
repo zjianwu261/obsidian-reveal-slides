@@ -46,11 +46,11 @@ import { generateImage } from './ai/imageClient';
 import {
   IMAGE_PROMPT_SYSTEM,
   buildImagePromptRequest,
-  cleanImagePrompt,
+  parseImagePlan,
   shapeForBox,
+  withStyle,
 } from './ai/imagePrompt';
 import { placeFigure, readFigureBox } from './ai/figurePlacement';
-import type { FigureBox } from './ai/figurePlacement';
 import type { AiProfile } from './ai/profiles';
 import { pageTitle } from './views/chatContext';
 import type { ChatContext } from './views/chatContext';
@@ -728,7 +728,10 @@ export default class RevealPlugin extends Plugin {
    * 直接让它「按这一页配图」只会出泛泛的科技感插画），再交给画图模型画。
    * 图落成文件，页面里只多一行引用 —— 正文和讲稿一个字不动。
    */
-  async drawFigureForCurrentPage(request: string, box?: FigureBox): Promise<string> {
+  async drawFigureForCurrentPage(
+    request: string,
+    report: (plan: string) => void = () => undefined,
+  ): Promise<string> {
     const current = await this.readCurrentPage();
     if (!current) throw new Error('还没有可改的页面');
 
@@ -742,7 +745,7 @@ export default class RevealPlugin extends Plugin {
     }
     if (!drawer.apiBase || !drawer.apiKey) throw new Error(`「${drawer.name}」的地址或 key 还没填`);
 
-    const prompt = cleanImagePrompt(
+    const { plan, prompt } = parseImagePlan(
       await chat(
         {
           apiBase: chatProfile.apiBase,
@@ -764,20 +767,21 @@ export default class RevealPlugin extends Plugin {
       ),
     );
 
-    // 画幅从你自己写的 <grid dim> 里拿 —— 版式条只在这一页还没有 fig 格子时才作数。
-    // 你排好的版不该被一个下拉框推翻
-    const written = readFigureBox(current.range.text);
-    const shape = written ?? box;
+    // 动手之前先把打算画什么说出来：一张图要跑一分钟，跑完才发现跑偏了太亏
+    if (plan) report(plan);
+
+    // 画幅从你自己写的 <grid dim> 里拿。你排好的版，插件没有理由替你改
+    const box = readFigureBox(current.range.text);
 
     const bytes = await generateImage(
       { apiBase: drawer.apiBase, apiKey: drawer.apiKey, model: drawer.model },
-      prompt,
-      shapeForBox(shape?.w ?? 92, shape?.h ?? 34),
+      withStyle(prompt),
+      shapeForBox(box?.w ?? 92, box?.h ?? 34),
     );
 
     const path = await this.saveImage(bytes);
-    // 链接只写文件名，同上：全路径又长又挡视线
-    return placeFigure(current.range.text, `![[${path.split('/').pop() ?? path}]]`, box);
+    // 链接只写文件名：Obsidian 按最短唯一路径解析，全路径又长又挡视线
+    return placeFigure(current.range.text, `![[${path.split('/').pop() ?? path}]]`);
   }
 
   /** 图存成文件：命名跟手绘那条一样，同一页重画就覆盖同一张 */

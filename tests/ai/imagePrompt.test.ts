@@ -1,17 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import {
   IMAGE_PROMPT_SYSTEM,
+  IMAGE_STYLE,
   buildImagePromptRequest,
   cleanImagePrompt,
   extractNotes,
   extractTitle,
+  parseImagePlan,
   shapeForBox,
+  withStyle,
 } from '../../src/ai/imagePrompt';
 
 describe('IMAGE_PROMPT_SYSTEM', () => {
-  /* 生成模型写不好字，中文尤其糊成一团 —— 这条不能漏 */
+  /* 生成模型写不好字，中文尤其糊成一团 —— 这条由固定风格那段兜着 */
   it('forbids text inside the picture', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('no text');
+    expect(IMAGE_STYLE).toContain('no text');
+    expect(IMAGE_PROMPT_SYSTEM).toContain('图里不许有文字');
+  });
+
+  /* 风格由插件定死，模型那 80 个词全花在内容上 */
+  it('tells the model not to spend words on style', () => {
+    expect(IMAGE_PROMPT_SYSTEM).toContain('不用写风格');
   });
 
   /* 题目划范围、讲稿给内容 —— 讲稿常常从上一页的话头讲起 */
@@ -104,5 +113,49 @@ describe('shapeForBox', () => {
 
   it('does not divide by a zero-height box', () => {
     expect(shapeForBox(92, 0)).toBe('landscape');
+  });
+});
+
+describe('IMAGE_STYLE', () => {
+  /* 每页自己想风格＝每页抽一次卡，一本课件看着像好几个人拼的 */
+  it('pins the look down instead of leaving it to chance', () => {
+    expect(IMAGE_STYLE).toContain('flat vector illustration');
+    expect(IMAGE_STYLE).toContain('lecture slide');
+    expect(IMAGE_STYLE).toContain('no 3D rendering');
+  });
+});
+
+describe('withStyle', () => {
+  it('puts the fixed style behind whatever was written', () => {
+    const full = withStyle('a hand pouring a value into a box');
+    expect(full.startsWith('a hand pouring a value into a box.')).toBe(true);
+    expect(full).toContain(IMAGE_STYLE);
+  });
+
+  it('does not double up the full stop', () => {
+    expect(withStyle('a box.')).not.toContain('..');
+  });
+});
+
+describe('parseImagePlan', () => {
+  const reply = '画什么：右边先算完，结果再倒进左边那个盒子\nprompt: a hand pouring a token into a box';
+
+  /* 一张图要跑一分钟，跑完才发现跑偏了太亏 —— 先说打算画什么 */
+  it('splits the sentence for you from the prompt for the model', () => {
+    expect(parseImagePlan(reply)).toEqual({
+      plan: '右边先算完，结果再倒进左边那个盒子',
+      prompt: 'a hand pouring a token into a box',
+    });
+  });
+
+  /* 格式没守住就整段当提示词：图照画，只是少了那句给人看的话 */
+  it('still draws when the model ignores the format', () => {
+    const loose = parseImagePlan('a hand pouring a token into a box');
+    expect(loose.plan).toBe('');
+    expect(loose.prompt).toBe('a hand pouring a token into a box');
+  });
+
+  it('drops a code fence', () => {
+    expect(parseImagePlan('```\nprompt: a box\n```').prompt).toBe('a box');
   });
 });
