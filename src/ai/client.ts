@@ -7,6 +7,7 @@
  * 供应商不写死 —— DeepSeek 只是默认值，任何兼容 /chat/completions 的接口填地址即可。
  */
 import { requestUrl } from 'obsidian';
+import { describeNetworkError } from './netError';
 
 export interface ChatConfig {
   apiBase: string;
@@ -60,8 +61,9 @@ export async function chat(
   if (!config.apiKey) throw new MissingApiKeyError();
 
   const seconds = config.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
+  const url = `${config.apiBase.replace(/\/+$/, '')}/chat/completions`;
   const response = await withTimeout(requestUrl({
-    url: `${config.apiBase.replace(/\/+$/, '')}/chat/completions`,
+    url,
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -75,7 +77,9 @@ export async function chat(
     }),
     // 4xx/5xx 不要直接抛：接口的错误信息（key 失效、余额不足、模型名写错）都在响应体里
     throw: false,
-  }), seconds);
+  }), seconds).catch((error: unknown) => {
+    throw describeNetworkError(error, url);
+  });
 
   if (response.status >= 400) {
     throw new Error(`接口返回 ${response.status}：${readError(response.text)}`);

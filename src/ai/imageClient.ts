@@ -7,6 +7,7 @@
  */
 import { requestUrl } from 'obsidian';
 import { MissingApiKeyError } from './client';
+import { describeNetworkError } from './netError';
 import { IMAGE_SIZES } from './imagePrompt';
 import type { ChatConfig } from './client';
 import type { ImageShape } from './imagePrompt';
@@ -33,9 +34,10 @@ export async function generateImage(
   if (!config.apiKey) throw new MissingApiKeyError();
 
   const seconds = config.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
+  const url = `${config.apiBase.replace(/\/+$/, '')}/images/generations`;
   const response = await withTimeout(
     requestUrl({
-      url: `${config.apiBase.replace(/\/+$/, '')}/images/generations`,
+      url,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,7 +52,9 @@ export async function generateImage(
       throw: false,
     }),
     seconds,
-  );
+  ).catch((error: unknown) => {
+    throw describeNetworkError(error, url);
+  });
 
   if (response.status >= 400) {
     throw new Error(`画图接口返回 ${response.status}：${readError(response.text)}`);
