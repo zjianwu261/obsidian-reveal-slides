@@ -19,29 +19,39 @@ const DEFAULT_BOX: FigureBox = { x: 4, y: 14, w: 92, h: 34 };
 const FIG_GRID = /<grid([^>]*\bclass="fig"[^>]*)>([\s\S]*?)<\/grid>/;
 const FIRST_GRID_END = /<\/grid>/;
 
-/** 把标签里的 dim/pos 换成这一档的数字；没写过的就补上 */
-function retag(attributes: string, box: FigureBox): string {
-  const dim = `dim="${box.w} ${box.h}"`;
-  const pos = `pos="${box.x} ${box.y}"`;
-  const withDim = /\bdim="[^"]*"/.test(attributes)
-    ? attributes.replace(/\bdim="[^"]*"/, dim)
-    : ` ${dim}${attributes}`;
-  return /\bpos="[^"]*"/.test(withDim)
-    ? withDim.replace(/\bpos="[^"]*"/, pos)
-    : withDim.replace(dim, `${dim} ${pos}`);
+/**
+ * 这一页的 fig 格子占多大（从你写好的 dim/pos 里读）。
+ * 没有 fig 格子、或者 dim 写得不是两个数，就返回 null。
+ */
+export function readFigureBox(page: string): FigureBox | null {
+  const grid = FIG_GRID.exec(page);
+  if (!grid) return null;
+
+  const dim = /\bdim="\s*([\d.]+)[ \t]+([\d.]+)\s*"/.exec(grid[1]);
+  if (!dim) return null;
+
+  // pos 可以写成 top / center / bottomright 这类词，取不到数就当 0 ——
+  // 画幅只看宽高，位置是多少不影响画出来的图长什么样
+  const pos = /\bpos="\s*(-?[\d.]+)[ \t]+(-?[\d.]+)\s*"/.exec(grid[1]);
+  return {
+    w: Number(dim[1]),
+    h: Number(dim[2]),
+    x: pos ? Number(pos[1]) : 0,
+    y: pos ? Number(pos[2]) : 0,
+  };
 }
 
 /**
  * 页面源码 + 一行图片引用 → 新的页面源码。
  *
- * 已经有 fig 格子就换掉里面的东西（原来是 svg 代码、旧图、还是空的都一样）；
- * 没有就在标题条后面新开一格 —— 标题总该留在最上面。
+ * 已经有 fig 格子就只换掉里面的东西（原来是 svg 代码、旧图、还是空的都一样），
+ * **标签上的 dim/pos 一个字不动** —— 那是你自己排的版，插件没有理由替你改。
+ * 没有 fig 格子才新开一格，用给定的那一档，标题条留在最上面。
  */
 export function placeFigure(page: string, embed: string, box: FigureBox = DEFAULT_BOX): string {
   const existing = FIG_GRID.exec(page);
   if (existing) {
-    const tag = `<grid${retag(existing[1], box)}>`;
-    return page.replace(FIG_GRID, `${tag}\n\n${embed}\n\n</grid>`);
+    return page.replace(FIG_GRID, `<grid${existing[1]}>\n\n${embed}\n\n</grid>`);
   }
 
   const grid = [

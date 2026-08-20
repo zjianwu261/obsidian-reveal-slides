@@ -49,7 +49,7 @@ import {
   cleanImagePrompt,
   shapeForBox,
 } from './ai/imagePrompt';
-import { placeFigure } from './ai/figurePlacement';
+import { placeFigure, readFigureBox } from './ai/figurePlacement';
 import type { FigureBox } from './ai/figurePlacement';
 import type { AiProfile } from './ai/profiles';
 import { pageTitle } from './views/chatContext';
@@ -764,10 +764,15 @@ export default class RevealPlugin extends Plugin {
       ),
     );
 
+    // 画幅从你自己写的 <grid dim> 里拿 —— 版式条只在这一页还没有 fig 格子时才作数。
+    // 你排好的版不该被一个下拉框推翻
+    const written = readFigureBox(current.range.text);
+    const shape = written ?? box;
+
     const bytes = await generateImage(
       { apiBase: drawer.apiBase, apiKey: drawer.apiKey, model: drawer.model },
       prompt,
-      shapeForBox(box?.w ?? 92, box?.h ?? 34),
+      shapeForBox(shape?.w ?? 92, shape?.h ?? 34),
     );
 
     const path = await this.saveImage(bytes);
