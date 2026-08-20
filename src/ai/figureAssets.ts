@@ -71,9 +71,11 @@ export function extractSvgFigures(
     const svg = body.trim();
     if (!svg.includes('<svg')) return block;
 
-    const path = `${options.dir}${figureFileName(options.page, options.title, figures.length)}`;
-    figures.push({ path, svg });
-    return `${indent}![[${path}]]`;
+    const name = figureFileName(options.page, options.title, figures.length);
+    figures.push({ path: `${options.dir}${name}`, svg });
+    // 只写文件名：Obsidian 按最短唯一路径解析，全路径又长又挡视线，
+    // 而且笔记一挪窝，写死的那串路径就全废了
+    return `${indent}![[${name}]]`;
   });
 
   return { markdown: result, figures };
@@ -99,7 +101,7 @@ export function extractAllSvgFigures(markdown: string, dir: string): ExtractResu
     const name = seen === 0 ? `${stem}.svg` : `${stem}-${seen + 1}.svg`;
 
     figures.push({ path: `${dir}${name}`, svg });
-    return `${indent}![[${dir}${name}]]`;
+    return `${indent}![[${name}]]`;
   });
 
   return { markdown: result, figures };

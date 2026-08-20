@@ -50,9 +50,11 @@ describe('extractSvgFigures', () => {
     '</grid>',
   ].join('\n');
 
-  it('leaves a link where the code block was', () => {
+  /* 链接只写文件名：Obsidian 按最短唯一路径解析，笔记挪了窝也不会断 */
+  it('leaves a short link where the code block was', () => {
     const result = extractSvgFigures(page, OPTIONS);
-    expect(result.markdown).toContain('![[理论课/assets/第4章/2.4-自增和自减运算符.svg]]');
+    expect(result.markdown).toContain('![[2.4-自增和自减运算符.svg]]');
+    expect(result.markdown).not.toContain('![[理论课/');
     expect(result.markdown).not.toContain('```svg');
     expect(result.markdown).toContain('<grid dim="92 34" pos="4 14" class="fig">');
   });
@@ -128,7 +130,7 @@ describe('extractAllSvgFigures', () => {
 
   it('leaves links behind and takes the code away', () => {
     const { markdown } = extractAllSvgFigures(note, 'assets/第4章/');
-    expect(markdown).toContain('![[assets/第4章/4.1-自增和自减.svg]]');
+    expect(markdown).toContain('![[4.1-自增和自减.svg]]');
     expect(markdown).not.toContain('```svg');
   });
 

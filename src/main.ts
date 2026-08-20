@@ -771,7 +771,8 @@ export default class RevealPlugin extends Plugin {
     );
 
     const path = await this.saveImage(bytes);
-    return placeFigure(current.range.text, `![[${path}]]`, box);
+    // 链接只写文件名，同上：全路径又长又挡视线
+    return placeFigure(current.range.text, `![[${path.split('/').pop() ?? path}]]`, box);
   }
 
   /** 图存成文件：命名跟手绘那条一样，同一页重画就覆盖同一张 */

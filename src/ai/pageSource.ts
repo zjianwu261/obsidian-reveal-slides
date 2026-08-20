@@ -38,12 +38,27 @@ export function pageRange(source: string, deck: SlideDeck, index: number): PageR
   return { start, end, text: lines.slice(start, end).join('\n') };
 }
 
-/** 用新内容替换该页，返回整篇笔记的新文本（页与页之间的分页符原样保留） */
+/**
+ * 用新内容替换该页，返回整篇笔记的新文本（页与页之间的分页符原样保留）。
+ *
+ * 两头各垫一个空行：分页符后面紧跟 <grid> 时，源码读起来是糊的 ——
+ * 一眼分不出哪儿是页与页的缝。模型给回来的那段常常不带这个空行，
+ * 这里补上，省得每次手动加。
+ */
 export function replacePage(source: string, range: PageRange, replacement: string): string {
   const lines = source.split('\n');
+  const body = replacement.replace(/\s+$/, '').split('\n');
+
+  const before = range.start > 0 ? lines[range.start - 1] : '';
+  const after = range.end < lines.length ? lines[range.end] : '';
+  const lead = range.start > 0 && before.trim() !== '' ? [''] : [];
+  const tail = range.end < lines.length && after.trim() !== '' ? [''] : [];
+
   return [
     ...lines.slice(0, range.start),
-    ...replacement.replace(/\s+$/, '').split('\n'),
+    ...lead,
+    ...body,
+    ...tail,
     ...lines.slice(range.end),
   ].join('\n');
 }
