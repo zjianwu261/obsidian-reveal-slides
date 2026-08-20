@@ -19,6 +19,8 @@ import {
 import { formatContext } from './chatContext';
 import type { ChatContext } from './chatContext';
 import { expandRequest, matchCommands } from './chatCommands';
+import { FigurePanel } from './FigurePanel';
+import type { FigurePanelHandlers } from './FigurePanel';
 
 /** 一轮等待：调用方据此判断回复该不该用（用户可能已经点了「不等了」） */
 interface WaitingRound {
@@ -33,11 +35,8 @@ export interface ChatPanelHandlers {
   onInputResize?(height: number): void;
   /** 发问：返回模型给出的新页面源码 */
   ask(request: string): Promise<string>;
-  /**
-   * 画一张位图配图，返回塞好图之后的新页面源码。
-   * report 是画之前那句「打算画什么」—— 一张图要跑一分钟，先说出来才好喊停
-   */
-  draw?(request: string, report: (plan: string) => void): Promise<string>;
+  /** 配图工作台那几件事；不给就只有对话 */
+  figure?: FigurePanelHandlers;
   /** 应用改动 */
   apply(markdown: string): Promise<void>;
   /** 有没有可改的页面 */
@@ -56,6 +55,10 @@ export class ChatPanel {
   private root: HTMLElement;
   private contextBar: HTMLElement;
   private profilePicker: HTMLSelectElement | null = null;
+  /** 对话那半边（记录 + 输入框）：切到配图时整块藏起来 */
+  private talk: HTMLElement;
+  private figure: FigurePanel | null = null;
+  private tabs: HTMLElement | null = null;
   private log: HTMLElement;
   /** 斜杠菜单：DOM、每条对应的文本、当前选中第几条 */
   private menu: { el: HTMLElement; items: HTMLElement[]; texts: string[]; index: number } | null =
@@ -76,6 +79,7 @@ export class ChatPanel {
     private handlers: ChatPanelHandlers,
     ratio = 0.4,
     savedInputHeight = 0,
+    savedStyle?: string,
   ) {
     this.root = parent.createDiv({ cls: 'rfo-chat' });
     // 用百分比而不是像素：onOpen 时面板还没排版，clientHeight 是 0，量不出东西来
@@ -86,12 +90,18 @@ export class ChatPanel {
 
     // 状态栏：这句话会改哪一页。笔记切来切去之后，这一条比什么都重要
     this.contextBar = this.root.createDiv({ cls: 'rfo-chat-context' });
-    this.log = this.root.createDiv({ cls: 'rfo-chat-log' });
+
+    if (this.handlers.figure) {
+      this.figure = new FigurePanel(this.root, this.handlers.figure, savedStyle);
+    }
+
+    this.talk = this.root.createDiv({ cls: 'rfo-chat-talk' });
+    this.log = this.talk.createDiv({ cls: 'rfo-chat-log' });
     this.say('assistant', '说一句话改当前这一页，比如「把右边的要点改成对比图」。改动会先给你看。');
 
     this.refreshContext();
 
-    const bar = this.root.createDiv({ cls: 'rfo-chat-bar' });
+    const bar = this.talk.createDiv({ cls: 'rfo-chat-bar' });
     this.input = bar.createEl('textarea', {
       cls: 'rfo-chat-input',
       attr: { rows: '2', placeholder: '改这一页…（Enter 发送，Alt + Enter 换行）' },
@@ -107,6 +117,7 @@ export class ChatPanel {
     if (savedInputHeight > 0) this.manualHeight = savedInputHeight;
     this.applyInputHeight();
     this.watchInputResize();
+    this.setMode(this.figure ? 'figure' : 'chat');
     this.input.addEventListener('keydown', (event) => {
       const action = chatKeyAction(event, this.menu !== null);
       if (action === 'pass') return;
@@ -159,10 +170,36 @@ export class ChatPanel {
     });
   }
 
-  /** 幻灯片和对话之间那一条：现在只放接口选择 */
+  /** 幻灯片和面板之间那一条：左边切换配图/对话，右边挑接口 */
   private buildTopBar(): void {
     const bar = this.root.createDiv({ cls: 'rfo-chat-layouts' });
+
+    if (this.handlers.figure) {
+      this.tabs = bar.createDiv({ cls: 'rfo-chat-tabs' });
+      for (const [mode, label] of [
+        ['figure', '配图'],
+        ['chat', '对话'],
+      ] as const) {
+        const tab = this.tabs.createEl('button', { cls: 'rfo-chat-tab', text: label });
+        tab.dataset.mode = mode;
+        tab.addEventListener('click', () => this.setMode(mode));
+      }
+    }
+
     this.buildProfilePicker(bar);
+  }
+
+  /**
+   * 配图和对话是两件事：配图是「题目讲稿 → 描述 → 一张图」这条固定的流水线，
+   * 对话是随口说一句改哪儿。挤在一屏里谁都不好使，分开切。
+   */
+  private setMode(mode: 'figure' | 'chat'): void {
+    this.figure?.setVisible(mode === 'figure');
+    this.talk.toggleClass('is-hidden', mode === 'figure' && this.figure !== null);
+    this.tabs?.findAll('.rfo-chat-tab').forEach((tab) => {
+      tab.toggleClass('is-active', tab.dataset.mode === mode);
+    });
+    if (mode === 'figure') void this.figure?.refresh();
   }
 
   /**
@@ -254,6 +291,7 @@ export class ChatPanel {
   refreshContext(): void {
     this.contextBar.setText(formatContext(this.handlers.context()));
     this.refreshProfiles();
+    void this.figure?.refresh();
   }
 
   /**
@@ -325,6 +363,7 @@ export class ChatPanel {
   }
 
   destroy(): void {
+    this.figure?.destroy();
     this.inputObserver?.disconnect();
     this.stopWaiting();
     this.root.remove();
@@ -343,12 +382,6 @@ export class ChatPanel {
   }
 
   /** 这一轮该走哪条路：画图命令交给 draw，其余照旧问对话模型 */
-  private async run(request: string, mode: 'page' | 'image'): Promise<string> {
-    if (mode !== 'image') return this.handlers.ask(request);
-    if (!this.handlers.draw) throw new Error('这个版本还不支持画图');
-    return this.handlers.draw(request, (plan) => this.say('assistant', `要画的是：${plan}`));
-  }
-
   private async send(): Promise<void> {
     const expanded = expandRequest(this.input.value);
     const request = expanded.text;
@@ -365,17 +398,13 @@ export class ChatPanel {
     this.growInput();
     this.sendButton.disabled = true;
 
-    const round = this.startWaiting(expanded.mode === 'image' ? '画图中…' : '想一想…');
+    const round = this.startWaiting();
     try {
-      const reply = await this.run(request, expanded.mode);
+      const reply = await this.handlers.ask(request);
       if (round.abandoned) return;                    // 用户已经点了「不等了」
       this.stopWaiting();
-      const done = expanded.mode === 'image' ? '画好了' : '想好了';
-      this.say('assistant', `${done}，用了 ${round.seconds()} 秒`);
-      // 画图这条路直接写回：图早就存成文件了，摆在这儿要你确认的只是一行引用，
-      // 真正要看的是预览里那张图 —— 不满意 ⌘Z 就回去了
-      if (expanded.mode === 'image') await this.applyNow(reply);
-      else this.showProposal(reply);
+      this.say('assistant', `想好了，用了 ${round.seconds()} 秒`);
+      this.showProposal(reply);
     } catch (err) {
       if (round.abandoned) return;
       this.stopWaiting();

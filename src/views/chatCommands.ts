@@ -1,18 +1,16 @@
 /**
  * 斜杠命令（纯数据 + 过滤逻辑，可单测）。
  *
- * 三条，对应一页课件的三样东西：一张画出来的图、一张画出来的示意图、一段文字。
- * 三条都从 note: 讲稿出发 —— 讲稿是你真正想讲的东西，幻灯片上那几行字
+ * 两条，对应一页课件的两样东西：一张矢量示意图、一段文字。
+ * 位图配图不在这儿 —— 那是「配图」那半边的流水线，不是随口一句话的事。
+ *
+ * 两条都从 note: 讲稿出发 —— 讲稿是你真正想讲的东西，幻灯片上那几行字
  * 反而是从它压缩出来的结果。让模型改压缩结果，只会把话越缩越干。
  */
-
-/** 这条命令走哪条路：改这一页的源码，还是去画一张位图 */
-export type ChatCommandMode = 'page' | 'image';
 
 export interface ChatCommand {
   name: string;
   hint: string;
-  mode: ChatCommandMode;
   /** 发出去时展开成的整段要求 */
   text: string;
 }
@@ -22,18 +20,8 @@ const KEEP_NOTE = 'note: 讲稿本身一个字都不要动。';
 
 export const CHAT_COMMANDS: ChatCommand[] = [
   {
-    name: '/fig',
-    hint: '按标题和讲稿画一张配图（位图，填进你写好的 fig 格子）',
-    mode: 'image',
-    text:
-      '按这一页的标题和 note: 讲稿配一张图。' +
-      '找一个看得见的比喻来画讲稿讲的那件事，画面干净、一个主体、大量留白、字越少越好。' +
-      '正文和讲稿都是写好的，一个字都不要动 —— 这一轮只出图。',
-  },
-  {
     name: '/svg',
     hint: '按讲稿画一张示意图（矢量，能改能缩放）',
-    mode: 'page',
     text:
       '读这一页的 note: 讲稿，按讲稿讲的东西配一张示意图，放进 class="fig" 的 grid。\n' +
       '要求：\n' +
@@ -50,7 +38,6 @@ export const CHAT_COMMANDS: ChatCommand[] = [
   {
     name: '/abstract',
     hint: '按讲稿总结这一页的正文大纲',
-    mode: 'page',
     text:
       '读这一页的 note: 讲稿，把讲稿的内容总结成这一页的正文，' +
       '放进 class="abstract" 的 grid。\n' +
@@ -77,7 +64,6 @@ export function matchCommands(input: string): ChatCommand[] {
 }
 
 export interface ExpandedRequest {
-  mode: ChatCommandMode;
   /** 真正发出去的话 */
   text: string;
   /** 命中的命令，没命中就是 null（界面上回显用） */
@@ -96,12 +82,8 @@ export function expandRequest(input: string): ExpandedRequest {
   const command = CHAT_COMMANDS.find(
     (item) => text === item.name || text.startsWith(`${item.name} `),
   );
-  if (!command) return { mode: 'page', text, command: null };
+  if (!command) return { text, command: null };
 
   const extra = text.slice(command.name.length).trim();
-  return {
-    mode: command.mode,
-    text: extra ? `${command.text}\n\n另外：${extra}` : command.text,
-    command,
-  };
+  return { text: extra ? `${command.text}\n\n另外：${extra}` : command.text, command };
 }

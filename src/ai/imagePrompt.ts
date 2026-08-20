@@ -32,10 +32,11 @@ export function extractNotes(pageSource: string, separator = 'note:'): string {
   return [first, ...lines.slice(at + 1)].join('\n').trim();
 }
 
-export const IMAGE_PROMPT_SYSTEM = `你在为一页大学课件配一张教学插图。
+export const FIGURE_DESCRIBE_SYSTEM = `你在为一页大学课件想一张教学插图。
 读用户给的这一页：**题目划定范围，note: 讲稿决定内容**，
 幻灯片正文只是压缩过的结论，别照着它画。
-你要输出的是一句英文的图像生成提示词。
+你要输出的是一段中文描述：这张图画什么。老师会过目、会动手改，
+改完才拿去生成 —— 所以要写得像在跟人交代画面，不是写关键词。
 
 讲稿常常从上一页的话头讲起、末尾又拐到下一页去 —— 题目是那把尺子：
 讲稿里跟题目无关的那几句，一句都不要画。
@@ -50,64 +51,120 @@ export const IMAGE_PROMPT_SYSTEM = `你在为一页大学课件配一张教学�
      就是他真正想让学生带走的东西。挑它。
      讲稿罗列了五样东西时，**不要五样各画一格** —— 那画出来是一张图例，
      不是一张讲解，学生看完还是不知道哪里容易错。
+
   2. 这件事在现实里长什么样？硬件的内容就画硬件本身（LED、数码管、
      导线、按键、示波器上的方波）；抽象的语义就找一个日常场景对应它，
      场景里的动作顺序必须和原理的顺序一一对得上。
+
   3. 画面怎么摆才**看得出这件事**？左右对照、上下两步、一条箭头贯穿 ——
      摆法本身要能承担讲解，不能靠文字补。
 
-然后按这几条写提示词：
+然后按这几条写描述：
 
-- **具体。** 写出画面里到底有什么东西、谁在做什么动作、朝哪个方向。
-  不要写 "concept of increment"、"programming illustration" 这种词 ——
+- **具体。** 写出画面里到底有什么东西、谁在做什么动作、朝哪个方向、
+  什么在前什么在后。不要写「体现自增的概念」这种话 ——
   画图模型对抽象名词只会回你一堆发光的电路和齿轮。
 - **整张图只讲那一件事。** 可以左右对照两格，但两格必须是**同一件事的正反面**
   （对的做法 vs 错的做法、先改再用 vs 先用再改），不能是两个话题各占一格。
   讲顺序的就画成一条从左到右的动作线。三格以上必乱。
 - **图里不许有文字。** 生成模型写不好字，中文尤其糊成一团 ——
-  要说明的字由幻灯片正文承担，你写画面就行（禁文字那句插件会自己加）。
-- **画面干净。** 大量留白，plain light background，没有边框和背景装饰。
-  投到教室屏幕上后排要能一眼看清。
-- **不用写风格。** 扁平矢量、配色、光线这些由插件统一追加，
-  你把这 80 个词全花在「画面里有什么、谁在做什么」上。
-- 一段话，80 个英文词以内，不要分行、不要编号。
+  要说明的字由幻灯片正文承担，你只写画面。
+- **不用写风格。** 扁平矢量、配色、光线这些插件会统一追加，
+  你把字数全花在「画面里有什么、谁在做什么」上。
+- 一段话，120 字以内，不要分行、不要编号、不要小标题。
 
-**输出两行，就这两行**：
-
-  画什么：<一句中文，说清这张图要让学生看懂什么。给老师过目用的>
-  prompt: <那句英文提示词>
-
-不要解释、不要引号、不要代码围栏。`;
+**输出**：只输出这段中文描述本身，不要解释、不要引号、不要代码围栏。`;
 
 /**
- * 固定追加的风格。
+ * 中文描述 → 英文提示词。
+ *
+ * 描述那一步产出中文，是因为要给人改；改完这一步只做翻译，不许再创作 ——
+ * 老师删掉的东西不能被这一步偷偷加回去。
+ */
+export const FIGURE_TRANSLATE_SYSTEM = `把用户给的这段中文画面描述翻成一句英文的图像生成提示词。
+
+- **只翻译，不创作。** 不要增加描述里没有的东西，也不要省略里面有的。
+  这段话是老师亲手改过的，改成什么样就画什么样。
+- 不要写风格词（flat vector、lighting、palette 之类）—— 插件会统一追加。
+- 一段话，不要分行、不要编号。
+
+**输出**：只输出这句英文，不要解释、不要引号、不要代码围栏。`;
+
+/**
+ * 风格由插件追加，不写进描述里。
  *
  * 让模型每次自己想风格，等于每一页抽一次卡：这一章扁平矢量、下一章 3D 渲染，
- * 一本课件看着像好几个人拼的。风格定死在这里，模型那 80 个词就全花在内容上。
+ * 一本课件看着像好几个人拼的。定成几套现成的，挑一套用，整门课就统一了。
  */
-export const IMAGE_STYLE =
-  'Style: flat vector illustration for a university lecture slide, ' +
-  'clean bold outlines, limited palette of one blue and one orange plus neutral grey, ' +
-  'soft even lighting, plain white background, generous white space, ' +
-  'simple geometric shapes, no gradients, no shadows, no 3D rendering, no photorealism, ' +
-  'no gears, no glowing circuits, no neon, no frame, no border, ' +
-  'no text, no letters, no numbers, no labels, no watermark.';
-
-/** 模型给的那两行 → 给老师看的一句中文 + 发给画图接口的英文 */
-export function parseImagePlan(reply: string): { plan: string; prompt: string } {
-  const text = reply.replace(/^```[^\n]*\n?|```$/g, '').trim();
-  const plan = /^\s*画什么\s*[:：]\s*(.+)$/m.exec(text)?.[1]?.trim() ?? '';
-  const prompt = /^\s*prompt\s*[:：]\s*([\s\S]+)$/im.exec(text)?.[1]?.trim();
-  // 两行的格式没守住就整段当提示词用 —— 图照画，只是少了那句给人看的话
-  return { plan, prompt: cleanImagePrompt(prompt ?? text) };
+export interface ImageStyle {
+  id: string;
+  name: string;
+  /** 悬停时的一句话：什么内容适合这一套 */
+  hint: string;
+  body: string;
 }
 
-/** 内容提示词 + 固定风格 → 真正发给画图接口的那一串 */
-export function withStyle(prompt: string): string {
-  return `${prompt.replace(/\s*$/, '').replace(/\.$/, '')}. ${IMAGE_STYLE}`;
+/** 每一套都得守的：投影要看得清，字一律不画 */
+const STYLE_TAIL =
+  'generous white space, plain uncluttered background, ' +
+  'no text, no letters, no numbers, no labels, no watermark, no frame, no border.';
+
+export const IMAGE_STYLES: ImageStyle[] = [
+  {
+    id: 'lecture',
+    name: '课堂教学',
+    hint: '默认。扁平矢量、一蓝一橙，最像课件里的图',
+    body:
+      'flat vector illustration for a university lecture slide, clean bold outlines, ' +
+      'limited palette of one blue and one orange plus neutral grey, soft even lighting, ' +
+      'plain white background, simple geometric shapes, no gradients, no shadows, ' +
+      'no 3D rendering, no photorealism, no gears, no glowing circuits, no neon,',
+  },
+  {
+    id: 'whiteboard',
+    name: '白板手绘',
+    hint: '像老师现场画的，讲推演过程时最自然',
+    body:
+      'hand-drawn whiteboard marker sketch, loose confident strokes, slightly uneven lines, ' +
+      'black outlines with one blue and one red marker accent, white board background,',
+  },
+  {
+    id: 'isometric',
+    name: '等距示意',
+    hint: '有层次的结构图，讲硬件和数据流向时好用',
+    body:
+      'isometric flat illustration, 30 degree axonometric view, clean edges, ' +
+      'muted blue and orange palette with soft neutral shading, plain light background,',
+  },
+  {
+    id: 'papercut',
+    name: '剪纸拼贴',
+    hint: '有质感、不呆板，讲比喻场景时出彩',
+    body:
+      'paper cut collage illustration, layered matte paper shapes with subtle drop shadows, ' +
+      'warm limited palette, tactile handmade feel, plain light background,',
+  },
+  {
+    id: 'photo',
+    name: '写实照片',
+    hint: '实物、器件、真实场景；抽象概念别用',
+    body:
+      'clean product photography, single subject on a plain seamless light background, ' +
+      'soft diffused studio lighting, shallow depth of field, realistic materials,',
+  },
+];
+
+export function imageStyleById(id: string): ImageStyle {
+  return IMAGE_STYLES.find((style) => style.id === id) ?? IMAGE_STYLES[0];
 }
 
-export function buildImagePromptRequest(options: {
+/** 内容提示词 + 选中的风格 → 真正发给画图接口的那一串 */
+export function withStyle(prompt: string, styleId = IMAGE_STYLES[0].id): string {
+  const style = imageStyleById(styleId);
+  return `${prompt.replace(/\s*$/, '').replace(/\.$/, '')}. Style: ${style.body} ${STYLE_TAIL}`;
+}
+
+export function buildFigureDescribeRequest(options: {
   pageSource: string;
   request: string;
   /** 页面里 note: 的写法，跟着设置走 */
@@ -124,12 +181,12 @@ export function buildImagePromptRequest(options: {
       ? `这一页的讲稿（图要讲的就是这段话里的事）：\n\n${notes}`
       : '这一页没有讲稿，只能按题目和正文来。',
     `这一页的完整源码：\n\n${options.pageSource}`,
-    `老师的要求：${options.request}`,
+    options.request ? `老师另外交代的：${options.request}` : '',
   ].filter(Boolean);
 
   return (
     `${parts.join('\n\n---\n\n')}\n\n` +
-    '按上面的规矩写这一句英文提示词。它必须写出画面里具体有什么、' +
+    '按上面的规矩写这一段中文描述。它必须写出画面里具体有什么、' +
     '谁在做什么动作 —— 光说主题是不行的。'
   );
 }

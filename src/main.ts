@@ -44,9 +44,12 @@ import {
 } from './ai/profiles';
 import { generateImage } from './ai/imageClient';
 import {
-  IMAGE_PROMPT_SYSTEM,
-  buildImagePromptRequest,
-  parseImagePlan,
+  FIGURE_DESCRIBE_SYSTEM,
+  FIGURE_TRANSLATE_SYSTEM,
+  buildFigureDescribeRequest,
+  cleanImagePrompt,
+  extractNotes,
+  extractTitle,
   shapeForBox,
   withStyle,
 } from './ai/imagePrompt';
@@ -721,23 +724,46 @@ export default class RevealPlugin extends Plugin {
     return stripFence(reply);
   }
 
+  /** 这一页的题目和讲稿：配图面板左边那一栏就摆这两样 */
+  async currentPageParts(): Promise<{ title: string; notes: string } | null> {
+    const current = await this.readCurrentPage();
+    if (!current) return null;
+    return {
+      title: extractTitle(current.range.text),
+      notes: extractNotes(current.range.text, this.settings.notesSeparator),
+    };
+  }
+
   /**
-   * 画一张位图配图，塞进这一页的 fig 格子，返回新的页面源码。
+   * 第一步：读题目和讲稿，想出一段中文的画面描述。
    *
-   * 两步：先让对话模型读讲稿写出英文提示词（画图模型没读过讲稿，
-   * 直接让它「按这一页配图」只会出泛泛的科技感插画），再交给画图模型画。
-   * 图落成文件，页面里只多一行引用 —— 正文和讲稿一个字不动。
+   * 产出中文而不是直接给英文提示词，是因为这段话要给你过目、给你改 ——
+   * 一张图要跑一分钟，跑完才发现构思不对太亏；而英文提示词改起来又别扭。
    */
-  async drawFigureForCurrentPage(
-    request: string,
-    report: (plan: string) => void = () => undefined,
-  ): Promise<string> {
+  async describeFigureForCurrentPage(request = ''): Promise<string> {
     const current = await this.readCurrentPage();
     if (!current) throw new Error('还没有可改的页面');
 
-    const chatProfile = this.currentAiProfile();
-    const chatProblem = profileProblem(chatProfile);
-    if (chatProblem || !chatProfile) throw new Error(chatProblem ?? '接口没配好');
+    return (
+      await this.askChat(FIGURE_DESCRIBE_SYSTEM, [
+        buildFigureDescribeRequest({
+          pageSource: current.range.text,
+          request,
+          notesSeparator: this.settings.notesSeparator,
+        }),
+      ])
+    ).trim();
+  }
+
+  /**
+   * 第二步：按这段描述画，画完塞进这一页的 fig 格子，返回新的页面源码。
+   *
+   * 中间那道翻译只翻不创作 —— 你删掉的东西不能被它偷偷加回去。
+   */
+  async drawFigureFromDescription(description: string, styleId: string): Promise<string> {
+    const current = await this.readCurrentPage();
+    if (!current) throw new Error('还没有可改的页面');
+    if (!description.trim()) throw new Error('描述是空的，先生成或自己写一段');
 
     const drawer = imageProfile(this.settings.aiProfiles);
     if (!drawer) {
@@ -745,43 +771,39 @@ export default class RevealPlugin extends Plugin {
     }
     if (!drawer.apiBase || !drawer.apiKey) throw new Error(`「${drawer.name}」的地址或 key 还没填`);
 
-    const { plan, prompt } = parseImagePlan(
-      await chat(
-        {
-          apiBase: chatProfile.apiBase,
-          apiKey: chatProfile.apiKey,
-          model: chatProfile.model,
-          timeoutSeconds: this.settings.aiTimeoutSeconds,
-        },
-        [
-          { role: 'system', content: IMAGE_PROMPT_SYSTEM },
-          {
-            role: 'user',
-            content: buildImagePromptRequest({
-              pageSource: current.range.text,
-              request,
-              notesSeparator: this.settings.notesSeparator,
-            }),
-          },
-        ],
-      ),
-    );
-
-    // 动手之前先把打算画什么说出来：一张图要跑一分钟，跑完才发现跑偏了太亏
-    if (plan) report(plan);
+    const prompt = cleanImagePrompt(await this.askChat(FIGURE_TRANSLATE_SYSTEM, [description]));
 
     // 画幅从你自己写的 <grid dim> 里拿。你排好的版，插件没有理由替你改
     const box = readFigureBox(current.range.text);
-
     const bytes = await generateImage(
       { apiBase: drawer.apiBase, apiKey: drawer.apiKey, model: drawer.model },
-      withStyle(prompt),
+      withStyle(prompt, styleId),
       shapeForBox(box?.w ?? 92, box?.h ?? 34),
     );
 
     const path = await this.saveImage(bytes);
     // 链接只写文件名：Obsidian 按最短唯一路径解析，全路径又长又挡视线
     return placeFigure(current.range.text, `![[${path.split('/').pop() ?? path}]]`);
+  }
+
+  /** 问一次对话模型（配图那两步都走这里，省得各写一遍配置检查） */
+  private async askChat(system: string, messages: string[]): Promise<string> {
+    const profile = this.currentAiProfile();
+    const problem = profileProblem(profile);
+    if (problem || !profile) throw new Error(problem ?? '接口没配好');
+
+    return chat(
+      {
+        apiBase: profile.apiBase,
+        apiKey: profile.apiKey,
+        model: profile.model,
+        timeoutSeconds: this.settings.aiTimeoutSeconds,
+      },
+      [
+        { role: 'system', content: system },
+        ...messages.map((content) => ({ role: 'user' as const, content })),
+      ],
+    );
   }
 
   /** 图存成文件：命名跟手绘那条一样，同一页重画就覆盖同一张 */

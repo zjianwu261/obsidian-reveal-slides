@@ -1,43 +1,45 @@
 import { describe, it, expect } from 'vitest';
 import {
-  IMAGE_PROMPT_SYSTEM,
-  IMAGE_STYLE,
-  buildImagePromptRequest,
+  FIGURE_DESCRIBE_SYSTEM,
+  FIGURE_TRANSLATE_SYSTEM,
+  IMAGE_STYLES,
+  buildFigureDescribeRequest,
   cleanImagePrompt,
   extractNotes,
   extractTitle,
-  parseImagePlan,
+  imageStyleById,
   shapeForBox,
   withStyle,
 } from '../../src/ai/imagePrompt';
 
-describe('IMAGE_PROMPT_SYSTEM', () => {
-  /* 生成模型写不好字，中文尤其糊成一团 —— 这条由固定风格那段兜着 */
+describe('FIGURE_DESCRIBE_SYSTEM', () => {
+  /* 生成模型写不好字，中文尤其糊成一团 —— 每一套画风都得禁掉 */
   it('forbids text inside the picture', () => {
-    expect(IMAGE_STYLE).toContain('no text');
-    expect(IMAGE_PROMPT_SYSTEM).toContain('图里不许有文字');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('图里不许有文字');
+    for (const style of IMAGE_STYLES) expect(withStyle('x', style.id)).toContain('no text');
   });
 
   /* 风格由插件定死，模型那 80 个词全花在内容上 */
   it('tells the model not to spend words on style', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('不用写风格');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('不用写风格');
   });
 
   /* 题目划范围、讲稿给内容 —— 讲稿常常从上一页的话头讲起 */
   it('tells the model what each part is for', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('题目划定范围');
-    expect(IMAGE_PROMPT_SYSTEM).toContain('note: 讲稿决定内容');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('题目划定范围');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('note: 讲稿决定内容');
   });
 
   /* 讲稿罗列五样东西时各画一格，出来的是图例不是讲解 */
   it('says where to look for the one thing worth drawing', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('最容易混淆');
-    expect(IMAGE_PROMPT_SYSTEM).toContain('不要五样各画一格');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('最容易混淆');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('不要五样各画一格');
   });
 
   /* 抽象名词只会换来一堆发光的电路和齿轮 */
   it('bans the vague words that produce stock art', () => {
-    expect(IMAGE_PROMPT_SYSTEM).toContain('concept of increment');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('体现自增的概念');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('发光的电路和齿轮');
   });
 });
 
@@ -66,10 +68,10 @@ describe('extractTitle', () => {
   });
 });
 
-describe('buildImagePromptRequest', () => {
+describe('buildFigureDescribeRequest', () => {
   /* 题目划范围、讲稿给内容：两样都得摆在整页源码前面，不然模型只扫一眼就动笔 */
   it('leads with the title and the speaker notes', () => {
-    const text = buildImagePromptRequest({
+    const text = buildFigureDescribeRequest({
       pageSource: '## 4.1 自增和自减\n\n- 要点\n\nnote: 先取旧值，回头才加一',
       request: '配张图',
     });
@@ -79,7 +81,7 @@ describe('buildImagePromptRequest', () => {
   });
 
   it('says so when the page has no notes to work from', () => {
-    const text = buildImagePromptRequest({ pageSource: '## 标题\n\n- 要点', request: '配张图' });
+    const text = buildFigureDescribeRequest({ pageSource: '## 标题\n\n- 要点', request: '配张图' });
     expect(text).toContain('没有讲稿');
   });
 });
@@ -116,20 +118,29 @@ describe('shapeForBox', () => {
   });
 });
 
-describe('IMAGE_STYLE', () => {
+describe('IMAGE_STYLES', () => {
   /* 每页自己想风格＝每页抽一次卡，一本课件看着像好几个人拼的 */
   it('pins the look down instead of leaving it to chance', () => {
-    expect(IMAGE_STYLE).toContain('flat vector illustration');
-    expect(IMAGE_STYLE).toContain('lecture slide');
-    expect(IMAGE_STYLE).toContain('no 3D rendering');
+    expect(IMAGE_STYLES[0].id).toBe('lecture');
+    expect(withStyle('x')).toContain('flat vector illustration');
+  });
+
+  it('gives every style a unique id', () => {
+    const ids = IMAGE_STYLES.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  /* 挑了张不存在的画风（设置手改坏了）也别把生图卡住 */
+  it('falls back to the first style when asked for one that is gone', () => {
+    expect(imageStyleById('nope').id).toBe('lecture');
   });
 });
 
 describe('withStyle', () => {
-  it('puts the fixed style behind whatever was written', () => {
-    const full = withStyle('a hand pouring a value into a box');
+  it('puts the chosen style behind whatever was written', () => {
+    const full = withStyle('a hand pouring a value into a box', 'whiteboard');
     expect(full.startsWith('a hand pouring a value into a box.')).toBe(true);
-    expect(full).toContain(IMAGE_STYLE);
+    expect(full).toContain('whiteboard marker sketch');
   });
 
   it('does not double up the full stop', () => {
@@ -137,25 +148,9 @@ describe('withStyle', () => {
   });
 });
 
-describe('parseImagePlan', () => {
-  const reply = '画什么：右边先算完，结果再倒进左边那个盒子\nprompt: a hand pouring a token into a box';
-
-  /* 一张图要跑一分钟，跑完才发现跑偏了太亏 —— 先说打算画什么 */
-  it('splits the sentence for you from the prompt for the model', () => {
-    expect(parseImagePlan(reply)).toEqual({
-      plan: '右边先算完，结果再倒进左边那个盒子',
-      prompt: 'a hand pouring a token into a box',
-    });
-  });
-
-  /* 格式没守住就整段当提示词：图照画，只是少了那句给人看的话 */
-  it('still draws when the model ignores the format', () => {
-    const loose = parseImagePlan('a hand pouring a token into a box');
-    expect(loose.plan).toBe('');
-    expect(loose.prompt).toBe('a hand pouring a token into a box');
-  });
-
-  it('drops a code fence', () => {
-    expect(parseImagePlan('```\nprompt: a box\n```').prompt).toBe('a box');
+describe('FIGURE_TRANSLATE_SYSTEM', () => {
+  /* 老师删掉的东西不能被翻译这一步偷偷加回去 */
+  it('translates without inventing', () => {
+    expect(FIGURE_TRANSLATE_SYSTEM).toContain('只翻译，不创作');
   });
 });

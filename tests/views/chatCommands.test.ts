@@ -2,14 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { CHAT_COMMANDS, expandRequest, matchCommands } from '../../src/views/chatCommands';
 
 describe('CHAT_COMMANDS', () => {
-  /* 一页课件的三样东西：画出来的图、画出来的示意图、一段文字 */
-  it('offers one command per thing a page is made of', () => {
-    expect(CHAT_COMMANDS.map((c) => c.name)).toEqual(['/fig', '/svg', '/abstract']);
-  });
-
-  /* 位图走画图接口，另外两条是改这一页的源码 */
-  it('sends only the bitmap one down the image path', () => {
-    expect(CHAT_COMMANDS.map((c) => c.mode)).toEqual(['image', 'page', 'page']);
+  /* 位图配图归「配图」那半边的流水线，不是随口一句话的事 */
+  it('offers one command per thing you can say in a sentence', () => {
+    expect(CHAT_COMMANDS.map((c) => c.name)).toEqual(['/svg', '/abstract']);
   });
 
   it('works from the speaker notes', () => {
@@ -18,12 +13,11 @@ describe('CHAT_COMMANDS', () => {
     }
   });
 
-  /* 改源码那两条得说清楚往哪个格子里放，而且不许动讲稿 */
+  /* 两条都得说清楚往哪个格子里放，而且不许动讲稿 */
   it('names the grid it fills and leaves the notes alone', () => {
-    const page = CHAT_COMMANDS.filter((c) => c.mode === 'page');
-    expect(page[0].text).toContain('class="fig"');
-    expect(page[1].text).toContain('class="abstract"');
-    for (const command of page) expect(command.text).toContain('一个字都不要动');
+    expect(CHAT_COMMANDS[0].text).toContain('class="fig"');
+    expect(CHAT_COMMANDS[1].text).toContain('class="abstract"');
+    for (const command of CHAT_COMMANDS) expect(command.text).toContain('一个字都不要动');
   });
 });
 
@@ -57,7 +51,6 @@ describe('expandRequest', () => {
   /* 输入框里只留 /svg，整段规矩发出去时才展开 */
   it('expands a bare command into the whole instruction', () => {
     const result = expandRequest('/svg');
-    expect(result.mode).toBe('page');
     expect(result.text).toContain('class="fig"');
     expect(result.command?.name).toBe('/svg');
   });
@@ -69,14 +62,10 @@ describe('expandRequest', () => {
     expect(result.text).toContain('把比喻换成传送带');
   });
 
-  it('takes the image path for the bitmap command', () => {
-    expect(expandRequest('/fig').mode).toBe('image');
-  });
-
   /* 没打命令就是普通一句话，原样发出去 */
   it('leaves a plain sentence alone', () => {
     const result = expandRequest('  把右边的要点改成对比图  ');
-    expect(result).toEqual({ mode: 'page', text: '把右边的要点改成对比图', command: null });
+    expect(result).toEqual({ text: '把右边的要点改成对比图', command: null });
   });
 
   /* /svgx 不是 /svg：前缀撞上了不能算命中 */
