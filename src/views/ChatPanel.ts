@@ -65,16 +65,23 @@ export class ChatPanel {
   /**
    * 顶边的分割线可以拖。幻灯片和工作台谁该多占一点，取决于此刻在干什么 ——
    * 调版面时想看大图，改描述时想看长文字。
+   *
+   * 拖的时候会盖一层透明罩子，事件全听 window：
+   * 上面那半屏是预览 iframe，而且是另一个源（127.0.0.1:3000）。
+   * 鼠标一进去，事件就归它了 —— 松手那下父窗口收不到，
+   * 于是「拖动」永远结束不了，手抬起来鼠标还在拽着这条线走。
+   * setPointerCapture 挡不住跨源 iframe，只有罩子挡得住。
    */
   private buildResizer(): void {
     const handle = this.root.createDiv({ cls: 'rfo-chat-resizer' });
 
     handle.addEventListener('pointerdown', (event: PointerEvent) => {
       if (event.button !== 0) return; // 右键、中键不算拖
-      event.preventDefault();
 
+      event.preventDefault();
       const startY = event.clientY;
       const startHeight = this.root.getBoundingClientRect().height;
+      const shield = this.parent.createDiv({ cls: 'rfo-chat-shield' });
 
       const move = (moveEvent: PointerEvent): void => {
         // 往上拖 = 工作台变高，所以是起点减当前
@@ -86,32 +93,20 @@ export class ChatPanel {
       };
 
       const done = (): void => {
-        // 先摘监听再放捕获：releasePointerCapture 在捕获已经自动失效时会抛，
-        // 顺序反过来的话监听就摘不掉了 —— 那之后鼠标只要扫过这条线就在改高度，
-        // 手都没按下去。这正是「靠近就自己动」的来路
-        handle.removeEventListener('pointermove', move);
-        handle.removeEventListener('pointerup', done);
-        handle.removeEventListener('pointercancel', done);
-        try {
-          handle.releasePointerCapture(event.pointerId);
-        } catch {
-          // 已经放掉了，不用管
-        }
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', done);
+        window.removeEventListener('pointercancel', done);
+        // 罩子一定要收掉：留在那儿的话整个面板都点不动了
+        shield.remove();
         this.handlers.onResize?.(
           ratioFromHeight(this.root.getBoundingClientRect().height, this.parent.clientHeight),
         );
       };
 
-      handle.addEventListener('pointermove', move);
-      handle.addEventListener('pointerup', done);
-      // 拖到一半被系统打断（切窗口、触控板手势）也得收尾，否则同样摘不掉监听
-      handle.addEventListener('pointercancel', done);
-
-      try {
-        handle.setPointerCapture(event.pointerId);
-      } catch {
-        // 捕获不上就只在这条线上跟着走，不影响拖动本身
-      }
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', done);
+      // 拖到一半被系统打断（切窗口、触控板手势）也得收尾，否则罩子摘不掉
+      window.addEventListener('pointercancel', done);
     });
   }
 
