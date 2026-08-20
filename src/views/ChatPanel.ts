@@ -70,8 +70,8 @@ export class ChatPanel {
     const handle = this.root.createDiv({ cls: 'rfo-chat-resizer' });
 
     handle.addEventListener('pointerdown', (event: PointerEvent) => {
+      if (event.button !== 0) return; // 右键、中键不算拖
       event.preventDefault();
-      handle.setPointerCapture(event.pointerId);
 
       const startY = event.clientY;
       const startHeight = this.root.getBoundingClientRect().height;
@@ -86,9 +86,17 @@ export class ChatPanel {
       };
 
       const done = (): void => {
-        handle.releasePointerCapture(event.pointerId);
+        // 先摘监听再放捕获：releasePointerCapture 在捕获已经自动失效时会抛，
+        // 顺序反过来的话监听就摘不掉了 —— 那之后鼠标只要扫过这条线就在改高度，
+        // 手都没按下去。这正是「靠近就自己动」的来路
         handle.removeEventListener('pointermove', move);
         handle.removeEventListener('pointerup', done);
+        handle.removeEventListener('pointercancel', done);
+        try {
+          handle.releasePointerCapture(event.pointerId);
+        } catch {
+          // 已经放掉了，不用管
+        }
         this.handlers.onResize?.(
           ratioFromHeight(this.root.getBoundingClientRect().height, this.parent.clientHeight),
         );
@@ -96,6 +104,14 @@ export class ChatPanel {
 
       handle.addEventListener('pointermove', move);
       handle.addEventListener('pointerup', done);
+      // 拖到一半被系统打断（切窗口、触控板手势）也得收尾，否则同样摘不掉监听
+      handle.addEventListener('pointercancel', done);
+
+      try {
+        handle.setPointerCapture(event.pointerId);
+      } catch {
+        // 捕获不上就只在这条线上跟着走，不影响拖动本身
+      }
     });
   }
 

@@ -153,19 +153,25 @@ body.rfo-immersive {
 }
 
 /* 顶边的分割线：拖它决定幻灯片与对话各占多少 */
+/*
+ * 分割线。抓的范围要比看见的那条线宽得多 —— 2px 的线让人拿鼠标去够，
+ * 差一个像素就落到上面的 iframe 上，看着就是「点不中」。
+ * 所以骑在线上留一条 14px 的带子，线画在带子正中间。
+ */
 .rfo-chat-resizer {
   position: absolute;
-  top: 0;
+  top: -7px;            /* 骑在边界上：上下各分一半，往上那半盖住 iframe 的边 */
   left: 0;
   right: 0;
-  height: 8px;
+  height: 14px;
+  z-index: 3;           /* 压过下面那一条和斜杠菜单，不然抓不着 */
   cursor: row-resize;
   touch-action: none;   /* 触屏上按住拖动，别被当成滚动页面 */
 
   &::after {
     content: '';
     position: absolute;
-    top: 3px;
+    top: 6px;           /* 线在带子正中 */
     left: 0;
     right: 0;
     height: 2px;
