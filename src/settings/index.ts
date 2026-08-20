@@ -13,6 +13,26 @@ export class RevealSettingTab extends PluginSettingTab {
   }
 
   /**
+   * 重绘整个设置页。
+   *
+   * display() 先 empty() 再重建，高度一塌，滚动条就弹回顶上 ——
+   * 接口在页面很靠下的位置，加一套、删一套、换个用途都被甩回第一行。
+   * 所以重绘前记住滚动位置，画完放回去。
+   */
+  private redraw(): void {
+    let scroller: HTMLElement = this.containerEl;
+    for (let el: HTMLElement | null = this.containerEl; el; el = el.parentElement) {
+      if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) {
+        scroller = el;
+        break;
+      }
+    }
+    const top = scroller.scrollTop;
+    this.display();
+    scroller.scrollTop = top;
+  }
+
+  /**
    * 接口档案：几套地址 + key + 模型，一套一块。
    *
    * 一个接口不够用 —— 便宜快的那个改文字挺好，画图明显不行；
@@ -42,7 +62,7 @@ export class RevealSettingTab extends PluginSettingTab {
           // 新加的那套直接选上：加它就是为了用它
           settings.aiActiveProfile = profile.id;
           await save();
-          this.display();
+          this.redraw();
         });
       });
 
@@ -99,7 +119,7 @@ export class RevealSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             profile.kind = value === 'image' ? 'image' : 'chat';
             await save();
-            this.display();
+            this.redraw();
           }),
       );
 
@@ -114,7 +134,7 @@ export class RevealSettingTab extends PluginSettingTab {
             .onClick(async () => {
               settings.aiActiveProfile = profile.id;
               await save();
-              this.display();
+              this.redraw();
             }),
         );
       }
@@ -129,7 +149,7 @@ export class RevealSettingTab extends PluginSettingTab {
               settings.aiActiveProfile = settings.aiProfiles[0]?.id ?? '';
             }
             await save();
-            this.display();
+            this.redraw();
           }),
       );
     }
@@ -155,7 +175,7 @@ export class RevealSettingTab extends PluginSettingTab {
             if (value !== 'custom') {
               settings.size = value;
               await save();
-              this.display();
+              this.redraw();
             }
           }),
       );

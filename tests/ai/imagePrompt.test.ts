@@ -4,10 +4,13 @@ import {
   FIGURE_TRANSLATE_SYSTEM,
   IMAGE_STYLES,
   buildFigureDescribeRequest,
+  buildFigureTranslateRequest,
   cleanImagePrompt,
+  composeImagePrompt,
   extractNotes,
   extractTitle,
   imageStyleById,
+  parseFigureTranslation,
   shapeForBox,
   withStyle,
 } from '../../src/ai/imagePrompt';
@@ -24,9 +27,16 @@ describe('FIGURE_DESCRIBE_SYSTEM', () => {
     expect(FIGURE_DESCRIBE_SYSTEM).toContain('不要靠数量表达');
   });
 
-  /* 一句里塞满分号和「随后」「才」，画图的人读不懂 */
+  /* 一句里塞满「随后」「才」，画图的人读不懂 */
   it('asks for short sentences, one thing each', () => {
-    expect(FIGURE_DESCRIBE_SYSTEM).toContain('一句一件事');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('一件事一小句');
+  });
+
+  /* 分成四行是为了好改：换个比喻只重写「场景」那一行，别的不动 */
+  it('asks for four labelled lines instead of a paragraph', () => {
+    for (const field of ['场景：', '构图：', '画面：', '重点：']) {
+      expect(FIGURE_DESCRIBE_SYSTEM, field).toContain(field);
+    }
   });
 
   /* 风格由插件定死，模型那 80 个词全花在内容上 */
@@ -162,5 +172,69 @@ describe('FIGURE_TRANSLATE_SYSTEM', () => {
   /* 老师删掉的东西不能被翻译这一步偷偷加回去 */
   it('translates without inventing', () => {
     expect(FIGURE_TRANSLATE_SYSTEM).toContain('只翻译，不创作');
+  });
+
+  /* 最终提示词三段里题目那段也得是英文，不能一半中文 */
+  it('translates the theme along with the scene', () => {
+    expect(FIGURE_TRANSLATE_SYSTEM).toContain('Theme:');
+    expect(FIGURE_TRANSLATE_SYSTEM).toContain('Scene:');
+  });
+});
+
+describe('buildFigureTranslateRequest', () => {
+  it('hands the translator both lines', () => {
+    const text = buildFigureTranslateRequest('4.1 自增和自减', '一只手把糖放进盒子');
+    expect(text).toContain('Theme: 4.1 自增和自减');
+    expect(text).toContain('Scene: 一只手把糖放进盒子');
+  });
+
+  it('says so when the page has no title', () => {
+    expect(buildFigureTranslateRequest('', '一段描述')).toContain('没有题目');
+  });
+});
+
+describe('parseFigureTranslation', () => {
+  it('splits the two lines back apart', () => {
+    const { theme, scene } = parseFigureTranslation(
+      'Theme: Increment and decrement\nScene: a hand drops a candy into a box',
+      '4.1 自增和自减',
+    );
+    expect(theme).toBe('Increment and decrement');
+    expect(scene).toBe('a hand drops a candy into a box');
+  });
+
+  /* 模型没按格式来时流程不能卡死：题目留原来的，整段当画面 */
+  it('falls back when the model ignores the format', () => {
+    const { theme, scene } = parseFigureTranslation('a hand drops a candy into a box', '4.1 自增和自减');
+    expect(theme).toBe('4.1 自增和自减');
+    expect(scene).toBe('a hand drops a candy into a box');
+  });
+
+  it('falls back when the page had no title to translate', () => {
+    const { theme } = parseFigureTranslation(
+      'Theme: （这一页没有题目）\nScene: a box',
+      '',
+    );
+    expect(theme).toBe('');
+  });
+});
+
+describe('composeImagePrompt', () => {
+  /* 最终提示词三段：题目划范围、画面讲内容、风格定长相 */
+  it('leads with the theme, then the styled scene', () => {
+    const full = composeImagePrompt('Increment and decrement', 'a hand drops a candy into a box', 'whiteboard');
+    expect(full.startsWith('Theme: Increment and decrement')).toBe(true);
+    expect(full.indexOf('a hand drops a candy into a box')).toBeGreaterThan(0);
+    expect(full).toContain('whiteboard marker sketch');
+  });
+
+  /* 不讲这句，画图模型会把题目当成要写进图里的字 */
+  it('tells the image model the theme is not text to draw', () => {
+    expect(composeImagePrompt('A topic', 'a box', 'lecture')).toContain('never render it as text');
+  });
+
+  it('skips the theme line when the page has no title', () => {
+    const full = composeImagePrompt('', 'a box', 'lecture');
+    expect(full.startsWith('a box.')).toBe(true);
   });
 });

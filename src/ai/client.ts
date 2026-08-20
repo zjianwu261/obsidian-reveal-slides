@@ -24,10 +24,16 @@ const DEFAULT_TIMEOUT_SECONDS = 300;
 
 /**
  * 一次最多让它写多少 token。
- * 不写死的话各家默认值不一样（常见 4096），一张手绘图正好卡在这个量级上，
+ *
+ * 不写的话各家默认值不一样（常见 4096），改整页的活正好卡在这个量级上，
  * 写到一半被截断 —— 出来的是半张图，而且看不出是被截的。
+ *
+ * 但也不能一律往大了要：**上限是从上下文窗口里扣的**。
+ * 8k 窗口的模型（moonshot-v1-8k 这类），提示词本身就占去大半，
+ * 再要 8192 的输出直接被判非法 —— 报的是 400，看着像 key 或模型名不对。
+ * 所以按这一趟真正要写多少来给：想一段描述几百 token 就够，改整页才需要放开。
  */
-const MAX_TOKENS = 8192;
+const DEFAULT_MAX_TOKENS = 8192;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -46,7 +52,11 @@ export class MissingApiKeyError extends Error {
  * 等过头就当它不会回了 —— requestUrl 没有中断口子，超时只是不再等，
  * 但至少让界面从「想一想…」里出来，而不是永远转下去。
  */
-export async function chat(config: ChatConfig, messages: ChatMessage[]): Promise<string> {
+export async function chat(
+  config: ChatConfig,
+  messages: ChatMessage[],
+  maxTokens = DEFAULT_MAX_TOKENS,
+): Promise<string> {
   if (!config.apiKey) throw new MissingApiKeyError();
 
   const seconds = config.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
@@ -61,7 +71,7 @@ export async function chat(config: ChatConfig, messages: ChatMessage[]): Promise
       model: config.model,
       messages,
       temperature: 0.2,
-      max_tokens: MAX_TOKENS,
+      max_tokens: maxTokens,
     }),
     // 4xx/5xx 不要直接抛：接口的错误信息（key 失效、余额不足、模型名写错）都在响应体里
     throw: false,
@@ -76,7 +86,7 @@ export async function chat(config: ChatConfig, messages: ChatMessage[]): Promise
   if (!reply) throw new Error('接口没有返回内容');
   // 截断了就别拿去用：半张 SVG 看着像画坏了，其实是没写完
   if (choice?.finish_reason === 'length') {
-    throw new Error(`模型写到 ${MAX_TOKENS} token 就被截断了，让它画简单点，或分两次改`);
+    throw new Error(`模型写到 ${maxTokens} token 就被截断了，让它画简单点，或分两次改`);
   }
   return reply;
 }

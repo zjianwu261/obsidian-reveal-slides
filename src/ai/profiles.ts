@@ -47,6 +47,13 @@ export const AI_PRESETS: Omit<AiProfile, 'id'>[] = [
     model: 'gpt-4o',
   },
   {
+    // Moonshot 的 OpenAI 兼容端点，对话用（它没有出图接口，别切到「画图」）
+    name: 'Kimi',
+    apiBase: 'https://api.moonshot.cn/v1',
+    apiKey: '',
+    model: 'kimi-k3',
+  },
+  {
     // 中转站各家域名不同，地址留空让人自己贴；其余按 OpenAI 的规矩来
     name: '中转站',
     apiBase: '',

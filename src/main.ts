@@ -47,11 +47,12 @@ import {
   FIGURE_DESCRIBE_SYSTEM,
   FIGURE_TRANSLATE_SYSTEM,
   buildFigureDescribeRequest,
-  cleanImagePrompt,
+  buildFigureTranslateRequest,
+  composeImagePrompt,
   extractNotes,
   extractTitle,
+  parseFigureTranslation,
   shapeForBox,
-  withStyle,
 } from './ai/imagePrompt';
 import { placeFigure, readFigureBox } from './ai/figurePlacement';
 import type { AiProfile } from './ai/profiles';
@@ -745,20 +746,27 @@ export default class RevealPlugin extends Plugin {
     if (!current) throw new Error('还没有可改的页面');
 
     return (
-      await this.askChat(FIGURE_DESCRIBE_SYSTEM, [
-        buildFigureDescribeRequest({
-          pageSource: current.range.text,
-          request,
-          notesSeparator: this.settings.notesSeparator,
-        }),
-      ])
+      await this.askChat(
+        FIGURE_DESCRIBE_SYSTEM,
+        [
+          buildFigureDescribeRequest({
+            pageSource: current.range.text,
+            request,
+            notesSeparator: this.settings.notesSeparator,
+          }),
+        ],
+        // 四行描述几百 token 就够；一律要 8192，8k 窗口的模型会直接判非法
+        1024,
+      )
     ).trim();
   }
 
   /**
    * 第二步：按这段描述画，画完塞进这一页的 fig 格子，返回新的页面源码。
    *
-   * 中间那道翻译只翻不创作 —— 你删掉的东西不能被它偷偷加回去。
+   * 最终发给画图模型的提示词是三段：题目、画面描述、风格。
+   * 题目跟着描述一起过那道翻译（只翻不创作 —— 你删掉的东西不能被它偷偷加回去），
+   * 翻完由 composeImagePrompt 拼上风格。
    */
   async drawFigureFromDescription(description: string, styleId: string): Promise<string> {
     const current = await this.readCurrentPage();
@@ -771,13 +779,21 @@ export default class RevealPlugin extends Plugin {
     }
     if (!drawer.apiBase || !drawer.apiKey) throw new Error(`「${drawer.name}」的地址或 key 还没填`);
 
-    const prompt = cleanImagePrompt(await this.askChat(FIGURE_TRANSLATE_SYSTEM, [description]));
+    const title = extractTitle(current.range.text);
+    const { theme, scene } = parseFigureTranslation(
+      await this.askChat(
+        FIGURE_TRANSLATE_SYSTEM,
+        [buildFigureTranslateRequest(title, description)],
+        1024,
+      ),
+      title,
+    );
 
     // 画幅从你自己写的 <grid dim> 里拿。你排好的版，插件没有理由替你改
     const box = readFigureBox(current.range.text);
     const bytes = await generateImage(
       { apiBase: drawer.apiBase, apiKey: drawer.apiKey, model: drawer.model },
-      withStyle(prompt, styleId),
+      composeImagePrompt(theme, scene, styleId),
       shapeForBox(box?.w ?? 92, box?.h ?? 34),
     );
 
@@ -787,7 +803,7 @@ export default class RevealPlugin extends Plugin {
   }
 
   /** 问一次对话模型（配图那两步都走这里，省得各写一遍配置检查） */
-  private async askChat(system: string, messages: string[]): Promise<string> {
+  private async askChat(system: string, messages: string[], maxTokens?: number): Promise<string> {
     const profile = this.currentAiProfile();
     const problem = profileProblem(profile);
     if (problem || !profile) throw new Error(problem ?? '接口没配好');
@@ -803,6 +819,7 @@ export default class RevealPlugin extends Plugin {
         { role: 'system', content: system },
         ...messages.map((content) => ({ role: 'user' as const, content })),
       ],
+      maxTokens,
     );
   }
 
