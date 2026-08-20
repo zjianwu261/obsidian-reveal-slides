@@ -32,11 +32,23 @@ describe('FIGURE_DESCRIBE_SYSTEM', () => {
     expect(FIGURE_DESCRIBE_SYSTEM).toContain('一件事一小句');
   });
 
-  /* 分成四行是为了好改：换个比喻只重写「场景」那一行，别的不动 */
-  it('asks for four labelled lines instead of a paragraph', () => {
-    for (const field of ['场景：', '构图：', '画面：', '重点：']) {
+  /* 分行是为了好改：换个比喻只重写「场景」那一行，别的不动 */
+  it('asks for labelled lines instead of a paragraph', () => {
+    for (const field of ['依据：', '场景：', '构图：', '画面：', '重点：']) {
       expect(FIGURE_DESCRIBE_SYSTEM, field).toContain(field);
     }
+  });
+
+  /* 「依据」是讲稿原话：挑错了句子当场就看得出，不用等画完才发现跑偏 */
+  it('makes it quote the note so the pick can be checked at a glance', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('原样抄一句');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('不许自己概括');
+  });
+
+  /* 读一眼不等于搬走：b 只是被读了，画面里它一下都不能动 */
+  it('keeps the untouched thing untouched', () => {
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('全程留在原位');
+    expect(FIGURE_DESCRIBE_SYSTEM).toContain('先拿走再放回去');
   });
 
   /* 风格由插件定死，模型那 80 个词全花在内容上 */
