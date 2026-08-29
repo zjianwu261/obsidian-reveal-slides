@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>三极管：分类、三个极、箭头怎么看</title>
+<style>
+/*
+ * 单文件、零依赖（不联网也不白屏），可直接放进 assets/<笔记名>/ 后用
+ * ![[三极管分类.html]] 嵌进 <grid class="fig"> 的格子。
+ * 底色透明，跟着幻灯片走；深色底把下面 --ink / --muted 换成浅色即可。
+ */
+:root {
+  --ink: #1f2937;
+  --muted: #64748b;
+  --n: #2563eb;   /* N 型：蓝 */
+  --p: #dc2626;   /* P 型：红 */
+  --hl: #f59e0b;  /* 选中的那个极 */
+  --soft: rgba(148, 163, 184, 0.18);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 2%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 2%;
+  color: var(--ink);
+  background: transparent;
+  font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: clamp(13px, 2.1vw, 21px);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 顶部控制条 */
+.bar { display: flex; flex-wrap: wrap; gap: .5em; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--soft); border-radius: 999px; overflow: hidden; }
+.seg button, .btn {
+  font: inherit; color: var(--muted); cursor: pointer;
+  padding: .25em .9em; border: 0; background: transparent;
+}
+.seg button.on { background: var(--ink); color: #fff; }
+.btn { border: 1px solid var(--soft); border-radius: 999px; }
+.btn:hover { background: var(--soft); }
+label.chk { display: inline-flex; align-items: center; gap: .35em; color: var(--muted); cursor: pointer; }
+
+/* 图 + 说明：窄的时候上下排，宽的时候左右排 */
+.stage { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; gap: 3%; }
+.figure { flex: 1 1 240px; min-width: 0; display: flex; align-items: center; justify-content: center; }
+svg { width: 100%; height: 100%; max-height: 100%; overflow: visible; }
+.panel { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: .5em; justify-content: center; }
+
+/* 符号 */
+.wire { stroke: var(--ink); stroke-width: 3; fill: none; stroke-linecap: round; }
+.bar-line { stroke: var(--ink); stroke-width: 7; stroke-linecap: round; }
+.arrow { fill: var(--ink); }
+.hit { stroke: transparent; stroke-width: 30; fill: none; cursor: pointer; pointer-events: stroke; }
+.pole text { fill: var(--muted); font-size: 19px; user-select: none; }
+.pole.on .wire, .pole.on .bar-line { stroke: var(--hl); }
+.pole.on .arrow { fill: var(--hl); }
+.pole.on text { fill: var(--hl); font-weight: 700; }
+
+/* 电流方向：虚线沿引线跑；PNP 电流反向，整体倒放即可 */
+.flow { stroke: var(--p); stroke-width: 3; fill: none; stroke-dasharray: 9 15; opacity: 0; }
+body.flow-on .flow { opacity: .95; animation: dash .9s linear infinite; }
+body.flow-on.pnp .flow { animation-direction: reverse; }
+@keyframes dash { to { stroke-dashoffset: -24; } }
+
+/* 三层结构条 */
+.stack { display: flex; flex-direction: column; border-radius: .35em; overflow: hidden; }
+.layer { display: flex; justify-content: space-between; padding: .1em .6em; color: #fff; font-size: .82em; }
+.layer.N { background: var(--n); }
+.layer.P { background: var(--p); }
+
+.badge { font-weight: 700; font-size: 1.15em; }
+.badge .mat { color: var(--muted); font-weight: 400; font-size: .8em; }
+.note { color: var(--muted); font-size: .85em; }
+.key { border-left: 3px solid var(--hl); padding-left: .6em; }
+.quiz-only, body.quiz .explain-only { display: none; }
+/* 出题时把类型开关藏起来 —— 上面写着 NPN 就等于把答案贴在题面上了 */
+body.quiz #typeSeg { display: none; }
+body.quiz .quiz-only { display: block; }
+.answer { display: flex; gap: .5em; margin-top: .3em; }
+.right { color: #16a34a; font-weight: 700; }
+.wrong { color: var(--p); font-weight: 700; }
+</style>
+</head>
+<body class="npn">
+
+<div class="bar">
+  <div class="seg" id="typeSeg">
+    <button data-type="NPN" class="on">NPN</button><button data-type="PNP">PNP</button>
+  </div>
+  <div class="seg" id="matSeg">
+    <button data-mat="Si" class="on">硅管</button><button data-mat="Ge">锗管</button>
+  </div>
+  <label class="chk"><input type="checkbox" id="flowBox">电流方向</label>
+  <button class="btn" id="quizBtn">考考你</button>
+</div>
+
+<div class="stage">
+  <div class="figure">
+    <svg viewBox="0 0 300 290" role="img" aria-label="三极管符号">
+      <!-- 基极 -->
+      <g class="pole" data-pole="b">
+        <path class="hit" d="M20 145 H150"/>
+        <path class="wire" d="M20 145 H150"/>
+        <path class="flow" id="flowB" d="M20 145 H150"/>
+        <path class="bar-line" d="M152 88 V202"/>
+        <text x="18" y="132">b 基极</text>
+      </g>
+      <!-- 集电极 -->
+      <g class="pole" data-pole="c">
+        <path class="hit" d="M230 20 V70 L152 112"/>
+        <path class="wire" d="M230 20 V70 L152 112"/>
+        <path class="flow" id="flowC" d="M230 20 V70 L152 112"/>
+        <text x="196" y="16">c 集电极</text>
+      </g>
+      <!-- 发射极（箭头画在这一极上，方向由 NPN / PNP 决定） -->
+      <g class="pole" data-pole="e">
+        <path class="hit" d="M152 178 L230 220 V270"/>
+        <path class="wire" d="M152 178 L230 220 V270"/>
+        <path class="flow" id="flowE" d="M152 178 L230 220 V270"/>
+        <polygon class="arrow" id="emArrow"/>
+        <text x="196" y="286">e 发射极</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="panel">
+    <div class="badge explain-only"><span id="typeName">NPN 型</span> <span class="mat" id="matName">· 硅管</span></div>
+
+    <div class="stack explain-only" id="stack"></div>
+
+    <div class="key explain-only" id="rule"></div>
+    <div class="note explain-only" id="spec"></div>
+    <div class="note" id="poleInfo">点图上的 b / e / c 看各极的分工。</div>
+
+    <div class="quiz-only">
+      <div class="badge">这是哪一种？</div>
+      <div class="answer">
+        <button class="btn" data-ans="NPN">NPN</button>
+        <button class="btn" data-ans="PNP">PNP</button>
+        <button class="btn" id="quitBtn">退出</button>
+      </div>
+      <div class="note" id="verdict">看发射极上的箭头朝里还是朝外。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const body = document.body;
+let type = 'NPN', mat = 'Si', quiz = false;
+
+/* 各极的分工（点一下图上的引线就换成对应这一段） */
+const POLES = {
+  b: 'b 基极 Base：控制极。做得很薄、掺杂又淡，用很小的 I<sub>B</sub> 去控制大得多的 I<sub>C</sub>。',
+  c: 'c 集电极 Collector：收集载流子。结面积最大、工作时反偏，管子的功耗主要在这儿。',
+  e: 'e 发射极 Emitter：发射载流子。掺杂浓度最高，<b>箭头永远画在这一极上</b>。',
+};
+
+/* 国标老命名：第二位字母同时说明了材料和极性（3AX31 / 3DG6 就是这么读的） */
+const SPEC = {
+  'Ge-PNP': { code: '3A（锗 PNP）', ube: '0.2 ~ 0.3 V', eg: '3AX31' },
+  'Ge-NPN': { code: '3B（锗 NPN）', ube: '0.2 ~ 0.3 V', eg: '3BX 系列，少见' },
+  'Si-PNP': { code: '3C（硅 PNP）', ube: '0.6 ~ 0.7 V', eg: '9012、S8550' },
+  'Si-NPN': { code: '3D（硅 NPN）', ube: '0.6 ~ 0.7 V', eg: '9013、S8050' },
+};
+
+/* 发射极那条斜线：A→B，箭头按 t 处放置，dir=+1 顺着线（朝外，NPN），-1 逆着（朝里，PNP） */
+function arrowPoints(ax, ay, bx, by, t, dir) {
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+  const ux = (dx / len) * dir, uy = (dy / len) * dir;   // 指向
+  const px = -uy, py = ux;                              // 法向
+  const cx = ax + dx * t, cy = ay + dy * t;             // 箭头中心
+  const tip = [cx + ux * 13, cy + uy * 13];
+  const l = [cx - ux * 5 + px * 8, cy - uy * 5 + py * 8];
+  const r = [cx - ux * 5 - px * 8, cy - uy * 5 - py * 8];
+  return [tip, l, r].map((p) => p.map(Math.round).join(',')).join(' ');
+}
+
+function render() {
+  body.classList.toggle('npn', type === 'NPN');
+  body.classList.toggle('pnp', type === 'PNP');
+
+  // 箭头：NPN 朝外（背离基极），PNP 朝里（指回基极）
+  document.getElementById('emArrow')
+    .setAttribute('points', arrowPoints(152, 178, 230, 220, 0.5, type === 'NPN' ? 1 : -1));
+
+  document.querySelectorAll('#typeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.type === type));
+  document.querySelectorAll('#matSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mat === mat));
+
+  const matCn = mat === 'Si' ? '硅管' : '锗管';
+  document.getElementById('typeName').textContent = type + ' 型';
+  document.getElementById('matName').textContent = '· ' + matCn;
+
+  // 三层结构：从上（集电区）到下（发射区）
+  const layers = type === 'NPN'
+    ? [['N', '集电区 c'], ['P', '基区 b'], ['N', '发射区 e']]
+    : [['P', '集电区 c'], ['N', '基区 b'], ['P', '发射区 e']];
+  document.getElementById('stack').innerHTML = layers
+    .map(([k, name]) => `<div class="layer ${k}"><span>${name}</span><span>${k} 型半导体</span></div>`)
+    .join('');
+
+  // 区分方法：箭头始终由 P 指向 N，画在发射结上
+  document.getElementById('rule').innerHTML = type === 'NPN'
+    ? '发射结是 <b>P（基区）→ N（发射区）</b>，箭头就<b>朝外</b>，指着发射极出去 —— 记作“<b>N</b>ot <b>P</b>ointing i<b>N</b>”。电流由 c 流入、e 流出。'
+    : '发射结是 <b>P（发射区）→ N（基区）</b>，箭头<b>朝里</b>，从发射极指回基极 —— “<b>P</b>ointing i<b>N</b>”。电流由 e 流入、c 流出。';
+
+  const s = SPEC[mat + '-' + type];
+  document.getElementById('spec').innerHTML =
+    `${matCn}的发射结压降 U<sub>BE</sub> ≈ <b>${s.ube}</b>　·　国标前缀 <b>${s.code}</b>　·　常见型号 ${s.eg}`;
+}
+
+/* 点引线：高亮这一极并换说明 */
+document.querySelectorAll('.pole').forEach((g) => {
+  g.addEventListener('click', () => {
+    const on = g.classList.contains('on');
+    document.querySelectorAll('.pole').forEach((x) => x.classList.remove('on'));
+    if (!on) g.classList.add('on');
+    document.getElementById('poleInfo').innerHTML = on
+      ? '点图上的 b / e / c 看各极的分工。'
+      : POLES[g.dataset.pole];
+  });
+});
+
+document.getElementById('typeSeg').addEventListener('click', (e) => {
+  const t = e.target.dataset.type;
+  if (t) { type = t; render(); }
+});
+document.getElementById('matSeg').addEventListener('click', (e) => {
+  const m = e.target.dataset.mat;
+  if (m) { mat = m; render(); }
+});
+document.getElementById('flowBox').addEventListener('change', (e) => {
+  body.classList.toggle('flow-on', e.target.checked);
+});
+
+/* 考考你：随机换一种，把类型的文字全藏起来，只剩图 */
+function newQuestion() {
+  quiz = true;
+  body.classList.add('quiz');
+  type = Math.random() < 0.5 ? 'NPN' : 'PNP';
+  document.getElementById('verdict').textContent = '看发射极上的箭头朝里还是朝外。';
+  document.getElementById('verdict').className = 'note';
+  render();
+}
+document.getElementById('quizBtn').addEventListener('click', newQuestion);
+document.getElementById('quitBtn').addEventListener('click', () => {
+  quiz = false;
+  body.classList.remove('quiz');
+});
+document.querySelectorAll('.answer [data-ans]').forEach((b) => {
+  b.addEventListener('click', () => {
+    const v = document.getElementById('verdict');
+    const ok = b.dataset.ans === type;
+    v.className = ok ? 'right' : 'wrong';
+    v.innerHTML = ok
+      ? `对，是 ${type}：箭头${type === 'NPN' ? '朝外' : '朝里'}。再点“考考你”换一题。`
+      : `不对，这是 ${type}：箭头${type === 'NPN' ? '朝外（由基区 P 指向发射区 N）' : '朝里（由发射区 P 指向基区 N）'}。`;
+  });
+});
+
+render();
+</script>
+</body>
+</html>
