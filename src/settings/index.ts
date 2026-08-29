@@ -530,67 +530,76 @@ export class RevealSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('启用')
-      .setDesc('在预览面板下方显示对话框：说一句话改当前这一页，改动要你确认才写回笔记')
+      .setDesc(
+        '默认关闭。打开后，预览面板下方多出一块配图工作台：读当前这一页的题目和讲稿想一段' +
+          '画面描述，描述你改完再生图，图要你点「应用」才写回笔记。开关当场生效，不用重开预览。',
+      )
       .addToggle((toggle) =>
         toggle.setValue(settings.aiEnabled).onChange(async (value) => {
           settings.aiEnabled = value;
           await save();
+          // 面板当场跟着开/关；下面那几项（接口、提示词）只在开着时才有意义，也要重画一次
+          this.plugin.syncAiPanels();
+          this.display();
         }),
       );
 
-    this.displayAiProfiles(containerEl);
+    // 关着的时候不铺这一堆：接口、提示词、超时全是给工作台用的，
+    // 没开的人看见的应该只是上面那个开关
+    if (settings.aiEnabled) {
+      this.displayAiProfiles(containerEl);
 
-    new Setting(containerEl)
-      .setName('提示词文件')
-      .setDesc(
-        '库内路径。存在就用它，不存在用插件内置的那份。' +
-          '命令面板执行 "Open AI Prompt" 会把内置那份写进去并打开，改完立刻生效。',
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder('Extra/RevealSlides/提示词.md')
-          .setValue(settings.aiPromptPath)
-          .onChange(async (value) => {
-            settings.aiPromptPath = value.trim();
-            await save();
-          }),
-      );
+      new Setting(containerEl)
+        .setName('提示词文件')
+        .setDesc(
+          '库内路径。存在就用它，不存在用插件内置的那份。' +
+            '命令面板执行 "Open AI Prompt" 会把内置那份写进去并打开，改完立刻生效。',
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder('Extra/RevealSlides/提示词.md')
+            .setValue(settings.aiPromptPath)
+            .onChange(async (value) => {
+              settings.aiPromptPath = value.trim();
+              await save();
+            }),
+        );
 
-    new Setting(containerEl)
-      .setName('配图提示词文件')
-      .setDesc(
-        '库内路径，管的是配图面板左边那一步：读题目和讲稿，想出一段画面描述。' +
-          '存在就用它，不存在用插件内置的那份。' +
-          '命令面板执行 "Open Figure Prompt" 会把内置那份写进去并打开，改完立刻生效。',
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder('Extra/RevealSlides/配图提示词.md')
-          .setValue(settings.aiFigurePromptPath)
-          .onChange(async (value) => {
-            settings.aiFigurePromptPath = value.trim();
-            await save();
-          }),
-      );
+      new Setting(containerEl)
+        .setName('配图提示词文件')
+        .setDesc(
+          '库内路径，管的是配图面板左边那一步：读题目和讲稿，想出一段画面描述。' +
+            '存在就用它，不存在用插件内置的那份。' +
+            '命令面板执行 "Open Figure Prompt" 会把内置那份写进去并打开，改完立刻生效。',
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder('Extra/RevealSlides/配图提示词.md')
+            .setValue(settings.aiFigurePromptPath)
+            .onChange(async (value) => {
+              settings.aiFigurePromptPath = value.trim();
+              await save();
+            }),
+        );
 
-    new Setting(containerEl)
-      .setName('等待上限')
-      .setDesc(
-        '等模型多久就不等了（秒）。画一张图要吐两三千个 token，' +
-          '慢一点的模型三分钟根本写不完 —— 超时了先想想是不是这里太小。',
-      )
-      .addText((text) =>
-        text
-          .setPlaceholder('300')
-          .setValue(String(settings.aiTimeoutSeconds))
-          .onChange(async (value) => {
-            const seconds = Number(value.trim());
-            // 填了个负数或一句话就当没填：等 0 秒等于按钮直接报错，比默认值还难用
-            settings.aiTimeoutSeconds = Number.isFinite(seconds) && seconds >= 10 ? seconds : 300;
-            await save();
-          }),
-      );
-
+      new Setting(containerEl)
+        .setName('等待上限')
+        .setDesc(
+          '等模型多久就不等了（秒）。画一张图要吐两三千个 token，' +
+            '慢一点的模型三分钟根本写不完 —— 超时了先想想是不是这里太小。',
+        )
+        .addText((text) =>
+          text
+            .setPlaceholder('300')
+            .setValue(String(settings.aiTimeoutSeconds))
+            .onChange(async (value) => {
+              const seconds = Number(value.trim());
+              // 填了个负数或一句话就当没填：等 0 秒等于按钮直接报错，比默认值还难用
+              settings.aiTimeoutSeconds = Number.isFinite(seconds) && seconds >= 10 ? seconds : 300;
+              await save();
+            }),
+        );
+    }
 
     new Setting(containerEl)
       .setName('Follow cursor')

@@ -67,6 +67,7 @@ export interface PluginSettings {
   syncSlide: boolean;
 
   // AI 助手（预览面板下方的对话框，只改当前这一页）
+  /** 默认关闭：没配接口的人打开预览不该先看见半屏用不了的工作台 */
   aiEnabled: boolean;
   /**
    * 存下来的几套接口（地址 + key + 模型）。一个不够用：便宜快的那个改文字挺好，
@@ -143,7 +144,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   syncSlide: true,
   followActiveNote: false,
 
-  aiEnabled: true,
+  aiEnabled: false,
   aiProfiles: [],
   aiActiveProfile: '',
   aiApiBase: 'https://api.deepseek.com/v1',

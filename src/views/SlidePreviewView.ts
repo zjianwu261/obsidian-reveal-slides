@@ -33,6 +33,8 @@ export class SlidePreviewView extends ItemView {
   private revokeInlineUrl: (() => void) | null = null;
   /** 内联页面是否已就绪（收到 rfo-ready 后才能推 deck） */
   private inlineReady = false;
+  /** contentEl，开关工作台时要用它当父节点 */
+  private container: HTMLElement | null = null;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -85,40 +87,8 @@ export class SlidePreviewView extends ItemView {
 
     this.buildMenuBar(container);
 
-    if (this.plugin.settings.aiEnabled) {
-      this.chat = new ChatPanel(
-        container,
-        {
-          context: () => this.plugin.currentChatContext(),
-          figure: {
-            parts: () => this.plugin.currentPageParts(),
-            describe: (request) => this.plugin.describeFigureForCurrentPage(request),
-            draw: (description, styleId) =>
-              this.plugin.drawFigureFromDescription(description, styleId),
-            apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
-            onStyleChange: (id) => {
-              this.plugin.settings.aiFigureStyle = id;
-              void this.plugin.saveSettings();
-            },
-          },
-          onResize: (ratio) => {
-            this.plugin.settings.aiPanelRatio = ratio;
-            void this.plugin.saveSettings();
-          },
-          // 只列对话那几套：画图接口不是拿来在这儿切的
-          profiles: () => profilesOfKind(this.plugin.settings.aiProfiles, 'chat'),
-          activeProfile: () => this.plugin.currentAiProfile()?.id ?? '',
-          onProfileChange: (id) => {
-            this.plugin.settings.aiActiveProfile = id;
-            void this.plugin.saveSettings();
-          },
-          chatModel: () => this.plugin.currentAiProfile()?.model ?? '',
-          imageModel: () => imageProfile(this.plugin.settings.aiProfiles)?.model ?? '',
-        },
-        this.plugin.settings.aiPanelRatio,
-        this.plugin.settings.aiFigureStyle,
-      );
-    }
+    this.container = container;
+    this.syncChatPanel();
 
     // 标题栏按钮，从左到右：沉浸式 / 刷新 / 辅助线 / 导出 PDF / 导出 HTML / 导出 PPTX
     this.immersiveAction = this.addAction('expand', 'Immersive preview', () => {
@@ -177,6 +147,63 @@ export class SlidePreviewView extends ItemView {
     });
 
     this.menuBar = bar;
+  }
+
+
+  /**
+   * 配图工作台建了还是不建 —— 跟着设置里那个开关走。
+   *
+   * 默认关着：没配接口的人打开预览，看见的应该是整屏幻灯片，
+   * 而不是半屏点不动的工作台。
+   *
+   * 设置页改完立刻调这里，不用关掉预览再开一次：一个要重启才生效的开关，
+   * 用的人会以为它坏了。
+   */
+  syncChatPanel(): void {
+    const container = this.container;
+    if (!container) return;
+
+    if (!this.plugin.settings.aiEnabled) {
+      this.chat?.destroy();
+      this.chat = null;
+      return;
+    }
+    if (this.chat) return;
+
+    this.chat = new ChatPanel(
+      container,
+      {
+        context: () => this.plugin.currentChatContext(),
+        figure: {
+          parts: () => this.plugin.currentPageParts(),
+          describe: (request) => this.plugin.describeFigureForCurrentPage(request),
+          draw: (description, styleId) =>
+            this.plugin.drawFigureFromDescription(description, styleId),
+          apply: (markdown) => this.plugin.applyToCurrentPage(markdown),
+          onStyleChange: (id) => {
+            this.plugin.settings.aiFigureStyle = id;
+            void this.plugin.saveSettings();
+          },
+        },
+        onResize: (ratio) => {
+          this.plugin.settings.aiPanelRatio = ratio;
+          void this.plugin.saveSettings();
+        },
+        // 只列对话那几套：画图接口不是拿来在这儿切的
+        profiles: () => profilesOfKind(this.plugin.settings.aiProfiles, 'chat'),
+        activeProfile: () => this.plugin.currentAiProfile()?.id ?? '',
+        onProfileChange: (id) => {
+          this.plugin.settings.aiActiveProfile = id;
+          void this.plugin.saveSettings();
+        },
+        chatModel: () => this.plugin.currentAiProfile()?.model ?? '',
+        imageModel: () => imageProfile(this.plugin.settings.aiProfiles)?.model ?? '',
+      },
+      this.plugin.settings.aiPanelRatio,
+      this.plugin.settings.aiFigureStyle,
+    );
+    // 沉浸式下建出来的（讲课当中去设置里开了它）不该挡住幻灯片
+    this.chat.setVisible(!isImmersive(document.body));
   }
 
   /** 预览翻到别的页 / 换了笔记：状态栏跟上 */
@@ -377,5 +404,6 @@ export class SlidePreviewView extends ItemView {
     this.menuGuidesButton = null;
     this.chat?.destroy();
     this.chat = null;
+    this.container = null;
   }
 }

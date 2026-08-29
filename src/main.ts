@@ -1039,6 +1039,11 @@ export default class RevealPlugin extends Plugin {
     return parts.join('\n');
   }
 
+  /** 设置里开/关了 AI 助手：各预览面板当场建出或撤掉工作台 */
+  syncAiPanels(): void {
+    this.forEachPreview((view) => view.syncChatPanel());
+  }
+
   /** 同步各预览面板工具栏按钮的状态（不重载 iframe） */
   private syncPreviewActions(): void {
     this.forEachPreview((view) => view.syncActions());
