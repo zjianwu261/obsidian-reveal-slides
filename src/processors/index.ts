@@ -18,6 +18,8 @@ import { applyElementComments, extractElementComments } from './elementComment';
 import { expandCodeLineSpecs } from './codeLineNumbers';
 import { applyMath, extractMath } from './mathProcessor';
 import type { MathBlock } from './mathProcessor';
+import { applyHtmlEmbeds, extractHtmlEmbeds } from './htmlEmbedProcessor';
+import type { HtmlEmbed, ResourceResolver } from './htmlEmbedProcessor';
 import type { ElementDirective } from './elementComment';
 import { createDefaultRegistry, renderGridHtml } from '../transformers';
 
@@ -34,6 +36,8 @@ export interface PipelineOptions {
   fileExists?: (absolutePath: string) => boolean;
   /** 读取 vault 内笔记内容（```slide 嵌入用），路径不存在返回 null */
   readNote?: (path: string) => Promise<string | null>;
+  /** 按 wikilink 解析 vault 内文件为资源 URL（![[demo.html]] 嵌入用），缺省则不处理该语法 */
+  resolveResource?: ResourceResolver;
   /** 内部：```slide 嵌入递归深度，外部调用勿传 */
   embedDepth?: number;
 }
@@ -149,9 +153,12 @@ export class PipelineOrchestrator {
       //      是一串空元素（字形靠它自己文档里的那张样式表补），见 mathProcessor
       const { text: withMath, maths } = extractMath(withLineSpecs);
 
+      // 4.46 ![[demo.html]] → 文本标记（渲染后换成 <iframe>，见 htmlEmbedProcessor）
+      const { text: withEmbeds, embeds } = extractHtmlEmbeds(withMath, options.resolveResource);
+
       // 4.5 <!-- .element: --> / <!-- .slide: --> → 文本标记
       //     必须在渲染前抽走：Obsidian 会把 HTML 注释整段删掉
-      const { text: marked, directives } = extractElementComments(withMath);
+      const { text: marked, directives } = extractElementComments(withEmbeds);
 
       // 5/6. grid → 占位符
       const gridParsed = parseGridTags(marked);
@@ -167,12 +174,12 @@ export class PipelineOrchestrator {
 
       // 9~14. 后处理。grid 的内容此时还在各自的字符串里（页面 html 中只有占位符），
       //       必须逐份处理，否则 grid 里的图片不会被改写、代码块不会被转换。
-      const pageResult = this.postProcess(html, { serverBase, fileExists, directives, maths });
+      const pageResult = this.postProcess(html, { serverBase, fileExists, directives, maths, embeds });
       html = pageResult.html;
       const slideAttributes = { ...pageResult.slideAttributes };
 
       for (const grid of grids) {
-        const result = this.postProcess(grid.children, { serverBase, fileExists, directives, maths });
+        const result = this.postProcess(grid.children, { serverBase, fileExists, directives, maths, embeds });
         grid.children = result.html;
         Object.assign(slideAttributes, result.slideAttributes);
       }
@@ -232,6 +239,7 @@ export class PipelineOrchestrator {
       fileExists?: (absolutePath: string) => boolean;
       directives?: ElementDirective[];
       maths?: MathBlock[];
+      embeds?: HtmlEmbed[];
     },
   ): { html: string; slideAttributes: Record<string, string> } {
     let result = processImages(html, options);
@@ -243,6 +251,7 @@ export class PipelineOrchestrator {
     result = processCodeBlocks(result);
     result = processInlineMarkup(result);
     result = applyMath(result, options.maths);
+    result = applyHtmlEmbeds(result, options.embeds, options.serverBase);
     const elementResult = applyElementComments(result, options.directives);
     return { html: elementResult.html, slideAttributes: elementResult.slideAttributes };
   }

@@ -19,7 +19,7 @@
 - [演讲者备注](#演讲者备注)
 - [元素与页面注释](#元素与页面注释)
 - [图片、视频与 Excalidraw](#图片视频与-excalidraw)
-- [富内容：SVG / Mermaid / Chart.js / 公式](#富内容svg--mermaid--chartjs--公式)
+- [富内容：SVG / Mermaid / Chart.js / 交互网页 / 公式](#富内容svg--mermaid--chartjs--交互网页--公式)
 - [Emoji 与 Font Awesome](#emoji-与-font-awesome)
 - [自定义样式与 CSS 变量](#自定义样式与-css-变量)
 - [导出 PDF / HTML / PPTX](#导出-pdf--html--pptx)
@@ -40,6 +40,7 @@
 - **演讲者备注**：`note:` 逐页备注，按 `S` 打开演讲者视图
 - **Obsidian 原生语法**：wikilink 图片（`![[img.png|800]]`）、视频、Callout、脚注、Excalidraw
 - **富内容**：Mermaid 图表、Chart.js 图表、代码高亮、数学公式、Emoji 短代码、Font Awesome
+- **交互网页**：`![[demo.html]]` 把单文件网页嵌进格子，脚本照跑（p5/three.js 演示直接用）
 - **配套 skill**：`.claude/skills/slide-figure`，一句话生成可编辑的 ```svg 示意图（声明 → Python 渲染）
 - **实时预览**：停止输入 300ms 后自动刷新，切换笔记自动跟随
 - **导出**：PDF（打印视图）、可离线播放的单文件 HTML、以及**可编辑的 PPTX**（PowerPoint / WPS 直接打开）
@@ -1156,7 +1157,7 @@ note:
 留在文档流里则是 flex 子项，图会自动压到「格子高 − 文字高」，图与说明一起居中
 （`min-height: 0` 不能省，flex 子项默认不肯缩到内容高度以下，长图会顶破格子）。
 
-## 富内容：SVG / Mermaid / Chart.js / 公式
+## 富内容：SVG / Mermaid / Chart.js / 交互网页 / 公式
 
 ### SVG 代码块
 
@@ -1659,6 +1660,32 @@ series:
 ````
 
 `type` 支持 Chart.js 全部图表类型（bar/line/pie/doughnut/radar…），`series[].title/data` 映射为数据集，额外 `options` 原样透传。
+
+### 交互网页（`![[demo.html]]`）
+
+要放**真能点、能拖**的东西——p5.js 动画、three.js 演示、自己写的小工具——把单文件
+`.html` 跟图片放在一起（`assets/<笔记名>/`），然后照图片的写法引用：
+
+```html
+<grid dim="58 66" pos="4 15" class="fig">
+![[电容充放电.html]]
+</grid>
+```
+
+不写尺寸就**铺满所在格子**，`![[电容充放电.html|800x450]]` 则按给定像素走——
+跟图片是同一套规矩，所以 `class="fig"` 那类格子不必为它另设一个类。
+
+要点：
+
+- 网页里的 **JavaScript 是真的会跑的**。幻灯片正文里的 `<script>` 反而永远不执行
+  （页面是客户端 `innerHTML` 拼出来的），交互只有走这条路。
+- 嵌入页与预览同源、继承预览 iframe 的 sandbox 权限，**请只放自己的课件素材**。
+- 每次重渲染（存盘后的防抖刷新）会重建 iframe，页面从头再来一遍——
+  调演示时这正好当"重播"用。
+- 导出 HTML 会把这个 `.html` 一并拷进 `<笔记名>_files/`；
+  但它自己再去加载的兄弟文件不会跟着走，**做成单文件的最省心**。
+  PPTX / PDF 导出里它是空白（那两种格式没有"能跑的网页"这一说）。
+- 找不到文件时格子里会显示一行红字提示，不会静悄悄地空着。
 
 ### 数学公式
 

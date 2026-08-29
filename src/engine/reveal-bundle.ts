@@ -210,6 +210,24 @@ async function hydrateMermaid(): Promise<void> {
 }
 
 /**
+ * 插件侧 htmlEmbedProcessor 生成的 <div class="rfo-html" data-src> → <iframe>。
+ *
+ * 为什么不在插件侧直接产出 <iframe>：管线用 DOMParser 造的文档是惰性的，
+ * 而这里挂上去的 iframe 才真的会加载、脚本才真的会跑 —— 交互演示的意义就在这里。
+ * 嵌入页与预览同源，权限由外层预览 iframe 的 sandbox 一并框住。
+ */
+function hydrateHtmlEmbeds(): void {
+  document.querySelectorAll<HTMLElement>('.rfo-html[data-src]').forEach((box) => {
+    const src = box.getAttribute('data-src');
+    if (!src) return;
+    const frame = document.createElement('iframe');
+    frame.setAttribute('src', src);
+    // 每次 render 都 innerHTML 整体重建，占位是新节点，直接填即可（旧 iframe 随之作废）
+    box.replaceChildren(frame);
+  });
+}
+
+/**
  * 大于 0 时不把翻页回推给宿主：这一跳是我们自己发起的
  * （宿主的 goto、重渲染后恢复位置），回推会把编辑器光标拽到页首。
  */
@@ -334,9 +352,10 @@ async function render(): Promise<void> {
   // 高亮同样排在自适应之前 —— 带 data-line-numbers 的块会被 hljs 换成 <table>，尺寸随之变
   fitCodeBlocks(document);
 
-  // Mermaid / Chart.js 客户端渲染（占位元素由插件侧处理器生成）
+  // Mermaid / Chart.js / 网页嵌入的客户端渲染（占位元素由插件侧处理器生成）
   await hydrateMermaid();
   hydrateCharts();
+  hydrateHtmlEmbeds();
 
   clearError();
 }

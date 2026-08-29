@@ -95,6 +95,39 @@
     max-height: 100%;
     background: transparent;
   }
+
+  /*
+   * ![[demo.html]] 嵌入的网页（客户端往这个占位里填 <iframe>）。
+   * 不写尺寸时铺满所在容器 —— 在 <grid> 里就是撑满格子，跟图片的表现一致；
+   * 写了 ![[demo.html|800x450]] 则由内联样式给出像素尺寸，这里不去覆盖它。
+   */
+  .rfo-html {
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+
+    iframe {
+      /* iframe 的默认尺寸是 300x150 的固定值，不写死就永远是那么大一块 */
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: transparent;
+    }
+  }
+
+  /* 显式尺寸的那种不参与 flex 拉伸，宽高听内联样式的 */
+  .rfo-html[style] {
+    flex: 0 0 auto;
+  }
+
+  /* 嵌入的网页找不到时的提示（红字，别让作者以为格子本来就空） */
+  .rfo-html-missing {
+    color: #dc2626;
+    font-size: 0.7em;
+  }
 }
 
 /*

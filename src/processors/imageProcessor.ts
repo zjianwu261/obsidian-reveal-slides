@@ -15,7 +15,7 @@ export interface ImageProcessOptions {
 }
 
 /** app:// URL → 解码后的绝对路径（去掉 query string）；非 app:// 返回 null */
-function parseAppUrl(url: string): string | null {
+export function parseAppUrl(url: string): string | null {
   if (!url.startsWith('app://')) return null;
   const withoutQuery = url.split('?')[0];
   // app://<vaultId>/<绝对路径> → 取 host 之后的部分
@@ -33,7 +33,7 @@ function parseAppUrl(url: string): string | null {
  * 这里的入参来自 app:// URL，本身就是 url 形式（Windows 上形如 /C:/Users/...），
  * 保持原样传给服务器，由服务器负责转成本地路径。
  */
-function toVaultUrl(serverBase: string, absolutePath: string): string {
+export function toVaultUrl(serverBase: string, absolutePath: string): string {
   const encoded = absolutePath.split('/').map(encodeURIComponent).join('/');
   return `${serverBase}/vault${encoded}`;
 }

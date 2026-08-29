@@ -178,3 +178,30 @@ describe('PipelineOrchestrator (MVP)', () => {
     expect(deck.customCSS).toEqual(['a.css', 'b.css']);
   });
 });
+
+describe('![[demo.html]] 网页嵌入', () => {
+  const runWithResource = (md: string) =>
+    pipeline.run(md, {
+      settings: { ...DEFAULT_SETTINGS },
+      sourcePath: 'test.md',
+      renderMarkdown: fakeRender,
+      serverBase: 'http://127.0.0.1:3000',
+      resolveResource: (linkpath) => `app://vault-id/vault/assets/${linkpath}?1`,
+    });
+
+  it('fills a fig grid with the placeholder the client hydrates', async () => {
+    const deck = await runWithResource(
+      '# 演示\n\n<grid dim="58 66" pos="4 15" class="fig">\n![[波形.html]]\n</grid>',
+    );
+    const html = deck.pages[0].html;
+    expect(html).toContain('class="rfo-html"');
+    expect(html).toContain('data-src="http://127.0.0.1:3000/vault/vault/assets/%E6%B3%A2%E5%BD%A2.html"');
+    // 占位是块级元素，不能留在段落里
+    expect(html).not.toMatch(/<p>\s*<div class="rfo-html"/);
+  });
+
+  it('leaves the wikilink alone when no resolver is injected', async () => {
+    const deck = await run('![[波形.html]]');
+    expect(deck.pages[0].html).toContain('![[波形.html]]');
+  });
+});

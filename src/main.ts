@@ -412,6 +412,7 @@ export default class RevealPlugin extends Plugin {
         serverBase: this.serverBase,
         fileExists: (absolutePath) => this.vaultFileExists(absolutePath),
         readNote: (linkpath) => this.readNoteByLinkpath(linkpath, file.path),
+        resolveResource: (linkpath) => this.resolveResourceUrl(linkpath, file.path),
         renderMarkdown: (md, sourcePath) => renderMarkdownToHtml(this.app, md, sourcePath, this),
       });
 
@@ -522,6 +523,31 @@ export default class RevealPlugin extends Plugin {
     const dest = this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath);
     if (!dest) return null;
     return this.app.vault.cachedRead(dest);
+  }
+
+  /**
+   * 按 Obsidian 链接路径解析 vault 内文件 → 资源 URL（![[demo.html]] 嵌入用）。
+   *
+   * .html 这类扩展名 Obsidian 不当"可打开的文件"，链接解析未必认，
+   * 所以 getFirstLinkpathDest 之后还要按路径与文件名各兜一次：
+   * 作者眼里它就躺在 assets 里跟图片作伴，写法理应和图片一样。
+   */
+  private resolveResourceUrl(linkpath: string, sourcePath: string): string | null {
+    const dest =
+      this.app.metadataCache.getFirstLinkpathDest(linkpath, sourcePath)
+      ?? this.findFirstFile([
+        linkpath,
+        `${sourcePath.split('/').slice(0, -1).join('/')}/${linkpath}`.replace(/^\//, ''),
+      ])
+      ?? this.findFileByName(linkpath);
+    return dest ? this.app.vault.getResourcePath(dest) : null;
+  }
+
+  /** 按文件名（含扩展名）在整个 vault 里找第一个同名文件 */
+  private findFileByName(linkpath: string): TFile | null {
+    const name = linkpath.split('/').pop();
+    if (!name) return null;
+    return this.app.vault.getFiles().find((f) => f.name === name) ?? null;
   }
 
   /** 判断 vault 绝对路径对应的文件是否存在（imageProcessor 的 Excalidraw 同名 png 探测用） */
