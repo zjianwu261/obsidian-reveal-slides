@@ -2,8 +2,8 @@
  * 代码块的渲染后处理（客户端，运行在预览 iframe 内）：重新高亮 + 长代码自适应。
  *
  * 长代码自适应：渲染完成后对 .grid 内的 <pre> 测量溢出：
- *   1. 从当前字号逐步递减 font-size（步进 0.5px，下限 10px），line-height 按原比例跟随
- *   2. 仍溢出则用 transform: scale() 兜底（transform-origin: top left）
+ *   1. 按溢出比例直接算出目标 font-size（line-height 按原比例跟随），至多迭代几轮收敛
+ *   2. 到下限（10px）仍溢出则用 transform: scale() 兜底（transform-origin: top left）
  * 不溢出的保持原样（grid 默认 flex 居中由 CSS 处理）。
  *
  * 注意：此文件运行在浏览器环境，不得 import 'obsidian'。
@@ -11,14 +11,25 @@
 
 /** 字号下限（px） */
 const MIN_FONT_SIZE = 10;
-/** 线性递减步进（px） */
-const FONT_STEP = 0.5;
+/**
+ * 收敛轮数上限。
+ * 代码块的高宽基本与字号成正比（padding 用的是 em，跟着一起缩），所以「按溢出比例
+ * 一次算到位」通常一轮就够，两三轮足以收敛；留 5 轮是给 padding/边框那点非线性余量。
+ */
+const MAX_PASSES = 5;
+/** 每轮多收一点点，避免亚像素误差导致差一点点放不下、白白多跑一轮 */
+const SAFETY = 0.995;
 
 function fits(pre: HTMLElement, container: HTMLElement): boolean {
   return pre.scrollHeight <= container.clientHeight && pre.scrollWidth <= container.clientWidth;
 }
 
 function fitCodeBlock(pre: HTMLElement, container: HTMLElement): void {
+  /*
+   * 容器还没有尺寸就别量：量到的 0 会让下面每一轮都判定「放不下」，一路缩到 10px 下限。
+   * ?print-pdf 打印视图排版期间、以及还没进入视距的垂直子页（display: none）都会出现。
+   */
+  if (container.clientHeight <= 0 || container.clientWidth <= 0) return;
   if (fits(pre, container)) return;
 
   const computed = getComputedStyle(pre);
@@ -31,10 +42,27 @@ function fitCodeBlock(pre: HTMLElement, container: HTMLElement): void {
    */
   const ratio = baseLineHeight / (fontSize || 1);
 
-  while (!fits(pre, container) && fontSize > MIN_FONT_SIZE) {
-    fontSize = Math.max(MIN_FONT_SIZE, fontSize - FONT_STEP);
-    pre.style.fontSize = `${fontSize}px`;
+  /*
+   * 按溢出比例直接算目标字号，而不是 0.5px 一档地试。
+   *
+   * 每改一次 font-size 再读 scrollHeight 就是一次强制重排，而每一次读写都卡在主线程上。
+   * 从 36px 试到 10px 是 52 轮 —— 一章几十个代码块就是几千次重排，预览时能感觉到卡，
+   * 导出 PDF 时整份 deck 的所有页同时在布局树里，这几千次重排要重算的东西更是成倍地多，
+   * 「导出很慢」有相当一部分就出在这里。按比例算的话两三轮就到位。
+   */
+  for (let pass = 0; pass < MAX_PASSES && fontSize > MIN_FONT_SIZE; pass += 1) {
+    const scale = Math.min(
+      container.clientHeight / (pre.scrollHeight || 1),
+      container.clientWidth / (pre.scrollWidth || 1),
+    );
+    if (scale >= 1) break;
+    const next = Math.max(MIN_FONT_SIZE, fontSize * scale * SAFETY);
+    // 收不动了（已经到下限，或比例算出来反而更大）：交给下面的 transform 兜底
+    if (next >= fontSize) break;
+    fontSize = next;
+    pre.style.fontSize = `${fontSize.toFixed(2)}px`;
     pre.style.lineHeight = `${(fontSize * ratio).toFixed(2)}px`;
+    if (fits(pre, container)) break;
   }
 
   // 到下限仍溢出：transform 缩放兜底

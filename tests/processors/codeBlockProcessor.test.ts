@@ -44,6 +44,49 @@ describe('fitCodeBlocks', () => {
     expect(pre.style.transformOrigin).toBe('top left');
   });
 
+  /*
+   * ?print-pdf 排版期间格子还没有尺寸，量到的 0 会让每一轮都判「放不下」，
+   * 一路缩到下限 —— 导出的 PDF 里代码小得看不清，就是这么来的。
+   */
+  it('leaves code alone while the container has no size yet', () => {
+    const { grid, pre } = setup('<pre style="font-size: 36px;"><code>x</code></pre>');
+    mockBox(grid, { clientH: 0, clientW: 0 });
+    mockBox(pre, { scrollH: 757, scrollW: 864 });
+
+    fitCodeBlocks(document);
+    // 原样不动：既没缩字号，也没退到 transform 兜底
+    expect(pre.style.fontSize).toBe('36px');
+    expect(pre.style.transform).toBe('');
+  });
+
+  /* 按比例算目标字号：一轮就该到位，不该 0.5px 一档地试 */
+  it('reaches the target size in a single pass', () => {
+    const { grid, pre } = setup(
+      '<pre style="font-size: 36px; line-height: 45px;"><code>x</code></pre>',
+    );
+    mockBox(grid, { clientH: 648, clientW: 864 });
+    // 真实浏览器里代码块高度与字号成正比（padding 用 em，跟着一起缩），这里照此模拟
+    let reads = 0;
+    Object.defineProperty(pre, 'scrollHeight', {
+      get() {
+        reads += 1;
+        return (757 * parseFloat(pre.style.fontSize || '36')) / 36;
+      },
+      configurable: true,
+    });
+    Object.defineProperty(pre, 'scrollWidth', { value: 864, configurable: true });
+
+    fitCodeBlocks(document);
+
+    // 648/757 = 0.856 → 36 * 0.856 * 0.995 ≈ 30.66，一轮到位
+    expect(parseFloat(pre.style.fontSize)).toBeCloseTo(30.66, 1);
+    // 行距按 45/36 = 1.25 的比例跟随
+    expect(parseFloat(pre.style.lineHeight)).toBeCloseTo(38.32, 1);
+    expect(pre.style.transform).toBe('');
+    // 旧实现从 36px 一档 0.5px 试到放得下要几十轮，每轮一次强制重排
+    expect(reads).toBeLessThan(8);
+  });
+
   it('ignores pre elements outside .grid', () => {
     document.body.innerHTML = '<pre><code>x</code></pre>';
     const pre = document.querySelector('pre') as HTMLElement;

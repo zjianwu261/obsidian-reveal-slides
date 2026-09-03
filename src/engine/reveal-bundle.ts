@@ -311,6 +311,14 @@ async function render(): Promise<void> {
       fitCodeBlocks(instance.getCurrentSlide());
       notifyHostPage();
     });
+    /*
+     * ?print-pdf 打印视图：reveal 的排版是异步的 —— 内部要等好几帧，还会把每一页搬进
+     * 新建的 .pdf-page 里重新定位、重设宽度。initialize() 返回时这一切都还没做完，
+     * 此刻量到的格子尺寸是错的（多半是 0），代码块会被一路缩到 10px 下限 ——
+     * 导出的 PDF 里代码小得看不清，而浏览器里看着好好的，就是这个原因。
+     * 等它把版排完（pdf-ready）再量一次，量到的才是真正要打印的那套尺寸。
+     */
+    instance.on('pdf-ready', () => fitCodeBlocks(document));
     // 双指缩放挂在 .reveal 外层（.reveal .slides 的 transform 是 reveal 自己的画布缩放）
     pinch = new PinchZoom(
       document.querySelector('.reveal') as HTMLElement,
