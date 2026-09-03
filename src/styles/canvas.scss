@@ -84,6 +84,21 @@ html {
 
   pre {
     /*
+     * 代码配色（亮底，GitHub Light 色板）。整套颜色都从这组变量取，
+     * 换深底时只要在别处重定义这几个变量，底色、前景、token 一起换 ——
+     * 只改 background 不改 token 的话，深底上那套深蓝深紫直接糊成一团。
+     * 想单独调某一个颜色，在自己的 CSS 里覆盖对应变量即可，不用去追 .hljs-* 选择器。
+     */
+    --code-bg: #fff;
+    --code-fg: #1f2328;
+    --code-comment: #6e7781;
+    --code-keyword: #cf222e;
+    --code-string: #0a3069;
+    --code-number: #0550ae;
+    --code-title: #8250df;
+    --code-deletion: #82071e;
+
+    /*
      * 代码块铺满所在容器：框由 <grid dim> 说了算。
      * 曾经用 fit-content 让框贴着最长行收缩 —— 那是深色底时代的事，一块深底横穿整个
      * grid 太打眼。底色改白之后框本身根本看不见，收不收缩只影响代码从哪一列起排，
@@ -110,7 +125,13 @@ html {
      * 所以往大了定不会溢出。嫌小仍旧是把 grid 开大。
      */
     font-size: 0.9em;
-    line-height: 1.4;
+
+    /*
+     * 行距 1.4 → 1.25：代码是等宽字、行短，1.4 的空档比正文还显松。
+     * 而且行距直接决定能塞几行 —— 实测第4章那块 19 行的代码放在 dim="45 60" 的格子里，
+     * 1.4 时被 fitCodeBlocks 压到 23px，1.25 能留到 26px。行距省下来的都变成了字号。
+     */
+    line-height: 1.25;
 
     /*
      * 制表符按 4 列算。浏览器默认是 8 —— 你在 Obsidian 里按一次 Tab 看到的是 4 列，
@@ -121,16 +142,16 @@ html {
 
     code {
       display: block;
-      padding: 0.6em;
-      background: #fff;
-      color: #1f2328;
+      padding: 0.5em;
+      background: var(--code-bg);
+      color: var(--code-fg);
       border-radius: 6px;
       overflow-x: auto;
       text-align: left;
     }
 
     /*
-     * 亮色语法配色（GitHub Light 色板）。
+     * 语法配色全部走变量，配色表见上面 pre 的 --code-*。
      *
      * reveal 只带 monokai 和 zenburn 两套高亮主题，都是给深色底配的：底色一换成白，
      * 那些荧光绿、亮粉就直接糊在白纸上，投影时尤其看不清。所以整套 token 颜色都要重写。
@@ -141,7 +162,7 @@ html {
      */
     .hljs-comment,
     .hljs-quote {
-      color: #6e7781;
+      color: var(--code-comment);
       font-style: normal;
     }
 
@@ -150,7 +171,7 @@ html {
     .hljs-literal,
     .hljs-type,
     .hljs-meta {
-      color: #cf222e;
+      color: var(--code-keyword);
     }
 
     .hljs-string,
@@ -159,7 +180,7 @@ html {
     .hljs-attribute,
     .hljs-symbol,
     .hljs-template-tag {
-      color: #0a3069;
+      color: var(--code-string);
     }
 
     .hljs-number,
@@ -167,20 +188,43 @@ html {
     .hljs-builtin-name,
     .hljs-variable,
     .hljs-template-variable {
-      color: #0550ae;
+      color: var(--code-number);
     }
 
     .hljs-title,
     .hljs-section,
     .hljs-class,
     .hljs-name {
-      color: #8250df;
+      color: var(--code-title);
       font-weight: 600;
     }
 
     .hljs-deletion {
-      color: #82071e;
+      color: var(--code-deletion);
     }
+  }
+
+  /*
+   * 深底代码（GitHub Dark 色板）。在 grid 上加一个 dark 就切过去：
+   *
+   *   <grid dim="45 75" pos="5 12" class="code dark">
+   *
+   * 只翻变量、不重复写 token 规则。选择器 (0,2,1) 压得过上面 pre 里的默认值 (0,1,1)；
+   * pre.dark 那一支是给直接标在代码块上的写法留的（<!-- .element: class="dark" -->）。
+   *
+   * 底色用 #1e1f26 而不是纯黑：投影仪的黑场本来就发灰，纯黑配白字对比过硬，
+   * 一节课看下来晃眼；抬一档到深灰蓝，白字仍然干净，长时间看不累。
+   */
+  .dark pre,
+  pre.dark {
+    --code-bg: #1e1f26;
+    --code-fg: #e6edf3;
+    --code-comment: #8b949e;
+    --code-keyword: #ff7b72;
+    --code-string: #a5d6ff;
+    --code-number: #79c0ff;
+    --code-title: #d2a8ff;
+    --code-deletion: #ffa198;
   }
 
   /*
