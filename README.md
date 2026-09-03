@@ -531,6 +531,8 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 `frag` 属性只能写在 `<grid>` 上，整块一起出现；要让列表**逐条**出现，只有 `.element:` 做得到
 （输出 `<li class="fragment">要点一</li>…`）。
 
+同样的写法还用来标目录页上"正在讲的这一节"——`class="active"`，见[目录页模板](#目录页--章节导航页)。
+
 反过来，只要你在 `.element:` 里写的是 `font-size`、`margin`、`color` 这类东西，
 就说明它该进 class。
 
@@ -548,11 +550,14 @@ margin: 0.01
 ---
 
 <style>
-/* 1. 设计变量：颜色、间距，全篇只在这里定义 */
+/* 1. 设计变量：颜色、圆角，全篇只在这里定义 */
 :root {
-  --brand: #B81C22;
-  --brand-soft: rgba(184, 28, 34, .08);
-  --muted: #6B6B6B;
+  --brand:       #064FA1;                /* 主色：封面块、标题条 */
+  --brand-foot:  #E8EFF8;                /* 页脚条的淡底（配深色字，不是白字） */
+  --muted:       #6B6B6B;                /* 次要文字：署名 */
+  --accent:      #B81C22;                /* 强调色：只标「正在讲的这一节」 */
+  --accent-soft: rgba(184, 28, 34, .08);
+  --radius:      10px;                   /* 圆角只留一个值，四处一致才不显碎 */
 }
 
 /* 2. 全局基调 */
@@ -564,11 +569,10 @@ margin: 0.01
 .cover h1 { font-size: 2.5rem; margin: 0; font-weight: 600; line-height: 1.25; }
 .cover p  { font-size: .9rem; margin: .4em 0 0; opacity: .85; }
 
-.bar  { font-size: .7rem; font-weight: 600; }
-.foot { font-size: .5rem; color: var(--brand); text-align: center; }
+.bar  { background: var(--brand); color: #fff; border-radius: var(--radius); font-weight: 600; }
+.foot { background: var(--brand-foot); color: var(--brand); border-radius: var(--radius); text-align: center; }
 
-.code pre      { width: 100%; margin: 0; line-height: 1.6; }   /* 字号用插件默认的 0.9em */
-.code pre code { padding: .7em 1em; border-radius: 10px; background: #1e1f26; color: #e6e6e6; }
+.code pre { width: 100%; margin: 0; }   /* 字号、配色用插件默认的；要深底就写 class="code dark" */
 </style>
 
 # 第一页
@@ -677,9 +681,9 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 
 ```css
 .cover  /* 封面 */
-.toc    /* 目录 */
+.toc    /* 目录 / 章节导航页（配 li.active 标出当前节） */
 .bar    /* 每页顶部的标题条 */
-.code   /* 代码面板 */
+.code   /* 代码面板（加 dark 换深底） */
 .foot   /* 页脚条 */
 .end    /* 结尾页 */
 ```
@@ -754,7 +758,7 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 配套 class：
 
 ```css
-.cover { background: var(--brand); color: #fff; border-radius: 16px; padding: 0 48px; text-align: center; }
+.cover { background: var(--brand); color: #fff; border-radius: var(--radius); padding: 0 48px; text-align: center; }
 .cover h1 { font-size: 2.5rem; margin: 0; }
 .cover p  { font-size: .7rem; margin: .4em 0 0; opacity: .85; }
 .byline { font-size: .7rem; color: var(--muted); text-align: center; }
@@ -790,12 +794,107 @@ css: 00课件CSS主题        # 主题笔记的名字，写名字就行
 配套 class：
 
 ```css
-.bar { background: var(--brand); color: #fff; border-radius: 15px; padding: 0 3%; align-items: flex-start; text-align: left; }
+.bar { background: var(--brand); color: #fff; border-radius: var(--radius); padding: 0 3%; align-items: flex-start; text-align: left; }
 .bar h2 { font-size: 1.3rem; margin: 0; }
 .bar h3 { font-size: 1.05rem; margin: 0; }   /* 小节标题条，比 h2 降一档 */
 
-.foot { background: var(--brand); color: #fff; border-radius: 15px; font-size: .8rem; text-align: center; }
+/* 页脚：淡底深字，不要和标题条一样做成实心块 */
+.foot { background: var(--brand-foot); color: var(--brand); border-radius: var(--radius); font-size: .8rem; text-align: center; }
 ```
+
+**页脚别跟标题条同色。** 上下各压一道等重的实心色块，谁是标题谁是页脚就看不出来了，
+视线没有落点。试过把页脚调深、调浅，都不如换个做法：**上实心、下淡底**，一重一轻。
+
+尤其别用「浅一档的高饱和色」——白底上「亮 + 高饱和」比深色更抓眼，
+页脚反而比标题条还跳，层级直接反过来。淡底配深色字，
+对比度（`#E8EFF8` 配 `#064FA1` 是 6.9:1）比白字配实心底还高，读起来一点不吃力。
+
+代价是提问条的分量也跟着轻了。某一页的问题需要压住场时，单独覆盖那一页就行：
+
+```markdown
+<grid dim="100 10" pos="bottom" class="foot" style="background:var(--brand);color:#fff">
+问：`unsigned char` 溢出会发生什么？
+</grid>
+```
+
+#### 目录页 / 章节导航页
+
+目录页真正的用处不是开头列一次，而是**每讲完一节就再来一页**，
+把当前这节标出来——听众每次看到同一张图，只是高亮往下走一格，
+"讲到哪了"不用嘴说。
+
+标记方式是给那一条加 `class="active"`：
+
+```markdown
+<grid dim="40 80" pos="10 10" class="toc">
+
+### 本章内容
+
+- 学什么和怎么学
+- 单片机学习的准备工作<!-- .element: class="active" -->
+- 单片机开发软件环境搭建
+- 第一个程序：点亮 LED
+
+</grid>
+```
+
+**没有自动机制**——插件不知道"现在讲到第几节"。四节就是四页目录页，
+内容完全一样，只有 `<!-- .element: class="active" -->` 那一行往下挪。
+
+配套 class：
+
+```css
+.toc { justify-content: center; align-items: stretch; font-size: 1.1rem; }
+.toc h3 { font-size: .78rem; margin: 0 0 .6em; color: var(--brand); text-align: center; }
+.toc ol, .toc ul { list-style: none; counter-reset: toc; padding: 0; margin: 0; width: 100%; }
+.toc li {
+  counter-increment: toc;
+  position: relative;
+  padding: .55em .6em .55em 3.2em;   /* 左边留给序号 */
+  border-bottom: 1px solid rgba(0, 0, 0, .07);
+}
+.toc li:last-child { border-bottom: 0; }
+.toc li::before {
+  content: counter(toc, simp-chinese-informal) "、";   /* 一、二、三…… */
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2em;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--brand);
+  opacity: .45;
+}
+
+/* 正在讲的这一节 */
+.toc li.active {
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  border-bottom-color: transparent;
+  color: var(--accent);
+  font-weight: 600;
+}
+.toc li.active::before { color: var(--accent); opacity: 1; }
+
+/* 超过 10 条时序号变三个字（十一、），整列一起加宽，不然序号会压到标题上 */
+.toc ol:has(li:nth-child(11)) li,
+.toc ul:has(li:nth-child(11)) li { padding-left: 4em; }
+```
+
+几个踩过的点：
+
+- **序号用 `counter(toc, simp-chinese-informal)`**，超过十会自动写成「十一」「二十三」，
+  不用自己列表。别用 `cjk-ideographic`——按规范它等价于繁体，跟简体正文不搭。
+- **「、」不能省。** 单独一个「一」在浅色小字号下就是一道横杠，和条目之间的分隔线混在一起，
+  「二」是两道，根本读不出是序号。加上顿号才立刻是"第一条"。
+- **汉字序号要比阿拉伯数字小一号、深一点。** 笔画比 `01` 这种粗体数字散：
+  同样字号显吵，同样透明度显虚。从 `1.45em / opacity .3` 收到 `1.2em / opacity .45` 才对得上。
+- **高亮时序号也要一起转色。** 只染文字的话，那一条上"蓝序号 + 红标题"两种颜色打架，
+  比不标还乱。
+- **强调色全篇只用这一处。** 蓝是通篇的底色，再拿蓝去标当前项等于没标；
+  留一个对比色专门干这件事，一翻到章节页眼睛直接落上去。
 
 #### 图文页
 
@@ -952,6 +1051,8 @@ void main(void) { }
 | 演讲备注 | 页面末尾 `note:` 起，到本页结束 |
 | 指定图片宽度 | `![[图.png\|800]]` |
 | 整页背景 | `<!-- .slide: background-color="#101010" -->` |
+| 目录标出当前节 | 那一条行尾加 `<!-- .element: class="active" -->` |
+| 代码换深底 | `<grid ... class="code dark">` |
 
 ## 命令与快捷键
 
@@ -1154,6 +1255,7 @@ note:
 - `<!-- .element: ... -->`：作用于**紧邻的上一个元素**，支持 `class="..."` 及任意 `key="value"` 属性。
   最典型的用途就是上面这个——给列表项挂 `class="fragment"` 实现**逐条**显示；
   `frag` 属性只能写在 `<grid>` 上，那是整块一起出现。
+  另一个常用场景是目录页标出当前小节（`class="active"`，见[目录页模板](#目录页--章节导航页)）。
   它也能写 `style="..."`，但**外观请一律走 class**，理由见[写作规范](#一核心规范grid-只管位置外观全在-css-里)。
 - `<!-- .slide: ... -->`：作用于**当前页**，背景相关键（`background-color`、`background-image`、`background-size` 等）会自动映射为 reveal.js 的 `data-background-*`。
 
@@ -1767,6 +1869,24 @@ Obsidian 用的是 MathJax 的 CHTML 输出，字形靠一张动态增补的样�
 ```
 
 也可以用 frontmatter 的 `css`（vault 内文件）和 `remoteCSS`（远程 URL）追加样式表。
+
+### 插件自带的变量
+
+代码块的整套配色都从变量取，改一个就够，不用去追 `.hljs-*` 选择器：
+
+| 变量 | 默认（亮底） | 管什么 |
+|------|--------------|--------|
+| `--code-bg` | `#fff` | 代码块底色 |
+| `--code-fg` | `#1f2328` | 普通文字 |
+| `--code-comment` | `#6e7781` | 注释 |
+| `--code-keyword` | `#cf222e` | 关键字、类型 |
+| `--code-string` | `#0a3069` | 字符串 |
+| `--code-number` | `#0550ae` | 数字、内置名 |
+| `--code-title` | `#8250df` | 函数名、类名 |
+| `--code-deletion` | `#82071e` | diff 删除行 |
+
+在 grid 上加 `dark` 会把这八个一起换成 GitHub Dark（见[白底还是黑底](#白底还是黑底)）。
+只改 `--code-bg` 不改 token 颜色的话，深底上那套深蓝深紫会糊成一团。
 
 ## 导出 PDF / HTML / PPTX
 
