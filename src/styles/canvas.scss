@@ -101,7 +101,14 @@ html {
      * 缺这一行，第二步开始整块代码会跳到 grid 左上角、按 grid 的宽度铺开。
      */
     position: relative;
-    font-size: 0.55em;
+
+    /*
+     * 代码字号：0.55em（画布 1920 时 22px）只有正文的一半，投影出来后排看不清 ——
+     * 而 fitCodeBlocks 只会往下缩、从不放大，这一行就是代码能有的最大字号。
+     * 放大到 0.75em（30px）：短代码直接大一圈，长代码照旧由 fitCodeBlocks 缩回放得下
+     * 的尺寸，两头都不会溢出。嫌小仍旧是把 grid 开大。
+     */
+    font-size: 0.75em;
     line-height: 1.4;
 
     /*

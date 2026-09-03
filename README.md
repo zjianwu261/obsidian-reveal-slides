@@ -567,7 +567,7 @@ margin: 0.01
 .bar  { font-size: .7rem; font-weight: 600; }
 .foot { font-size: .5rem; color: var(--brand); text-align: center; }
 
-.code pre      { width: 100%; margin: 0; font-size: .62rem; line-height: 1.6; }
+.code pre      { width: 100%; margin: 0; line-height: 1.6; }   /* 字号用插件默认的 0.75em */
 .code pre code { padding: .7em 1em; border-radius: 10px; background: #1e1f26; color: #e6e6e6; }
 </style>
 
@@ -843,8 +843,8 @@ sbit LED = P0^0;
 三点注意：
 
 - **围栏要带语言标记**（```` ```c ````、```` ```python ````），高亮全靠它；不写就是一片白字。
-- **字号别一页页手动调**：代码在 grid 里放不下时会自动往下缩字号（缩到 10px 仍放不下
-  才整体缩放），`.code` 里的 `.62rem` 是「放得下时」的字号。嫌小就把 grid 开大。
+- **字号别一页页手动调**：代码块默认 `0.75em`（画布 1920 时 30px），这是「放得下时」的
+  字号；放不下会自动往下缩（缩到 10px 仍放不下才整体缩放）。嫌小就把 grid 开大。
 - **长行不折行**，超宽同样触发自动缩小，而且缩的是整块——一行 120 列的代码会把
   另外五行也一起拖小。该断行就断行，或者拆成两块 grid。
 - **代码框按代码宽度收缩**，最宽不超过所在 grid。短代码不会拉出一条通栏的深色长条；

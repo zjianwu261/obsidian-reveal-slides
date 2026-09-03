@@ -2,7 +2,7 @@
  * 代码块的渲染后处理（客户端，运行在预览 iframe 内）：重新高亮 + 长代码自适应。
  *
  * 长代码自适应：渲染完成后对 .grid 内的 <pre> 测量溢出：
- *   1. 从当前字号逐步递减 font-size / line-height（线性，步进 0.5px，下限 10px）
+ *   1. 从当前字号逐步递减 font-size（步进 0.5px，下限 10px），line-height 按原比例跟随
  *   2. 仍溢出则用 transform: scale() 兜底（transform-origin: top left）
  * 不溢出的保持原样（grid 默认 flex 居中由 CSS 处理）。
  *
@@ -23,13 +23,18 @@ function fitCodeBlock(pre: HTMLElement, container: HTMLElement): void {
 
   const computed = getComputedStyle(pre);
   let fontSize = parseFloat(computed.fontSize) || 16;
-  let lineHeight = parseFloat(computed.lineHeight) || fontSize * 1.4;
+  const baseLineHeight = parseFloat(computed.lineHeight) || fontSize * 1.4;
+  /*
+   * 行距按比例跟着字号走，别跟字号一起「各减 0.5px」—— 那样越缩行距比例越大
+   * （22px/1.4 缩到 16px 时行距还是 24.8px，等于 1.55 倍），行间白比字还占地方，
+   * 于是为了塞下又得多缩几档，字反而更小。
+   */
+  const ratio = baseLineHeight / (fontSize || 1);
 
   while (!fits(pre, container) && fontSize > MIN_FONT_SIZE) {
     fontSize = Math.max(MIN_FONT_SIZE, fontSize - FONT_STEP);
-    lineHeight = Math.max(MIN_FONT_SIZE, lineHeight - FONT_STEP);
     pre.style.fontSize = `${fontSize}px`;
-    pre.style.lineHeight = `${lineHeight}px`;
+    pre.style.lineHeight = `${(fontSize * ratio).toFixed(2)}px`;
   }
 
   // 到下限仍溢出：transform 缩放兜底
