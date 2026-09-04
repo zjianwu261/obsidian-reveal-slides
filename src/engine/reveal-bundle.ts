@@ -24,6 +24,7 @@ import {
 import { computeCanvasSize, computeRootFontSize } from './canvasCalculator';
 import { applyScrollViewGuard } from './scrollViewHandler';
 import { applyHistoryGuard } from './historyGuard';
+import { isPrintViewSearch } from './printView';
 import { installTapNavigation } from './tapNavigation';
 import { PinchZoom } from './pinchZoom';
 import { fitCodeBlocks, highlightCodeBlocks } from '../processors/codeBlockProcessor';
@@ -37,6 +38,9 @@ declare global {
     __RFO_INLINE__?: boolean;
   }
 }
+
+/** ?print-pdf 打印视图：一次性快照，不接受热更新（原因见 printView.ts） */
+const isPrintView = isPrintViewSearch(location.search);
 
 /** 内联模式下由宿主推来的 deck */
 let pushedDeck: SlideDeck | null = null;
@@ -369,6 +373,8 @@ async function render(): Promise<void> {
 }
 
 function scheduleRender(): void {
+  // 打印视图重渲染一次就散架（见 printView.ts）；它本来也不需要热更新
+  if (isPrintView) return;
   if (renderTimer !== null) window.clearTimeout(renderTimer);
   renderTimer = window.setTimeout(() => {
     renderTimer = null;
@@ -408,7 +414,8 @@ if (window.__RFO_INLINE__) {
   // 独立导出页（__DECK__ 注入）无需 SSE 实时刷新。
   // 先连再渲染：SSE 曾挂在首渲染的 then 上，于是首次 /deck 一旦失败就再也连不上，
   // 之后宿主推什么都收不到 —— 连「刷新预览」都救不回来，只能关掉面板重开。
-  if (!window.__DECK__) connectEvents();
+  // 打印视图不连 SSE：它不接受更新（见 scheduleRender），连着只是白占一条长连接
+  if (!window.__DECK__ && !isPrintView) connectEvents();
   void render().catch((err) => {
     console.error('[reveal-slide-for-obsidian] init failed', err);
     showError(`init failed: ${String(err)}`);
